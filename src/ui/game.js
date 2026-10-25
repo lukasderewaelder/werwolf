@@ -252,11 +252,12 @@ function dayPanel(g) {
   const d = g.draft;
   const judge = livingHolders(g, 'judge')[0];
   const sg = livingHolders(g, 'scapegoat')[0];
-  let body = '';
+  let body = '', foot = '';
   if (g.day === 0) body += `<div class="card col"><div class="eyebrow">Tag 0</div><p>Der Engel ist im Spiel: Die Partie beginnt mit einer Abstimmung, noch vor der ersten Nacht. Erinnere die Runde ruhig an die mögliche Anwesenheit des Engels.</p></div>`;
   else if (!ui.hideMorning) body += morningCard(g);
   if (g.dayMode === 'captain') {
-    body += `<div class="task"><div class="prompt">${I.crown}<span>Hauptmann wählen: Tippe die gewählte Person im Kreis an. Seine Stimme zählt doppelt.</span></div><div class="acts"><button class="btn" data-action="skip-captain">Ohne Hauptmann weiter</button></div></div>`;
+    body += `<div class="task"><div class="prompt">${I.crown}<span>Hauptmann wählen: Tippe die gewählte Person im Kreis an. Seine Stimme zählt doppelt.</span></div></div>`;
+    foot = `<button class="btn primary" data-action="skip-captain">Ohne Hauptmann weiter</button>`;
   } else {
     if (g.secondVote) body += `<div class="task warn"><div class="prompt">${I.scale}<span>Zweite Abstimmung des Stotternden Richters: direkt, ohne weitere Diskussion.</span></div></div>`;
     else body += timerCard();
@@ -265,12 +266,13 @@ function dayPanel(g) {
     const v = d.vote;
     body += `<div class="card vote-card"><div class="eyebrow">Abstimmung</div>
       <div class="pickname">${v ? esc(nm(g, v)) : '<span class="muted">Person im Kreis antippen</span>'}</div>
-      <div class="acts"><button class="btn primary" data-action="day-execute" ${v ? '' : 'disabled'}>${I.gavel}<span>Hinrichten</span></button></div>
-      <div class="acts"><button class="btn" data-action="day-tie" ${sg ? '' : ''}>${I.scale}<span>Gleichstand${sg ? ' (Sündenbock)' : ''}</span></button><button class="btn" data-action="day-none">${I.close}<span>Niemand</span></button></div>
       ${judge && !g.judgeUsed ? `<button class="btn ${g.judgeArmed ? 'on' : ''}" data-action="judge-sign">${I.scale}<span>${g.judgeArmed ? 'Richter-Zeichen gegeben: zweite Abstimmung folgt' : 'Richter-Zeichen erhalten'}</span></button>` : ''}</div>`;
     if (g.captain) body += `<div class="hint">${I.crown}<span>Hauptmann: <b>${esc(nm(g, g.captain))}</b>. Seine Stimme zählt doppelt.</span></div>`;
+    foot = `<button class="btn primary" data-action="day-execute" ${v ? '' : 'disabled'}>${I.gavel}<span>Hinrichten</span></button>
+      <button class="btn" data-action="day-tie" aria-label="Gleichstand${sg ? ', der Sündenbock stirbt' : ''}">${I.scale}<span>Gleichstand</span></button>
+      <button class="btn" data-action="day-none">${I.close}<span>Niemand</span></button>`;
   }
-  return `<div class="side"><div class="side-scroll" data-keep="side">${body}</div></div>`;
+  return `<div class="side"><div class="side-scroll" data-keep="side">${body}</div>${foot ? `<div class="side-foot">${foot}</div>` : ''}</div>`;
 }
 
 on('day-execute', () => { buzz(30); dispatch({ t: 'day-execute' }); sfx('gong'); return false; });
@@ -300,23 +302,25 @@ function tick() {
 function interruptPanel(g) {
   const it = g.interrupts[0];
   if (!it) return '';
-  let body = '';
+  let body = '', foot = '';
   if (it.type === 'reveal') {
     const pool = unknownPool(g);
     body = `<div class="task"><div class="prompt">${I.eye}<span>Welche Karte hatte ${esc(nm(g, it.id))}? Tippe die aufgedeckte Rolle an.</span></div></div>
       <div class="ov-grid">${pool.map((id) => `<button class="ov" data-action="reveal" data-role="${id}">${art(id)}<b>${esc(RM[id].name)}</b></button>`).join('')}</div>`;
   } else if (it.type === 'hunter') {
-    body = `<div class="task warn"><div class="prompt">${I.target}<span>Jäger ${esc(nm(g, it.id))} ist tot und schießt noch einmal. Tippe sein Ziel im Kreis an.</span></div><div class="acts"><button class="btn" data-action="interrupt-skip">Er schießt niemanden</button></div></div>`;
+    body = `<div class="task warn"><div class="prompt">${I.target}<span>Jäger ${esc(nm(g, it.id))} ist tot und schießt noch einmal. Tippe sein Ziel im Kreis an.</span></div></div>`;
+    foot = `<button class="btn primary" data-action="interrupt-skip">Er schießt niemanden</button>`;
   } else if (it.type === 'captain') {
-    body = `<div class="task warn"><div class="prompt">${I.crown}<span>Hauptmann ${esc(nm(g, it.id))} ist tot und ernennt seinen Nachfolger. Tippe die Person an.</span></div><div class="acts"><button class="btn" data-action="interrupt-skip">Kein Nachfolger</button></div></div>`;
+    body = `<div class="task warn"><div class="prompt">${I.crown}<span>Hauptmann ${esc(nm(g, it.id))} ist tot und ernennt seinen Nachfolger. Tippe die Person an.</span></div></div>`;
+    foot = `<button class="btn primary" data-action="interrupt-skip">Kein Nachfolger</button>`;
   } else if (it.type === 'scapegoat') {
-    body = `<div class="task warn"><div class="prompt">${I.horns}<span>Sündenbock ${esc(nm(g, it.id))} bestimmt, wer am ${it.forDay === g.day ? 'heutigen' : 'nächsten'} Tag abstimmen darf. Tippe diese Personen an (${it.picks.length} gewählt).</span></div>
-      <div class="acts"><button class="btn primary" data-action="scapegoat-done">${I.check}<span>Bestätigen</span></button><button class="btn" data-action="interrupt-skip">Alle dürfen abstimmen</button></div></div>`;
+    body = `<div class="task warn"><div class="prompt">${I.horns}<span>Sündenbock ${esc(nm(g, it.id))} bestimmt, wer am ${it.forDay === g.day ? 'heutigen' : 'nächsten'} Tag abstimmen darf. Tippe diese Personen an (${it.picks.length} gewählt).</span></div></div>`;
+    foot = `<button class="btn" data-action="interrupt-skip">Alle dürfen abstimmen</button><button class="btn primary" data-action="scapegoat-done">${I.check}<span>Bestätigen</span></button>`;
   } else if (it.type === 'maid') {
-    body = `<div class="task warn"><div class="prompt">${I.broom}<span>${esc(nm(g, it.victim))} wird hingerichtet. Möchte die Ergebene Magd (${esc(nm(g, it.id))}) die Karte übernehmen, bevor sie aufgedeckt wird?</span></div>
-      <div class="acts"><button class="btn primary" data-action="maid-take">Ja, Rolle übernehmen</button><button class="btn" data-action="interrupt-skip">Nein</button></div></div>`;
+    body = `<div class="task warn"><div class="prompt">${I.broom}<span>${esc(nm(g, it.victim))} wird hingerichtet. Möchte die Ergebene Magd (${esc(nm(g, it.id))}) die Karte übernehmen, bevor sie aufgedeckt wird?</span></div></div>`;
+    foot = `<button class="btn" data-action="interrupt-skip">Nein</button><button class="btn primary" data-action="maid-take">Ja, Rolle übernehmen</button>`;
   }
-  return `<div class="side"><div class="side-scroll" data-keep="side">${body}</div></div>`;
+  return `<div class="side"><div class="side-scroll" data-keep="side">${body}</div>${foot ? `<div class="side-foot">${foot}</div>` : ''}</div>`;
 }
 on('reveal', (el) => { dispatch({ t: 'reveal', role: el.dataset.role }); return false; });
 on('interrupt-skip', () => { dispatch({ t: 'interrupt-skip' }); return false; });

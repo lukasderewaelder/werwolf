@@ -9,7 +9,7 @@ import { stopMusic } from '../audio.js';
 import { isIOS, isAndroid } from './install.js';
 
 const sheet = (inner, { wide = false } = {}) => `<div class="backdrop" data-action="close-modal"><div class="modal ${wide ? 'wide' : ''}" data-stop role="dialog" aria-modal="true">${inner}</div></div>`;
-const closeBtn = (label = 'Schließen') => `<button class="btn" data-action="close-modal">${label}</button>`;
+const closeBtn = (label = 'Schließen') => `<div class="mfoot"><button class="btn" data-action="close-modal">${label}</button></div>`;
 
 on('close-modal', (el, e) => { if (e.target.closest('[data-stop]') && !el.classList.contains('btn')) return false; ui.modal = null; });
 on('modal-back', () => { ui.modal = ui.modal?.from ?? null; });
@@ -101,7 +101,7 @@ views.modal = () => {
       const rows = g.cfg.players.map((p) => `<div class="member"><b>${esc(p.name)}</b><div class="seg" style="min-width:130px"><button class="${g.groups[p.id] === 'A' ? 'on' : ''}" data-action="greis-set" data-id="${p.id}" data-v="A">1</button><button class="${g.groups[p.id] === 'B' ? 'on' : ''}" data-action="greis-set" data-id="${p.id}" data-v="B">2</button></div></div>`).join('');
       return sheet(`<h2>Gruppen des Verbitterten Greises</h2><p class="muted">Teile das Dorf nach einem sichtbaren Merkmal (Brille, Größe, Haarfarbe …) und sage es laut an. Hier ordnest du jede Person der Gruppe 1 oder 2 zu.</p>
         <div class="row wrap"><button class="btn sm" data-action="greis-halves">Hälften</button><button class="btn sm" data-action="greis-alt">Abwechselnd</button><button class="btn sm" data-action="greis-random">Zufällig</button></div>
-        <div class="deaths">${rows}</div><button class="btn primary" data-action="close-modal">Fertig</button>`);
+        <div class="deaths">${rows}</div><div class="mfoot"><button class="btn primary" data-action="close-modal">Fertig</button></div>`);
     }
     case 'install-help': {
       const steps = isIOS()
@@ -109,7 +109,7 @@ views.modal = () => {
         : ['Öffne diese Seite in <b>Chrome</b>.', 'Tippe oben rechts auf das Menü <b>⋮</b>.', 'Wähle <b>App installieren</b> (oder <b>Zum Startbildschirm hinzufügen</b>).', 'Starte die App künftig vom Startbildschirm. Sie läuft dann auch ohne Netz.'];
       return sheet(`<h2>App installieren</h2><ol class="col" style="padding-left:20px;margin:0">${steps.map((t) => `<li>${t}</li>`).join('')}</ol>${isAndroid() ? '<p class="muted" style="font-size:13px">Tipp: Erscheint „App installieren“ nicht, ist sie vielleicht schon installiert, oder du bist in einem anderen Browser als Chrome.</p>' : ''}${closeBtn()}`);
     }
-    case 'confirm': return sheet(`<h2>${esc(m.title)}</h2><p>${esc(m.text)}</p><div class="row"><button class="btn" data-action="close-modal" style="flex:1">Abbrechen</button><button class="btn danger" data-action="confirm-yes" style="flex:1">Ja</button></div>`);
+    case 'confirm': return sheet(`<h2>${esc(m.title)}</h2><p>${esc(m.text)}</p><div class="mfoot"><div class="row"><button class="btn" data-action="close-modal" style="flex:1">Abbrechen</button><button class="btn danger" data-action="confirm-yes" style="flex:1">Ja</button></div></div>`);
     default: return '';
   }
 };

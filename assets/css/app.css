@@ -45,7 +45,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .star{animation:twinkle 4s ease-in-out infinite}
 .cloud{animation:drift 140s linear infinite}
 
-#app{position:relative;z-index:1;height:100dvh;display:flex;flex-direction:column;padding:var(--safe-t) var(--safe-r) 0 var(--safe-l)}
+#app{position:relative;z-index:1;height:100vh;height:100dvh;display:flex;flex-direction:column;padding:var(--safe-t) var(--safe-r) 0 var(--safe-l)}
 .view{flex:1;min-height:0;display:flex;flex-direction:column;animation:rise .25s ease}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
@@ -316,3 +316,45 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
 .diag .t small{color:var(--muted);font-size:13px}
 .diag.bad{border-color:var(--danger)}.diag.warn{border-color:var(--warn)}
 .opt > svg{width:20px;height:20px;flex:none;color:var(--muted)}
+
+/* ---------- Android und kleine Fenster: untere Knöpfe bleiben sichtbar ---------- */
+.mfoot{position:sticky;bottom:-18px;margin:4px -18px -18px;padding:10px 18px max(18px,var(--safe-b));background:linear-gradient(to bottom,transparent,var(--bg2) 28%);display:flex;flex-direction:column;gap:8px}
+.modal.sheet .mfoot{bottom:calc(-1 * max(18px,var(--safe-b)))}
+.mfoot .btn{width:100%}.mfoot .row .btn{width:auto}
+.side-foot{padding-bottom:max(2px,var(--safe-b));flex-wrap:nowrap}
+.side-foot .btn{padding:0 12px;min-width:0}
+.side-foot .btn:not(.primary){flex:0 1 auto}
+.side-foot .btn.primary{flex:1 1 auto}
+.side-foot .btn span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.page{padding-bottom:max(14px,var(--safe-b))}
+@media (max-height:700px){
+  .bar{min-height:52px;padding:6px 12px}
+  .ibtn{width:40px;height:40px}
+  .btn{min-height:46px}.btn.primary{min-height:50px;font-size:17px}
+  .game{gap:8px}
+  .table-wrap{max-height:30dvh}
+  .rolebox .rbg{width:52px;height:62px}.rolebox h2{font-size:21px;margin:0}
+  .say{font-size:16px;padding:8px 12px}
+  .card{padding:10px 12px}.task{padding:10px 12px}
+  .pgrid .tok .ava{width:50px}.pgrid{gap:8px 6px;grid-template-columns:repeat(auto-fill,minmax(66px,1fr))}
+  .timer .t{font-size:30px}
+  .modal{max-height:92dvh}
+}
+@media (orientation:landscape) and (max-height:520px){
+  .game{grid-template-columns:minmax(0,1fr) minmax(300px,1fr);grid-template-rows:minmax(0,1fr)}
+  .table-box{display:none}.pgrid{display:grid}
+  .table-wrap{max-height:none}
+  .home{grid-template-columns:1fr 1fr;align-content:start;align-items:start;gap:16px;padding-top:2px}
+  .tile{padding:10px 12px;gap:4px}.tile span{display:none}.tile svg{width:22px;height:22px}
+  .home-hero .logo{width:80px}
+  .home-hero h1{font-size:40px}.home-hero p{display:none}
+}
+
+/* Fußleiste im schmalen Seitenfeld: ohne Symbole, damit die Beschriftung vollständig bleibt */
+.side{container:side/inline-size}
+@container side (max-width:460px){
+  .side-foot{gap:8px}
+  .side-foot .btn svg{display:none}
+  .side-foot .btn{padding:0 10px;font-size:15px}
+  .side-foot .btn.primary{font-size:16px}
+}

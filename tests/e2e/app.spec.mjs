@@ -285,3 +285,57 @@ test('Ton: Lautstärkeregler ändert den Wert ohne neu zu zeichnen, Musikknopf s
   assert.deepEqual(problems, []);
   await page.context().close();
 });
+
+/** Knopf vollständig im Fenster und nicht von etwas anderem verdeckt (ohne Scrollen des Fensters). */
+async function reachable(page, selector, label) {
+  const r = await page.evaluate((sel) => {
+    const el = [...document.querySelectorAll(sel)].find((e) => e.getBoundingClientRect().width > 0);
+    if (!el) return { missing: true };
+    const b = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+    return { top: Math.round(b.top), bottom: Math.round(b.bottom), left: Math.round(b.left), right: Math.round(b.right), ih: innerHeight, iw: innerWidth, covered: !(hit && (el === hit || el.contains(hit))) };
+  }, selector);
+  assert.ok(!r.missing, `${label}: ${selector} fehlt`);
+  assert.ok(r.top >= 0 && r.bottom <= r.ih + 1 && r.left >= 0 && r.right <= r.iw + 1, `${label}: ${selector} ragt aus dem Fenster ${JSON.stringify(r)}`);
+  assert.ok(!r.covered, `${label}: ${selector} ist verdeckt ${JSON.stringify(r)}`);
+}
+
+test('Android-Fenster: untere Knöpfe sind in jeder Ansicht ohne Scrollen erreichbar', async () => {
+  const sizes = [['klein 360×640', { width: 360, height: 640 }], ['Pixel 393×727', { width: 393, height: 727 }], ['quer 727×393', { width: 727, height: 393 }], ['sehr niedrig 640×360', { width: 640, height: 360 }]];
+  for (const [label, viewport] of sizes) {
+    const ctx = await app.newContext({ viewport, hasTouch: true, isMobile: true, userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36' });
+    const { page, problems } = await app.openApp({ context: ctx });
+    await reachable(page, '[data-action=new-game]', `${label} Start`);
+    // Assistent
+    await page.click('[data-action=new-game]');
+    await page.fill('#add-inp', 'Anna, Ben, Carla, David, Eva, Felix, Greta, Hans, Ida, Jan, Kim, Leo'); await page.press('#add-inp', 'Enter');
+    for (const step of [0, 1, 2, 3]) {
+      await reachable(page, '.foot .btn.primary', `${label} Assistent ${step + 1}`);
+      if (step < 3) await page.click('[data-action=wiz-next]');
+    }
+    await page.click('[data-action=start-game]');
+    // Nacht, Kartenmodus
+    await reachable(page, '[data-action=step-next]', `${label} Nacht`);
+    await reachable(page, '[data-action=step-prev]', `${label} Nacht zurück`);
+    // Tag, Abstimmung
+    await page.evaluate(() => { const w = window.__werwolf, g = w.S.game; g.phase = 'day'; g.clock = 'day'; g.day = 1; g.dayMode = 'vote'; g.draft.vote = 'p2'; g.lastDeaths = ['p3']; g.dead.p3 = { cause: 'wolves', at: 'Nacht 1' }; g.morning = ['Der Bär brummt laut!']; w.render(); });
+    await reachable(page, '[data-action=day-execute]', `${label} Tag Hinrichten`);
+    await reachable(page, '[data-action=day-tie]', `${label} Tag Gleichstand`);
+    await reachable(page, '[data-action=day-none]', `${label} Tag Niemand`);
+    // Hauptmannswahl
+    await page.evaluate(() => { const w = window.__werwolf; w.S.game.dayMode = 'captain'; w.render(); });
+    await reachable(page, '[data-action=skip-captain]', `${label} Hauptmann`);
+    // Abfragen
+    for (const it of [{ type: 'hunter', id: 'p2' }, { type: 'scapegoat', id: 'p2', picks: [], forDay: 2 }, { type: 'maid', id: 'p2', victim: 'p3' }]) {
+      await page.evaluate((it) => { const w = window.__werwolf, g = w.S.game; g.phase = 'interrupt'; g.interrupts = [it]; w.render(); }, it);
+      await reachable(page, '.side-foot .btn.primary', `${label} Abfrage ${it.type}`);
+    }
+    // Dialoge: Schließen klebt unten
+    await page.evaluate(() => { const w = window.__werwolf; w.S.game.interrupts = []; w.S.game.phase = 'day'; w.ui.modal = { type: 'menu' }; w.render(); });
+    await reachable(page, '.modal .mfoot .btn', `${label} Menü schließen`);
+    await page.evaluate(() => { const w = window.__werwolf; w.ui.modal = { type: 'who' }; w.render(); });
+    await reachable(page, '.modal .mfoot .btn', `${label} Wer ist wer schließen`);
+    assert.deepEqual(problems, [], label);
+    await ctx.close();
+  }
+});

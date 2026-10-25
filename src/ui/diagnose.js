@@ -57,7 +57,15 @@ views.diagnose = () => {
     rows.push(row(S.settings.sound ? 'ok' : 'info', 'Töne', S.settings.sound ? 'An' : 'Aus', `Audio: ${m.context ?? 'noch nicht gestartet'}. Auf iOS spielt nichts, bevor du einmal getippt hast, und der Stummschalter zählt.`));
     rows.push(row(S.settings.music ? 'ok' : 'info', 'Musik', `${S.settings.music ? 'An' : 'Aus'}${m.playing ? ', spielt gerade' : ''}`));
     rows.push(row('wakeLock' in navigator ? 'ok' : 'warn', 'Bildschirm anlassen', 'wakeLock' in navigator ? 'Wird unterstützt.' : 'Wird nicht unterstützt.', 'wakeLock' in navigator ? '' : 'Auf iOS ab 16.4 bei installierter App.'));
-    rows.push(row('info', 'Anzeige', `${innerWidth} × ${innerHeight} Punkte, ${innerWidth > innerHeight ? 'quer' : 'hoch'}, Faktor ${devicePixelRatio}`));
+    const vv = window.visualViewport, probe = document.getElementById('probe');
+    const px = (v) => { probe.style.height = v; return Math.round(probe.getBoundingClientRect().height); };
+    let units = '';
+    try { units = `100vh ${px('100vh')}, 100dvh ${px('100dvh')}, 100svh ${px('100svh')}, 100lvh ${px('100lvh')}`; } catch { units = 'nicht lesbar'; }
+    const inset = (side) => { probe.style.height = `env(safe-area-inset-${side}, 0px)`; return Math.round(probe.getBoundingClientRect().height); };
+    const app = document.getElementById('app')?.getBoundingClientRect();
+    rows.push(row('info', 'Anzeige', `${innerWidth} × ${innerHeight} Punkte, ${innerWidth > innerHeight ? 'quer' : 'hoch'}, Faktor ${devicePixelRatio}`,
+      `Sichtbar (visualViewport) ${vv ? Math.round(vv.width) + ' × ' + Math.round(vv.height) : '?'} · Bildschirm ${screen.width} × ${screen.height}, nutzbar ${screen.availWidth} × ${screen.availHeight} · Einheiten: ${units} · Sicherheitsabstand oben ${inset('top')}, unten ${inset('bottom')}, links ${inset('left')}, rechts ${inset('right')} · App-Fläche ${app ? Math.round(app.width) + ' × ' + Math.round(app.height) : '?'}`));
+    probe.style.height = '0';
     rows.push(row('info', 'Gerät', `${isIOS() ? 'iPad/iPhone' : isAndroid() ? 'Android' : 'Computer'} · ${navigator.onLine ? 'online' : 'offline'}`, (navigator.userAgent || '').slice(0, 120)));
   }
   return `<div class="view">${topBar('Diagnose', 'Ist das Gerät bereit?', { back: 'go-settings' })}
