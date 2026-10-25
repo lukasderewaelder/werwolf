@@ -18,7 +18,7 @@ Ziel: Du kannst die App auf iPad, iPhone und Android prüfen und siehst bei Prob
 
 Abnahme (du): Installieren, Flugmodus an, App starten, Diagnoseseite zeigt „bereit für Offline“, Musik in Nacht 1 hörbar, Lautstärke regelbar, Wechsel in eine andere App stoppt die Musik.
 
-## M8 Android-Layout und Sound-Auswahl (in Arbeit)
+## M8 Android-Layout und Sound-Auswahl (umgesetzt, wartet auf deine Abnahme)
 Teil A: Layout auf Android (Meldung: manchmal muss man scrollen, Knöpfe unten sind abgeschnitten)
 - Höhen robuster: Rückfall für ältere Browser, kompakter Modus für niedrige Fenster, Querformat am Handy mit zwei Spalten.
 - Wichtige Knöpfe bleiben immer sichtbar: Hinrichten, Gleichstand, Niemand, Antworten bei Jäger, Hauptmann, Sündenbock und Magd sitzen in einer festen Fußleiste. In Dialogen klebt „Schließen“ am unteren Rand.
@@ -27,7 +27,8 @@ Teil A: Layout auf Android (Meldung: manchmal muss man scrollen, Knöpfe unten s
 
 Teil B: Töne, jetzt als Auswahl
 - Du hast die Vorschläge in [docs/SOUND-AUSWAHL.md](SOUND-AUSWAHL.md) bekommen (je Ereignis drei Alternativen mit Hör-Link, dazu Nacht- und Tagmusik).
-- Nach deiner Wahl: Dateien laden (Freesound-Stücke nur nach deiner Freigabe), zuschneiden, in MP3 umwandeln, einbauen. Neue Ereignisse: Tod eines Spielers, Spielende, optional Tagmusik.
+- Gewählt: Wolf A, Hahn B, Gong B, Glocke A, Tod B, Sieg A, Nachtmusik A + C, Tagmusik A + C. Eingebaut mit den Freesound-Vorschauen; die Originale folgen in M16.
+- (Plan war:) Dateien laden (Freesound-Stücke nur nach deiner Freigabe), zuschneiden, in MP3 umwandeln, einbauen. Neue Ereignisse: Tod eines Spielers, Spielende, optional Tagmusik.
 - Quellenangaben in den Optionen und in docs/QUELLEN.md ergänzen.
 
 Abnahme: Auf deinem Android-Handy ist in jeder Ansicht (Start, Assistent, Nacht, Tag, Dialoge) der untere Knopf ohne Scrollen sichtbar. Die gewählten Töne klingen stimmig und passen zur Lautstärke der Musik.
@@ -87,3 +88,9 @@ Abnahme: Sicherung auf ein zweites Gerät übertragen und dort laden.
 - Wake Lock (Bildschirm anlassen) braucht bei installierten iOS-Apps mindestens iOS 16.4.
 - Wolfshund und Wildes Kind: Die Seite bleibt nach dem Tod geheim, die Rolle selbst wird beim Aufdecken genannt.
 - Ereigniskarten (Neumond) und Gemeinde-Gebäude fehlen bis M12 und M13.
+
+## M16 Originale einsetzen (ganz am Ende)
+- Die fünf Freesound-Töne (Wolf, Hahn, Gong, Glocke, Tod) in Originalqualität: Du lädst die Originale mit deinem Konto in einen Ordner, ich schneide, wandle um und baue sie ein.
+- Pegel und Länge erneut abgleichen, Quellenangaben aktualisieren.
+
+Abnahme: Alle Töne klingen sauber, nichts knackt oder verzerrt.

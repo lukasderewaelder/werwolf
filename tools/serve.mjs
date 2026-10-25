@@ -16,6 +16,8 @@ const TYPES = {
   '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  '.mp3': 'audio/mpeg',
+  '.webp': 'image/webp',
   '.woff2': 'font/woff2',
   '.pdf': 'application/pdf',
 };
@@ -30,10 +32,20 @@ export function startServer(port = 4173) {
       let file = join(root, rel);
       if ((await stat(file).catch(() => null))?.isDirectory()) file = join(file, 'index.html');
       const body = await readFile(file);
-      res.writeHead(200, {
-        'Content-Type': TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream',
-        'Cache-Control': 'no-store',
-      });
+      const type = TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream';
+      // Wie GitHub Pages: Bereichsanfragen (Range) beantworten, Audio und Video brauchen das zum Spulen und für die Dauer
+      const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '');
+      if (m && (m[1] || m[2])) {
+        const size = body.length;
+        let start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2]));
+        let end = m[1] && m[2] ? Number(m[2]) : size - 1;
+        end = Math.min(end, size - 1);
+        if (start > end) { res.writeHead(416, { 'Content-Range': `bytes */${size}` }); res.end(); return; }
+        res.writeHead(206, { 'Content-Type': type, 'Cache-Control': 'no-store', 'Accept-Ranges': 'bytes', 'Content-Range': `bytes ${start}-${end}/${size}`, 'Content-Length': end - start + 1 });
+        res.end(body.subarray(start, end + 1));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-store', 'Accept-Ranges': 'bytes' });
       res.end(body);
     } catch (err) {
       res.writeHead(err.code === 403 ? 403 : 404, { 'Content-Type': 'text/plain; charset=utf-8' });

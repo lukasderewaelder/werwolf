@@ -1,47 +1,56 @@
-// Töne und Nachtmusik. Liegt eine Datei in assets/audio/, wird sie abgespielt, sonst entsteht der Klang per Web Audio.
+// Töne und Musik. Einzeltöne sind kurze MP3-Dateien (decodiert und gepuffert), Musik läuft als Datenstrom über zwei
+// Audio-Elemente mit Überblendung. Fehlt eine Datei, entsteht der Klang per Web Audio (Rückfall).
 import { S } from './store-ref.js';
 import { AUDIO, MUSIC } from './audio-files.js';
 
-let ctx = null, master = null, music = null;
+let ctx = null, master = null, musicBus = null;
+let music = null;           // { mode, stop }
+const MUSIC_LEVEL = 0.5;
+const XFADE = 4;            // Sekunden Überblendung zwischen zwei Stücken
 
 function audioCtx() {
   if (!ctx) {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
     ctx = new AC(); master = ctx.createGain(); master.connect(ctx.destination);
+    musicBus = ctx.createGain(); musicBus.gain.value = MUSIC_LEVEL; musicBus.connect(master);
   }
   if (ctx.state === 'suspended') ctx.resume().catch(() => {});
   master.gain.value = S().settings.volume ?? 0.7;
   return ctx;
 }
 
-const findFile = async (name) => AUDIO[name] ?? false;
-
 /** Lautstärke sofort übernehmen (Regler). */
 export function setVolume() { if (master) master.gain.value = S().settings.volume ?? 0.7; }
 
 /** Testton, auch wenn Töne ausgeschaltet sind (Diagnoseseite). */
-export function playTest() { const c = audioCtx(); if (c) synth('bell'); }
-
-// Im Hintergrund still: iOS und Android sollen nicht weiterspielen, wenn die App nicht sichtbar ist.
-document.addEventListener('visibilitychange', () => {
-  if (!ctx) return;
-  if (document.visibilityState === 'hidden') ctx.suspend().catch(() => {});
-  else ctx.resume().catch(() => {});
-});
+export function playTest() { const c = audioCtx(); if (!c) return; if (AUDIO.bell) sfx('bell', true); else synth('bell'); }
 
 const on = () => S().settings.sound;
 
-export async function sfx(name) {
-  if (!on()) return;
-  const url = await findFile(name);
-  if (url) {
-    const a = new Audio(url); a.volume = Math.min(1, (S().settings.volume ?? 0.7));
-    a.play().catch(() => synth(name));
-    return;
+/* ---------- Einzeltöne ---------- */
+const buffers = new Map();   // Name -> Promise<AudioBuffer|null>
+
+function bufferFor(c, name) {
+  if (!AUDIO[name]) return Promise.resolve(null);
+  if (!buffers.has(name)) {
+    buffers.set(name, fetch(AUDIO[name]).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+      .then((ab) => new Promise((res, rej) => c.decodeAudioData(ab, res, rej)))
+      .catch((e) => { console.warn('Ton nicht ladbar:', name, e); return null; }));
   }
-  synth(name);
+  return buffers.get(name);
 }
+
+export async function sfx(name, force = false) {
+  if (!force && !on()) return;
+  const c = audioCtx(); if (!c) return;
+  const buf = await bufferFor(c, name);
+  if (!buf) { synth(name); return; }
+  const src = c.createBufferSource(); src.buffer = buf; src.connect(master); src.start();
+}
+
+/** Töne vorladen, damit der erste Einsatz ohne Verzögerung klingt (nach der ersten Berührung). */
+export function preloadSounds() { const c = audioCtx(); if (c) Object.keys(AUDIO).forEach((n) => bufferFor(c, n)); }
 
 /* ---------- Klänge aus Schwingungen ---------- */
 function tone(c, { f, t0 = 0, dur = 1, type = 'sine', gain = 0.3, f2 = null, attack = 0.01 }) {
@@ -76,50 +85,75 @@ function synth(name) {
   }
 }
 
-/* ---------- Nachtmusik ---------- */
-const MUSIC_LEVEL = 0.5;
-let starting = false;
+/* ---------- Musik als Datenstrom ---------- */
+const slots = [];            // zwei dauerhafte Audio-Elemente mit je einem Pegelregler
+let token = 0;
 
-/** Stücke nacheinander mit Überblendung. Läuft über Web Audio, weil iOS die Lautstärke von Audio-Elementen ignoriert. */
-function playlist(c) {
-  const out = c.createGain();
-  out.gain.setValueAtTime(0.0001, c.currentTime);
-  out.gain.linearRampToValueAtTime(MUSIC_LEVEL, c.currentTime + 2.5);
-  out.connect(master);
-  const cache = new Map(), live = new Set();
-  let stopped = false, timer = 0;
+function makeSlots(c) {
+  if (slots.length) return;
+  for (let i = 0; i < 2; i++) {
+    const el = new Audio(); el.preload = 'auto'; el.loop = false;
+    const g = c.createGain(); g.gain.value = 0;
+    c.createMediaElementSource(el).connect(g); g.connect(musicBus);
+    slots.push({ el, g, wasPlaying: false });
+  }
+}
 
-  const decode = (ab) => new Promise((res, rej) => c.decodeAudioData(ab, res, rej));
-  async function load(i) {
-    if (!cache.has(i)) cache.set(i, decode(await (await fetch(MUSIC[i])).arrayBuffer()));
-    return cache.get(i);
+/** Beim ersten Tippen: Elemente freischalten, damit iOS späteres Abspielen ohne Berührung erlaubt. */
+export function unlockAudio() {
+  const c = audioCtx(); if (!c) return;
+  makeSlots(c);
+  for (const s of slots) {
+    if (s.unlocked) continue;
+    s.unlocked = true;
+    const first = Object.values(MUSIC).flat()[0];
+    if (!first) continue;
+    s.el.muted = true; s.el.src = first.src;
+    s.el.play().then(() => { s.el.pause(); s.el.muted = false; }).catch(() => { s.el.muted = false; s.unlocked = false; });
   }
-  async function play(i, when) {
-    let buf;
-    try { buf = await load(i); } catch (e) { console.warn('Musik nicht ladbar:', e); return; }
-    if (stopped) return;
-    const t = Math.max(when, c.currentTime + 0.05);
-    const xf = Math.min(4, buf.duration / 4);
-    const src = c.createBufferSource(), g = c.createGain();
-    src.buffer = buf;
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.linearRampToValueAtTime(1, t + xf);
-    g.gain.setValueAtTime(1, t + buf.duration - xf);
-    g.gain.linearRampToValueAtTime(0.0001, t + buf.duration);
-    src.connect(g); g.connect(out); src.start(t);
-    const node = { src, g }; live.add(node);
-    src.onended = () => live.delete(node);
-    const next = (i + 1) % MUSIC.length, nextAt = t + buf.duration - xf;
-    timer = setTimeout(() => play(next, nextAt), Math.max(0, (nextAt - c.currentTime - 6) * 1000));
+  preloadSounds();
+}
+
+function playlist(c, mode) {
+  const list = MUSIC[mode] ?? [];
+  makeSlots(c);
+  const my = ++token;
+  let idx = Math.floor(Math.random() * list.length), cur = 0, started = false, current = null;
+  const now = () => c.currentTime;
+
+  async function start(i, slot) {
+    const t = list[i], s = slots[slot];
+    s.el.muted = false; s.el.src = t.src; s.el.currentTime = 0;
+    s.g.gain.cancelScheduledValues(now()); s.g.gain.setValueAtTime(0.0001, now());
+    s.g.gain.linearRampToValueAtTime(t.gain, now() + XFADE);
+    current = { slot, i, gain: t.gain, fading: false };
+    try { await s.el.play(); s.wasPlaying = true; } catch (e) { console.warn('Musik startet nicht:', e); }
   }
-  play(Math.floor(Math.random() * MUSIC.length), c.currentTime);
+  const timer = setInterval(() => {
+    if (token !== my) { clearInterval(timer); return; }
+    if (!current) return;
+    const s = slots[current.slot], d = s.el.duration, t = s.el.currentTime;
+    // Ohne bekannte Länge (Server ohne Bereichsanfragen) gibt es keine Überblendung: dann geht es nach dem Ende weiter
+    const crossfadeNow = d && isFinite(d) && t >= d - XFADE - 0.3 && !s.el.paused;
+    if (!current.fading && (crossfadeNow || s.el.ended)) {
+      current.fading = true;
+      s.g.gain.cancelScheduledValues(now()); s.g.gain.setValueAtTime(s.g.gain.value, now()); s.g.gain.linearRampToValueAtTime(0.0001, now() + (isFinite(d) ? Math.max(0.5, d - t) : 0.5));
+      idx = (idx + 1) % list.length; cur = 1 - cur;
+      start(idx, cur);
+    }
+  }, 300);
+  start(idx, cur); started = true;
   return {
-    live: () => live.size,
+    mode, track: () => (current ? list[current.i].src : null),
     stop() {
-      stopped = true; clearTimeout(timer);
-      out.gain.cancelScheduledValues(c.currentTime); out.gain.setValueAtTime(out.gain.value, c.currentTime); out.gain.linearRampToValueAtTime(0.0001, c.currentTime + 1.2);
-      setTimeout(() => { live.forEach((n) => { try { n.src.stop(); } catch { /* schon beendet */ } }); out.disconnect(); }, 1400);
+      clearInterval(timer);
+      const t = ++token;
+      for (const s of slots) { s.g.gain.cancelScheduledValues(now()); s.g.gain.setValueAtTime(s.g.gain.value, now()); s.g.gain.linearRampToValueAtTime(0.0001, now() + 1.2); }
+      // Nur anhalten, wenn inzwischen keine neue Wiedergabeliste dieselben Elemente übernommen hat
+      setTimeout(() => { if (token !== t) return; for (const s of slots) { s.el.pause(); s.wasPlaying = false; } }, 1400);
     },
+    pause() { for (const s of slots) { s.wasPlaying = !s.el.paused; s.el.pause(); } },
+    resume() { for (const s of slots) if (s.wasPlaying) s.el.play().catch(() => {}); },
   };
 }
 
@@ -133,13 +167,38 @@ function drone(c) {
   return { stop() { out.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 1.2); setTimeout(() => { oscs.forEach((o) => o.stop()); lfo.stop(); }, 1400); } };
 }
 
-export function startMusic() {
-  if (music || starting || !S().settings.music || !S().settings.sound) return;
+
+/** Musik für die Phase starten: 'night' oder 'day'. Läuft schon dieselbe, bleibt sie. Ohne Dateien: Klangteppich in der Nacht. */
+let pending = null;
+export function setMusic(mode) {
+  if (!mode || !S().settings.music || !S().settings.sound) { stopMusic(); return; }
+  if (music?.mode === mode || pending === mode) return;
   const c = audioCtx(); if (!c) return;
-  starting = true;
-  try { music = MUSIC.length ? playlist(c) : drone(c); } finally { starting = false; }
+  const had = !!music;
+  stopMusic();
+  const begin = () => {
+    if (pending !== mode) return;
+    pending = null;
+    if (MUSIC[mode]?.length) music = playlist(c, mode);
+    else if (mode === 'night') music = { mode, ...drone(c) };
+  };
+  pending = mode;
+  if (had) setTimeout(begin, 1300); else begin();   // beim Wechsel erst ausblenden, dann das neue Stück
 }
-export function stopMusic() { if (music) { music.stop(); music = null; } }
+export function stopMusic() { pending = null; if (music) { music.stop(); music = null; } }
+
+// Im Hintergrund still: iOS und Android sollen nicht weiterspielen, wenn die App nicht sichtbar ist.
+document.addEventListener('visibilitychange', () => {
+  if (!ctx) return;
+  if (document.visibilityState === 'hidden') { music?.pause?.(); ctx.suspend().catch(() => {}); }
+  else { ctx.resume().catch(() => {}); music?.resume?.(); }
+});
 
 /** Zustand für Tests und Fehlersuche. */
-export const musicState = () => ({ playing: !!music, context: ctx?.state ?? null, streams: music?.live?.() ?? 0 });
+export const musicState = () => ({
+  playing: !!music, mode: music?.mode ?? null, context: ctx?.state ?? null, track: music?.track?.() ?? null,
+  streams: slots.filter((s) => !s.el.paused && s.el.currentTime > 0).length, time: slots.map((s) => +s.el.currentTime.toFixed(1)),
+});
+
+/** Nur für Tests: springt kurz vor das Ende des laufenden Stücks, um den Übergang zum nächsten zu prüfen. */
+export function debugSeekNearEnd(sec = 6) { const s = slots.find((x) => !x.el.paused && x.el.currentTime > 0); if (s && isFinite(s.el.duration)) s.el.currentTime = Math.max(0, s.el.duration - sec); }

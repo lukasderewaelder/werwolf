@@ -2,11 +2,19 @@
 // Der Block zwischen den Marken wird von tools/precache.mjs erzeugt (node tools/precache.mjs).
 
 // >>> precache
-const VERSION = '7061634731';
+const VERSION = 'e4723f7b8a';
 const ASSETS = [
   './',
+  './assets/audio/glocke.mp3',
+  './assets/audio/gong.mp3',
+  './assets/audio/hahn.mp3',
   './assets/audio/nacht-1.mp3',
   './assets/audio/nacht-2.mp3',
+  './assets/audio/sieg.mp3',
+  './assets/audio/tag-1.mp3',
+  './assets/audio/tag-2.mp3',
+  './assets/audio/tod.mp3',
+  './assets/audio/wolf.mp3',
   './assets/css/app.css',
   './assets/icons/apple-touch-icon.png',
   './assets/icons/icon-192.png',
@@ -105,6 +113,21 @@ self.addEventListener('message', (event) => {
   }
 });
 
+/** Safari und Chrome laden Audio stückweise (Range). Aus dem Speicher muss dann ein 206 mit dem passenden Ausschnitt kommen. */
+async function rangeResponse(request, hit) {
+  const m = /bytes=(\d*)-(\d*)/.exec(request.headers.get('range') || '');
+  if (!m) return hit;
+  const buf = await hit.arrayBuffer(), size = buf.byteLength;
+  let start = m[1] ? Number(m[1]) : 0, end = m[2] ? Number(m[2]) : size - 1;
+  if (!m[1] && m[2]) { start = Math.max(0, size - Number(m[2])); end = size - 1; }
+  end = Math.min(end, size - 1);
+  if (start > end) return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${size}` } });
+  return new Response(buf.slice(start, end + 1), {
+    status: 206, statusText: 'Partial Content',
+    headers: { 'Content-Type': hit.headers.get('Content-Type') || 'audio/mpeg', 'Content-Range': `bytes ${start}-${end}/${size}`, 'Content-Length': String(end - start + 1), 'Accept-Ranges': 'bytes' },
+  });
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
@@ -115,7 +138,7 @@ self.addEventListener('fetch', (event) => {
     (async () => {
       const cache = await caches.open(CACHE);
       const hit = await cache.match(request, { ignoreSearch: true });
-      if (hit) return hit;
+      if (hit) return request.headers.has('range') ? rangeResponse(request, hit) : hit;
       try {
         return await fetch(request);
       } catch (err) {

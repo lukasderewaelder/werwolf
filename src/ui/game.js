@@ -198,7 +198,11 @@ on('step-next', () => {
   const wasLast = c && c.idx >= c.steps.length - 1;
   if (c && c.step.key === 'wolf') sfx('howl');
   buzz(12); dispatch({ t: 'next' });
-  if (wasLast) sfx('rooster');
+  if (wasLast) {
+    sfx('rooster');
+    // Nach dem Hahn: wenn jemand gestorben ist, ein ernster Ton
+    if (S.game?.lastDeaths?.length) setTimeout(() => sfx('death'), 2600);
+  }
   return false;
 });
 on('step-prev', () => { dispatch({ t: 'prev' }, { undoable: false }); return false; });
@@ -387,4 +391,9 @@ async function applyWakeLock() {
   } catch { wl = null; }
 }
 afterRender.push(applyWakeLock);
+// Siegerton einmal pro Spielende
+afterRender.push(() => {
+  const g = S.game;
+  if (ui.view === 'game' && g?.phase === 'ended' && ui.winFor !== g.log.length) { ui.winFor = g.log.length; sfx('win'); }
+});
 document.addEventListener('visibilitychange', () => { applyWakeLock(); if (document.visibilityState === 'visible' && ui.timer.running) tick(); });

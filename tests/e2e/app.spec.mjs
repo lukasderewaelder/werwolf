@@ -169,23 +169,31 @@ test('Verbitterter Greis: Gruppen lassen sich zuordnen', async () => {
   await page.context().close();
 });
 
-test('Musik: beide Nachtstücke sind abspielbar (Länge, Pegel)', async () => {
+test('Audio: alle Musikstücke und Töne sind vorhanden und abspielbar', async () => {
   const { page, problems } = await app.openApp();
   const r = await page.evaluate(async () => {
-    const { MUSIC } = await import('/src/audio-files.js');
+    const { MUSIC, AUDIO } = await import('/src/audio-files.js');
+    const out = { music: [], sfx: [] };
+    for (const [mode, list] of Object.entries(MUSIC)) for (const t of list) {
+      const el = new Audio(t.src); el.preload = 'metadata';
+      await new Promise((res, rej) => { el.onloadedmetadata = res; el.onerror = () => rej(new Error('Fehler ' + t.src)); });
+      out.music.push({ mode, src: t.src, sec: Math.round(el.duration), gain: t.gain });
+    }
     const c = new AudioContext();
-    const out = [];
-    for (const url of MUSIC) {
+    for (const [name, url] of Object.entries(AUDIO)) {
       const buf = await c.decodeAudioData(await (await fetch(url)).arrayBuffer());
       const d = buf.getChannelData(0); let peak = 0;
-      for (let i = 0; i < d.length; i += 97) peak = Math.max(peak, Math.abs(d[i]));
-      out.push({ url, sec: Math.round(buf.duration), ch: buf.numberOfChannels, peak: +peak.toFixed(2) });
+      for (let i = 0; i < d.length; i += 53) peak = Math.max(peak, Math.abs(d[i]));
+      out.sfx.push({ name, sec: +buf.duration.toFixed(1), peak: +peak.toFixed(2) });
     }
     return out;
   });
-  assert.equal(r.length, 2);
-  assert.ok(Math.abs(r[0].sec - 137) <= 2 && Math.abs(r[1].sec - 55) <= 2, JSON.stringify(r));
-  for (const t of r) { assert.equal(t.ch, 2); assert.ok(t.peak > 0.02 && t.peak <= 1, JSON.stringify(t)); }
+  const want = { 'nacht-1.mp3': 137, 'nacht-2.mp3': 324, 'tag-1.mp3': 159, 'tag-2.mp3': 130 };
+  assert.deepEqual(r.music.map((m) => m.src.split('/').pop()).sort(), Object.keys(want));
+  for (const m of r.music) assert.ok(Math.abs(m.sec - want[m.src.split('/').pop()]) <= 2, JSON.stringify(m));
+  for (const m of r.music) assert.ok(m.sec > 50 && m.gain > 0.3 && m.gain <= 1, JSON.stringify(m));
+  assert.deepEqual(r.sfx.map((s) => s.name).sort(), ['bell', 'death', 'gong', 'howl', 'rooster', 'win']);
+  for (const s of r.sfx) assert.ok(s.sec > 0.8 && s.sec < 15 && s.peak > 0.3 && s.peak <= 1, JSON.stringify(s));
   assert.deepEqual(problems, []);
   await page.context().close();
 });
@@ -223,18 +231,46 @@ test('Installieren: Chrome-Installationsfenster, Android-Anleitung, iPad-Anleitu
   await ipad.close();
 });
 
-test('Musik: läuft in der Nacht nach der ersten Berührung, endet am Tag', async () => {
+test('Musik: Nacht spielt, am Tag wechselt sie zur Tagmusik, danach Stille', async () => {
   const { page, problems } = await app.openApp();
   await startGame(page, { names: NAMES.slice(0, 5), counts: { wolf: 1, seer: 1, villager: 3 }, roles: ['wolf', 'seer', 'villager', 'villager', 'villager'] });
   assert.equal((await page.evaluate(() => window.__werwolf.musicState())).playing, false, 'ohne Berührung bleibt es still');
   await page.locator('.tok').first().click();
-  await page.waitForFunction(() => window.__werwolf.musicState().streams >= 1, null, { timeout: 15000 });
-  const st = await page.evaluate(() => window.__werwolf.musicState());
-  assert.equal(st.context, 'running');
+  await page.waitForFunction(() => { const s = window.__werwolf.musicState(); return s.mode === 'night' && s.streams >= 1; }, null, { timeout: 20000 });
+  const t1 = await page.evaluate(() => window.__werwolf.musicState());
+  assert.equal(t1.context, 'running');
+  assert.match(t1.track, /nacht-\d/);
+  await page.waitForTimeout(1500);
+  const t2 = await page.evaluate(() => window.__werwolf.musicState());
+  assert.ok(Math.max(...t2.time) > Math.max(...t1.time), 'Wiedergabe schreitet voran ' + JSON.stringify([t1.time, t2.time]));
   await page.evaluate(() => { const g = window.__werwolf.S.game; g.phase = 'day'; g.clock = 'day'; g.dayMode = 'vote'; window.__werwolf.render(); });
+  await page.waitForFunction(() => { const s = window.__werwolf.musicState(); return s.mode === 'day' && /tag-\d/.test(s.track ?? '') && s.streams >= 1; }, null, { timeout: 20000 });
+  await page.evaluate(() => { const g = window.__werwolf.S.game; g.phase = 'ended'; g.winner = 'Das Dorf'; window.__werwolf.render(); });
   await page.waitForFunction(() => !window.__werwolf.musicState().playing);
   assert.deepEqual(problems, []);
   await page.context().close();
+});
+
+test('Offline: Audio wird aus dem Speicher stückweise (Range) geliefert und spielt', async () => {
+  const context = await app.newContext();
+  const { page } = await app.openApp({ url: `${app.base}?sw=1`, context });
+  await page.evaluate(async () => { await navigator.serviceWorker.ready; });
+  await page.reload();
+  await page.waitForFunction(() => navigator.serviceWorker.controller !== null, null, { timeout: 15000 });
+  await page.waitForFunction(async () => { const keys = await caches.keys(); const c = await caches.open(keys[0]); return (await c.keys()).length > 50; }, null, { timeout: 60000 });
+  await context.setOffline(true);
+  const r = await page.evaluate(async () => {
+    const res = await fetch('assets/audio/tag-1.mp3', { headers: { Range: 'bytes=100-199' } });
+    const buf = await res.arrayBuffer();
+    const el = new Audio('assets/audio/nacht-1.mp3'); el.muted = true;
+    await el.play(); await new Promise((s) => setTimeout(s, 1200));
+    return { status: res.status, range: res.headers.get('content-range'), len: buf.byteLength, t: el.currentTime, err: el.error?.code ?? null };
+  });
+  assert.equal(r.status, 206);
+  assert.match(r.range, /^bytes 100-199\/\d+$/);
+  assert.equal(r.len, 100);
+  assert.ok(r.t > 0.5 && r.err === null, JSON.stringify(r));
+  await context.close();
 });
 
 test('Diagnose: Entwicklungsmodus ohne Service Worker, Speichern funktioniert', async () => {
@@ -338,4 +374,21 @@ test('Android-Fenster: untere Knöpfe sind in jeder Ansicht ohne Scrollen erreic
     assert.deepEqual(problems, [], label);
     await ctx.close();
   }
+});
+
+test('Musik: am Ende eines Stücks folgt das nächste mit Überblendung', async () => {
+  const { page, problems } = await app.openApp();
+  await startGame(page, { names: NAMES.slice(0, 5), counts: { wolf: 1, seer: 1, villager: 3 }, roles: ['wolf', 'seer', 'villager', 'villager', 'villager'] });
+  await page.locator('.tok').first().click();
+  await page.waitForFunction(() => window.__werwolf.musicState().streams >= 1, null, { timeout: 20000 });
+  const first = (await page.evaluate(() => window.__werwolf.musicState())).track;
+  await page.waitForTimeout(800);
+  await page.evaluate(() => window.__werwolf.debugSeekNearEnd(6));
+  await page.waitForFunction((f) => { const s = window.__werwolf.musicState(); return s.track && s.track !== f; }, first, { timeout: 25000 });
+  await page.waitForTimeout(1500);
+  const st = await page.evaluate(() => window.__werwolf.musicState());
+  assert.notEqual(st.track, first);
+  assert.ok(st.streams >= 1 && st.streams <= 2, JSON.stringify(st));
+  assert.deepEqual(problems, []);
+  await page.context().close();
 });

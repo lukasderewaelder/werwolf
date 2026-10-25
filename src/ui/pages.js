@@ -88,7 +88,7 @@ views.settings = () => {
       <div class="eyebrow" style="margin-top:6px">Hilfe</div>
       <button class="opt" data-action="open-diagnose"><span class="t"><b>Diagnose</b><span>Prüft Offlinebetrieb, Speicher und Ton auf diesem Gerät</span></span>${I.right}</button>
       <div class="eyebrow" style="margin-top:6px">Quellen</div>
-      <div class="card flat col"><span class="muted" style="font-size:13px">Nachtmusik: „Cathedral in the forest“ von congusbongus und „Dark Place“ von SkyleTheFrench (beide CC0, OpenGameArt). Rollenbilder aus der bisherigen App.</span></div>
+      <div class="card flat col"><span class="muted" style="font-size:13px">Musik: congusbongus, SubspaceAudio (Juhani Junkala), RandomMind. Töne: NaturesTemper, BenjaminNelan, BOSS MUSIC, Audeption, Aeonemi, cynicmusic. Alles CC0 von OpenGameArt und Freesound, Details in docs/QUELLEN.md. Rollenbilder aus der bisherigen App.</span></div>
     </div></div></div>`;
 };
 

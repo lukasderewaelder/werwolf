@@ -8,7 +8,7 @@ import './ui/modals.js';
 import './ui/install.js';
 import './ui/diagnose.js';
 import { bind } from './store-ref.js';
-import { startMusic, stopMusic, musicState } from './audio.js';
+import { setMusic, stopMusic, unlockAudio, musicState, debugSeekNearEnd } from './audio.js';
 import { buildScene } from './ui/scene.js';
 import { registerRoles } from './engine/roles.js';
 
@@ -48,15 +48,16 @@ function setupServiceWorker() {
 let touched = false;
 function syncMusic() {
   const g = S.game;
-  const night = ui.view === 'game' && g && g.phase === 'night' && !(g.cfg.mode === 'digital' && g.dealIdx < g.cfg.players.length);
-  if (night && touched && S.settings.sound && S.settings.music) startMusic(); else stopMusic();
+  const playing = ui.view === 'game' && g && g.phase !== 'ended' && !(g.cfg.mode === 'digital' && g.dealIdx < g.cfg.players.length);
+  if (!playing || !touched) { stopMusic(); return; }
+  setMusic(g.clock === 'day' ? 'day' : 'night');
 }
-document.addEventListener('pointerdown', () => { if (!touched) { touched = true; syncMusic(); } }, { once: false });
+document.addEventListener('pointerdown', () => { if (!touched) { touched = true; unlockAudio(); syncMusic(); } }, { once: false });
 import('./ui/core.js').then((m) => m.afterRender.push(syncMusic));
 
 navigator.storage?.persist?.().catch(() => {});   // Gerät soll Spielstand und Gruppen nicht aufräumen
 buildScene();
 setupServiceWorker();
 render();
-window.__werwolf = { S, ui, render, dispatch, musicState };   // für Tests und Fehlersuche
+window.__werwolf = { S, ui, render, dispatch, musicState, debugSeekNearEnd };   // für Tests und Fehlersuche
 export { toast };
