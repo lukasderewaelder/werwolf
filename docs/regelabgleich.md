@@ -28,6 +28,10 @@ Legende: **Fehler** = App weicht von der Regel ab und wird korrigiert. **Lücke*
 | 18 | Drei Brüder | Erfahrene Runden dürfen sie ab und zu erneut wecken (jede zweite Runde o. ä.). | Nur Nacht 1 | Verbesserung (optional) |
 | 19 | Neumond-Ereigniskarten, Zigeunerin, Büttel, Gemeinde (Gebäude, Berufe, Brandstifter) | Eigene Spielvarianten | Nur eine Notiz zur Spiritismus-Sitzung | nicht Teil dieses Umbaus (Vorschlag: später) |
 
+## Abweichung von der Aufrufreihenfolge (auf Wunsch)
+
+Das Regelheft ruft die Seherin vor den Werwölfen auf. Ist in den Hausregeln „Die Seherin sieht nur: Werwolf oder nicht“ gewählt, kommt sie nach allen Wolfsschritten dran, damit der Spielleiter die Wölfe schon kennt. Im Kartenmodus gilt das in Nacht 1 ebenso für den Fuchs.
+
 ## Offene Fragen an den Nutzer
 
 * **A** Der Alte und die Hexe: Das Heft sagt nur „gewinnt nur ein einziges Leben“. Vorschlag: Der Wolfsangriff verbraucht das Extraleben des Alten auch dann, wenn die Hexe heilt (kein doppelter Schutz). Die Zweideutigen (Dieb, Magd, Gaukler, Wildes Kind, Wolfshund) verlieren ihre Fähigkeiten nicht, nur das Lager Dorfbewohner.

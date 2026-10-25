@@ -392,3 +392,98 @@ test('Musik: am Ende eines Stücks folgt das nächste mit Überblendung', async 
   assert.deepEqual(problems, []);
   await page.context().close();
 });
+
+test('Töne: Wolfsheulen beim Erwachen der Werwölfe und aller besonderen Wölfe', async () => {
+  const { page, problems } = await app.openApp();
+  await startGame(page, { names: NAMES.slice(0, 7), counts: { wolf: 1, urwolf: 1, bigwolf: 1, seer: 1, villager: 3 }, roles: ['wolf', 'urwolf', 'bigwolf', 'seer', 'villager', 'villager', 'villager'] });
+  const howls = () => page.evaluate(() => window.__werwolf.sfxLog.filter((n) => n === 'howl').length);
+  const label = () => page.locator('.rolebox h2').innerText();
+  assert.equal(await label(), 'Seherin');
+  const before = await howls();
+  await page.click('[data-action=step-next]');                   // Werwolf
+  assert.equal(await label(), 'Werwolf');
+  assert.equal(await howls(), before + 1, 'beim Erwachen der Werwölfe');
+  await page.click('[data-action=step-next]');                   // Urwolf
+  assert.equal(await label(), 'Urwolf');
+  const atUrwolf = await howls();
+  assert.ok(atUrwolf >= before + 2, 'beim Erwachen des Urwolfs');
+  await page.click('[data-action=step-next]');                   // Großer böser Wolf
+  assert.equal(await label(), 'Großer böser Wolf');
+  assert.ok((await howls()) >= atUrwolf + 1, 'beim Erwachen des Großen bösen Wolfs');
+  await page.click('[data-action=step-prev]'); await page.click('[data-action=step-prev]'); await page.click('[data-action=step-prev]');
+  assert.equal(await label(), 'Seherin');
+  const quiet = await howls();
+  await page.click('[data-action=step-next]');
+  assert.equal(await howls(), quiet + 1);
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});
+
+test('Hexe: beide Trankknöpfe sind ohne Scrollen sichtbar', async () => {
+  for (const [label, viewport] of [['klein 360×640', { width: 360, height: 640 }], ['Pixel 393×727', { width: 393, height: 727 }], ['quer 727×393', { width: 727, height: 393 }], ['iPad 1180×820', { width: 1180, height: 820 }]]) {
+    const ctx = await app.newContext({ viewport, hasTouch: true });
+    const { page, problems } = await app.openApp({ context: ctx });
+    await startGame(page, { names: NAMES, counts: { wolf: 2, witch: 1, seer: 1, hunter: 1, villager: 3 }, roles: ['wolf', 'wolf', 'witch', 'seer', 'hunter', 'villager', 'villager', 'villager'] });
+    await page.evaluate(() => { const w = window.__werwolf, g = w.S.game; g.stepIdx = 2; g.draft.kill = 'p6'; w.render(); });
+    assert.match(await page.locator('.rolebox h2').innerText(), /Hexe/);
+    await reachable(page, '[data-action=witch-heal]', `${label} Heiltrank`);
+    await reachable(page, '[data-action=witch-poison]', `${label} Gifttrank`);
+    await reachable(page, '[data-action=step-next]', `${label} Weiter`);
+    assert.deepEqual(problems, [], label);
+    await ctx.close();
+  }
+});
+
+test('Seherin sieht nur Werwolf: kommt nach den Wölfen, Antwort lautet Werwolf oder Kein Werwolf', async () => {
+  const { page, problems } = await app.openApp();
+  await startGame(page, { names: NAMES.slice(0, 6), counts: { wolf: 1, seer: 1, villager: 4 }, rules: { seerSees: 'camp' }, roles: ['wolf', 'seer', 'villager', 'villager', 'villager', 'villager'] });
+  const labels = await page.locator('.sdot').allInnerTexts();
+  assert.deepEqual(labels.map((l) => l.trim()), ['Werwolf', 'Seherin']);
+  await page.click('[data-action=step-next]');
+  await tapName(page, 'Anna');
+  assert.match(await page.locator('.task .prompt').innerText(), /Anna: Werwolf$/);
+  await tapName(page, 'Carla');
+  assert.match(await page.locator('.task .prompt').innerText(), /Carla: Kein Werwolf$/);
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});
+
+test('Abstimmung: Stimmen zählen, Hauptmann doppelt, Gleichstand, Hinrichten', async () => {
+  const { page, problems } = await app.openApp();
+  await startGame(page, { names: NAMES.slice(0, 7), counts: { wolf: 2, villager: 5 }, roles: ['wolf', 'wolf', 'villager', 'villager', 'villager', 'villager', 'villager'], rules: { captain: true } });
+  await page.evaluate(() => { const w = window.__werwolf, g = w.S.game; g.phase = 'day'; g.clock = 'day'; g.day = 1; g.dayMode = 'vote'; g.captain = 'p7'; g.lastDeaths = []; w.render(); });
+  assert.equal(await page.locator('.scorebar .sc.w b').innerText(), '2');
+  assert.equal(await page.locator('.scorebar .sc.v b').innerText(), '5');
+  await tapName(page, 'Carla'); await tapName(page, 'Carla'); await tapName(page, 'David'); await tapName(page, 'David');
+  assert.equal(await page.locator('.vres').innerText(), 'Gleichstand: Carla und David mit je 2.');
+  assert.ok(await page.locator('[data-action=day-execute]').isDisabled(), 'bei Gleichstand nicht hinrichtbar');
+  assert.match(await page.locator('[data-action=day-tie]').getAttribute('class'), /\bon\b/);
+  await page.click('[data-action=vote-cap-arm]');
+  await tapName(page, 'David');                                   // Hauptmann wählt David: zählt doppelt
+  assert.equal(await page.locator('.tok:visible[aria-label="David"] .bdg.cnt').first().innerText(), '4');
+  assert.match(await page.locator('.vres').innerText(), /Vorn: David mit 4 Stimmen/);
+  await page.click('[data-action=vote-undo]');
+  assert.equal(await page.evaluate(() => window.__werwolf.S.game.draft.capVote), null);
+  await page.click('[data-action=vote-reset]');
+  assert.equal(await page.locator('.vrow').count(), 0);
+  await tapName(page, 'Ben'); await tapName(page, 'Ben'); await tapName(page, 'Anna');
+  await page.click('[data-action=day-execute]');
+  assert.equal(await page.evaluate(() => !!window.__werwolf.S.game.dead.p2), true, 'Ben wurde hingerichtet');
+  assert.match(await page.locator('.bar h1').innerText(), /Nacht 2/);
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});
+
+test('Hauptmannswahl per Zähler am Handy', async () => {
+  const ctx = await app.newContext({ viewport: { width: 360, height: 640 }, hasTouch: true });
+  const { page, problems } = await app.openApp({ context: ctx });
+  await startGame(page, { names: NAMES.slice(0, 6), counts: { wolf: 1, villager: 5 }, roles: ['wolf', 'villager', 'villager', 'villager', 'villager', 'villager'] });
+  await page.evaluate(() => { const w = window.__werwolf, g = w.S.game; g.phase = 'day'; g.clock = 'day'; g.day = 1; g.dayMode = 'captain'; w.render(); });
+  await reachable(page, '[data-action=captain-confirm]', 'Hauptmann ernennen');
+  assert.ok(await page.locator('[data-action=captain-confirm]').isDisabled());
+  await tapName(page, 'Carla'); await tapName(page, 'Carla'); await tapName(page, 'Ben');
+  await page.click('[data-action=captain-confirm]');
+  assert.equal(await page.evaluate(() => window.__werwolf.S.game.captain), 'p3');
+  assert.deepEqual(problems, []);
+  await ctx.close();
+});

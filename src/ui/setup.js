@@ -24,7 +24,7 @@ export function rulesHtml(rules) {
   const rows = ruleRows().map(([k, t, s]) => `<button class="opt" data-action="rule-toggle" data-key="${k}"><span class="t"><b>${t}</b><span>${s}</span></span><span class="toggle ${rules[k] ? 'on' : ''}"><i></i></span></button>`).join('');
   return `<div class="col"><div class="card flat col">
       <b>Die Seherin sieht</b>
-      <div class="seg"><button class="${rules.seerSees !== 'camp' ? 'on' : ''}" data-action="rule-set" data-key="seerSees" data-v="role">Die ganze Rolle</button><button class="${rules.seerSees === 'camp' ? 'on' : ''}" data-action="rule-set" data-key="seerSees" data-v="camp">Nur Wolf oder Dorf</button></div>
+      <div class="seg"><button class="${rules.seerSees !== 'camp' ? 'on' : ''}" data-action="rule-set" data-key="seerSees" data-v="role">Die ganze Rolle</button><button class="${rules.seerSees === 'camp' ? 'on' : ''}" data-action="rule-set" data-key="seerSees" data-v="camp">Nur: Werwolf oder nicht</button></div>
     </div>${rows}</div>`;
 }
 

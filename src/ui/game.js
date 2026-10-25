@@ -3,7 +3,7 @@ import { S, ui, views, on, go, dispatch, undo, canUndo, toast, buzz, afterRender
 import { esc, art, I, initials, circlePos, tokenSize, roleShort } from './art.js';
 import { RM, CAMP_LABEL, roleName } from '../engine/roles.js';
 import {
-  alive, nm, isWolf, roleLabel, holders, livingHolders, seatNeighbors, stepContext, nightSteps, unknownPool, livingIds, CAUSE, groupNames, powerOn,
+  alive, nm, isWolf, roleLabel, holders, livingHolders, seatNeighbors, stepContext, nightSteps, unknownPool, livingIds, CAUSE, groupNames, powerOn, tally,
 } from '../engine/game.js';
 import { sfx } from '../audio.js';
 
@@ -13,7 +13,7 @@ const showRoles = () => S.settings.showRoles;
 /* ---------- Markierungen auf den Spielersteinen ---------- */
 
 function marks(g, c) {
-  const m = { pick: new Set(), target: new Set(), safe: new Set(), role: new Set(), dim: new Set() };
+  const m = { pick: new Set(), target: new Set(), safe: new Set(), role: new Set(), dim: new Set(), count: {} };
   const d = g.draft;
   if (g.phase === 'night' && c) {
     const { step, r, mode } = c;
@@ -35,7 +35,10 @@ function marks(g, c) {
       }
     }
   } else if (g.phase === 'day' || g.phase === 'interrupt') {
-    if (d.vote) m.target.add(d.vote);
+    if (g.phase === 'day') {
+      if (d.voteMode === 'direct') { if (d.vote) m.target.add(d.vote); }
+      else { const t = tally(g); t.rows.forEach((r) => { m.count[r.pid] = r.total; }); t.leaders.forEach((x) => m.target.add(x)); }
+    }
     if (g.captain) m.role.add(g.captain);
     const it = g.interrupts[0];
     if (it?.type === 'scapegoat') it.picks.forEach((x) => m.pick.add(x));
@@ -50,6 +53,7 @@ function tokHtml(g, p, i, n, mk, mode) {
   const known = showRoles() && rid;
   const cls = ['tok', dead && 'dead', mk.role.has(p.id) && 'is-role', mk.pick.has(p.id) && 'is-pick', mk.target.has(p.id) && 'is-target', mk.safe.has(p.id) && 'is-safe', mk.dim.has(p.id) && 'is-dim'].filter(Boolean).join(' ');
   const b = [];
+  if (mk.count[p.id]) b.push(`<span class="bdg gold cnt" title="Stimmen">${mk.count[p.id]}</span>`);
   if (g.captain === p.id) b.push(`<span class="bdg gold" title="Hauptmann">${I.crown}</span>`);
   if (g.lovers.includes(p.id)) b.push(`<span class="bdg red" title="Verliebt">${I.heart}</span>`);
   if (g.enchanted[p.id]) b.push(`<span class="bdg blue" title="Verzaubert">${I.flute}</span>`);
@@ -62,11 +66,18 @@ function tokHtml(g, p, i, n, mk, mode) {
   return `<button class="${cls}" data-action="tap" data-pid="${p.id}"${style} aria-label="${esc(p.name)}"><span class="ava">${ava}<span class="skull">${I.skull}</span></span>${b.length ? `<span class="badges">${b.join('')}</span>` : ''}<span class="nm">${esc(p.name)}</span>${label}</button>`;
 }
 
+/** Dauerhafte Übersicht: Wölfe gegen den Rest, wer noch lebt. */
+function scoreBar(g) {
+  const liv = livingIds(g), wolves = liv.filter((id) => isWolf(g, id)).length, unknown = liv.filter((id) => !g.roles[id]).length;
+  const rest = liv.length - wolves - unknown;
+  return `<div class="scorebar" aria-label="Spielstand"><span class="sc w" title="Lebende Werwölfe">${I.wolf}<b>${wolves}${unknown ? '+' : ''}</b> Wölfe</span><span class="sc v" title="Alle anderen Lebenden">${I.house}<b>${rest}</b> Dorf &amp; Co.</span><span class="sc">${liv.length}/${g.cfg.players.length} leben</span></div>`;
+}
+
 function tableHtml(g, c) {
   const ps = g.cfg.players, n = ps.length, mk = marks(g, c);
   const day = g.clock === 'day';
   const mid = `<div class="table-mid">${day ? I.sun : I.moon}<div class="big">${day ? `Tag ${g.day}` : `Nacht ${g.night}`}</div><div class="sub">${livingIds(g).length} von ${n} am Leben</div></div>`;
-  return `<div class="table-box"><div class="table"><div class="ring"></div>${mid}${ps.map((p, i) => tokHtml(g, p, i, n, mk, 'circle')).join('')}</div></div>
+  return `${scoreBar(g)}<div class="table-box"><div class="table"><div class="ring"></div>${mid}${ps.map((p, i) => tokHtml(g, p, i, n, mk, 'circle')).join('')}</div></div>
     <div class="pgrid" data-keep="pgrid">${ps.map((p, i) => tokHtml(g, p, i, n, mk, 'grid')).join('')}</div>`;
 }
 
@@ -92,7 +103,7 @@ on('open-menu', () => { ui.modal = { type: 'menu' }; });
 const seenText = (g, id) => {
   const rid = g.roles[id];
   if (!rid) return null;
-  if (g.cfg.rules.seerSees === 'camp') return isWolf(g, id) ? 'Werwolf (Wolfsseite)' : RM[rid].camp === 'solo' ? 'Einzelgänger' : 'Dorfseite';
+  if (g.cfg.rules.seerSees === 'camp') return isWolf(g, id) ? 'Werwolf' : 'Kein Werwolf';
   return `${roleLabel(g, id)}${isWolf(g, id) ? ' – gehört zu den Wölfen!' : ''}`;
 };
 
@@ -181,7 +192,9 @@ function taskBox(g, c) {
     }
   }
   const seg = (g.cfg.mode === 'cards' && g.night === 1 && step.act && r) ? `<div class="seg"><button class="${mode === 'assign' ? 'on' : ''}" data-action="assign-mode" data-mode="assign">1 · Wer? (${c.have}/${c.need})</button><button class="${mode === 'action' ? 'on' : ''}" data-action="assign-mode" data-mode="action" ${c.have === 0 ? 'disabled' : ''}>2 · Aktion</button></div>` : '';
-  return `<div class="task ${cls}">${seg}<div class="prompt">${cls === 'ok' ? I.check : I.right}<span>${esc(prompt)}</span></div>${extra}</div>`;
+  const task = `<div class="task ${cls}">${seg}<div class="prompt">${cls === 'ok' ? I.check : I.right}<span>${esc(prompt)}</span></div>${extra}</div>`;
+  const pin = mode === 'action' && ['witch', 'kill', 'infect', 'side', 'seance'].includes(step.act);
+  return { html: pin ? '' : task, pin: pin ? task : '' };
 }
 
 on('assign-mode', (el) => dispatch({ t: 'assign-mode', mode: el.dataset.mode }, { undoable: false }) || false);
@@ -216,9 +229,10 @@ function nightPanel(g, c) {
     : `<div class="rolebox"><div class="t"><h2>${esc(step.label)}</h2></div></div>`;
   const say = step.say ? `<div class="say">${esc(step.say)}</div>` : '';
   const last = idx >= steps.length - 1;
-  const body = `<div class="stepstrip" data-keep="strip">${strip}</div><div class="card col">${rolebox}${say}</div>${taskBox(g, c)}`;
+  const tb = taskBox(g, c);
+  const body = `<div class="stepstrip" data-keep="strip">${strip}</div><div class="card col">${rolebox}${say}</div>${tb.html}`;
   const foot = `<div class="side-foot"><button class="btn" data-action="step-prev" ${idx === 0 ? 'disabled' : ''} aria-label="Zurück">${I.left}</button><button class="btn primary" data-action="step-next"><span>${last ? 'Morgen anbrechen lassen' : 'Weiter'}</span>${last ? I.sun : I.right}</button></div>`;
-  return `<div class="side"><div class="side-scroll" data-keep="side">${body}</div>${foot}</div>`;
+  return `<div class="side"><div class="side-scroll" data-keep="side">${body}</div>${tb.pin ? `<div class="side-actions">${tb.pin}</div>` : ''}${foot}</div>`;
 }
 
 /* ---------- Tag ---------- */
@@ -252,32 +266,59 @@ function timerCard() {
     <button class="btn sm" data-action="timer-preset">${S.settings.timer / 60} min</button></div>`;
 }
 
+function voteCard(g) {
+  const d = g.draft, t = tally(g), count = d.voteMode !== 'direct', captainMode = g.dayMode === 'captain';
+  const names = (ids) => ids.map((x) => nm(g, x)).join(' und ');
+  const rows = t.rows.map((r) => `<div class="vrow ${t.leaders.includes(r.pid) ? 'lead' : ''}"><b>${esc(nm(g, r.pid))}</b><span class="vnote">${[r.cap ? 'Hauptmann doppelt' : '', r.bonus ? 'Rabe +2' : ''].filter(Boolean).join(' · ')}</span><span class="vnum">${r.total}</span></div>`).join('');
+  const result = !t.rows.length ? 'Noch keine Stimmen gezählt.' : t.tie ? `Gleichstand: ${names(t.leaders)} mit je ${t.max}.` : `Vorn: ${nm(g, t.leaders[0])} mit ${t.max} ${t.max === 1 ? 'Stimme' : 'Stimmen'}.`;
+  const cap = !captainMode && g.captain && alive(g, g.captain);
+  const seg = `<div class="seg"><button class="${count ? 'on' : ''}" data-action="vote-mode" data-mode="count">Stimmen zählen</button><button class="${!count ? 'on' : ''}" data-action="vote-mode" data-mode="direct">Direkt wählen</button></div>`;
+  const body = count ? `
+      <p class="muted vhint">Tippe im Kreis für jede erhobene Hand die gewählte Person an.</p>
+      <div class="vlist">${rows}</div>
+      <div class="vres ${t.tie ? 'warn' : ''}">${esc(result)}</div>
+      <div class="muted vhint">${t.cast} von ${t.eligible} Händen gezählt${t.cast < t.eligible ? '' : ', alle sind durch'}</div>
+      <div class="acts">
+        ${cap ? `<button class="btn sm ${d.capArm ? 'on' : ''}" data-action="vote-cap-arm">${I.crown}<span>${d.capVote ? `Hauptmann: ${esc(nm(g, d.capVote))}` : d.capArm ? 'Jetzt Hauptmanns Wahl antippen' : 'Stimme des Hauptmanns'}</span></button>` : ''}
+        <button class="btn sm" data-action="vote-undo" ${d.voteLog.length ? '' : 'disabled'}>${I.undo}<span>Letzte zurück</span></button>
+        <button class="btn sm" data-action="vote-reset" ${d.voteLog.length ? '' : 'disabled'}>${I.reset}<span>Neu zählen</span></button>
+      </div>` : `<div class="pickname">${d.vote ? esc(nm(g, d.vote)) : '<span class="muted">Person im Kreis antippen</span>'}</div>`;
+  return `<div class="card vote-card"><div class="eyebrow">${captainMode ? 'Hauptmannswahl' : 'Abstimmung'}</div>${seg}${body}</div>`;
+}
+
 function dayPanel(g) {
   const d = g.draft;
   const judge = livingHolders(g, 'judge')[0];
   const sg = livingHolders(g, 'scapegoat')[0];
+  const t = tally(g), count = d.voteMode !== 'direct';
+  const chosen = count ? (t.leaders.length === 1 ? t.leaders[0] : null) : d.vote;
   let body = '', foot = '';
   if (g.day === 0) body += `<div class="card col"><div class="eyebrow">Tag 0</div><p>Der Engel ist im Spiel: Die Partie beginnt mit einer Abstimmung, noch vor der ersten Nacht. Erinnere die Runde ruhig an die mögliche Anwesenheit des Engels.</p></div>`;
   else if (!ui.hideMorning) body += morningCard(g);
   if (g.dayMode === 'captain') {
-    body += `<div class="task"><div class="prompt">${I.crown}<span>Hauptmann wählen: Tippe die gewählte Person im Kreis an. Seine Stimme zählt doppelt.</span></div></div>`;
-    foot = `<button class="btn primary" data-action="skip-captain">Ohne Hauptmann weiter</button>`;
+    body += `<div class="task"><div class="prompt">${I.crown}<span>Hauptmann wählen. Seine Stimme zählt später doppelt.</span></div></div>${voteCard(g)}`;
+    foot = `<button class="btn" data-action="skip-captain">Ohne Hauptmann</button><button class="btn primary" data-action="captain-confirm" ${chosen ? '' : 'disabled'}>${I.crown}<span>Hauptmann ernennen</span></button>`;
   } else {
     if (g.secondVote) body += `<div class="task warn"><div class="prompt">${I.scale}<span>Zweite Abstimmung des Stotternden Richters: direkt, ohne weitere Diskussion.</span></div></div>`;
     else body += timerCard();
     if (g.voters && g.votersDay === g.day) body += `<div class="task warn"><div class="prompt">${I.horns}<span>Nur diese Personen dürfen abstimmen: ${esc(g.voters.map((x) => nm(g, x)).join(', ') || 'niemand')}</span></div></div>`;
     if (g.idiotRevealed) body += `<div class="hint">${I.jester}<span>Der Dorfdepp ist aufgedeckt und darf nicht mehr abstimmen.</span></div>`;
-    const v = d.vote;
-    body += `<div class="card vote-card"><div class="eyebrow">Abstimmung</div>
-      <div class="pickname">${v ? esc(nm(g, v)) : '<span class="muted">Person im Kreis antippen</span>'}</div>
-      ${judge && !g.judgeUsed ? `<button class="btn ${g.judgeArmed ? 'on' : ''}" data-action="judge-sign">${I.scale}<span>${g.judgeArmed ? 'Richter-Zeichen gegeben: zweite Abstimmung folgt' : 'Richter-Zeichen erhalten'}</span></button>` : ''}</div>`;
+    if (g.ravenMark && alive(g, g.ravenMark)) body += `<div class="hint">${I.feather}<span>Der Rabe hat ${esc(nm(g, g.ravenMark))} belastet: zwei Stimmen mehr (zählt die App mit).</span></div>`;
+    body += voteCard(g);
+    if (judge && !g.judgeUsed) body += `<button class="btn ${g.judgeArmed ? 'on' : ''}" data-action="judge-sign">${I.scale}<span>${g.judgeArmed ? 'Richter-Zeichen gegeben: zweite Abstimmung folgt' : 'Richter-Zeichen erhalten'}</span></button>`;
     if (g.captain) body += `<div class="hint">${I.crown}<span>Hauptmann: <b>${esc(nm(g, g.captain))}</b>. Seine Stimme zählt doppelt.</span></div>`;
-    foot = `<button class="btn primary" data-action="day-execute" ${v ? '' : 'disabled'}>${I.gavel}<span>Hinrichten</span></button>
-      <button class="btn" data-action="day-tie" aria-label="Gleichstand${sg ? ', der Sündenbock stirbt' : ''}">${I.scale}<span>Gleichstand</span></button>
+    foot = `<button class="btn primary" data-action="day-execute" ${chosen ? '' : 'disabled'}>${I.gavel}<span>Hinrichten</span></button>
+      <button class="btn ${count && t.tie ? 'on' : ''}" data-action="day-tie" aria-label="Gleichstand${sg ? ', der Sündenbock stirbt' : ''}">${I.scale}<span>Gleichstand</span></button>
       <button class="btn" data-action="day-none">${I.close}<span>Niemand</span></button>`;
   }
   return `<div class="side"><div class="side-scroll" data-keep="side">${body}</div>${foot ? `<div class="side-foot">${foot}</div>` : ''}</div>`;
 }
+
+on('vote-mode', (el) => { dispatch({ t: 'vote-mode', mode: el.dataset.mode }); return false; });
+on('vote-cap-arm', () => { dispatch({ t: 'vote-cap-arm' }); return false; });
+on('vote-undo', () => { dispatch({ t: 'vote-undo' }); return false; });
+on('vote-reset', () => { dispatch({ t: 'vote-reset' }); return false; });
+on('captain-confirm', () => { dispatch({ t: 'captain-confirm' }); return false; });
 
 on('day-execute', () => { buzz(30); dispatch({ t: 'day-execute' }); sfx('gong'); return false; });
 on('day-tie', () => { dispatch({ t: 'day-tie' }); return false; });
@@ -373,7 +414,7 @@ views.game = () => {
   const day = g.clock === 'day';
   const c = g.phase === 'night' ? stepContext(g) : null;
   const title = g.day === 0 && day ? 'Tag 0' : day ? `Tag ${g.day}` : `Nacht ${g.night}`;
-  const sub = g.phase === 'night' && c ? `Schritt ${c.idx + 1} von ${c.steps.length}` : g.phase === 'interrupt' ? 'Entscheidung nötig' : `${livingIds(g).length} am Leben`;
+  const sub = g.phase === 'night' && c ? `Schritt ${c.idx + 1}/${c.steps.length}` : g.phase === 'interrupt' ? 'Entscheidung nötig' : `${livingIds(g).length} am Leben`;
   const panel = g.phase === 'night' ? nightPanel(g, c) : g.phase === 'interrupt' ? interruptPanel(g) : dayPanel(g);
   const tonight = g.phase === 'day' && g.dayMode !== 'captain' && !g.secondVote ? '' : '';
   return `<div class="view">${header(g, title, sub)}<div class="game"><div class="table-wrap">${tableHtml(g, c)}</div>${panel}${tonight}</div></div>`;
@@ -391,6 +432,16 @@ async function applyWakeLock() {
   } catch { wl = null; }
 }
 afterRender.push(applyWakeLock);
+// Wolfsheulen, sobald ein Wolfsschritt beginnt (Werwölfe und alle besonderen Wölfe, auch zum Schein bei toten)
+const isWolfStep = (step) => step?.role && (RM[step.role]?.camp === 'wolf' || step.role === 'whitewolf');
+afterRender.push(() => {
+  const g = S.game;
+  if (!g || g.phase !== 'night') { ui.stepSeen = null; return; }
+  if (ui.view !== 'game') return;
+  const c = stepContext(g);
+  const key = c ? `${g.night}:${c.idx}:${c.step.key}` : null;
+  if (key !== ui.stepSeen) { ui.stepSeen = key; if (isWolfStep(c?.step)) sfx('howl'); }
+});
 // Siegerton einmal pro Spielende
 afterRender.push(() => {
   const g = S.game;

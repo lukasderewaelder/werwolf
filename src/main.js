@@ -8,7 +8,7 @@ import './ui/modals.js';
 import './ui/install.js';
 import './ui/diagnose.js';
 import { bind } from './store-ref.js';
-import { setMusic, stopMusic, unlockAudio, musicState, debugSeekNearEnd } from './audio.js';
+import { setMusic, stopMusic, unlockAudio, musicState, debugSeekNearEnd, sfxLog } from './audio.js';
 import { buildScene } from './ui/scene.js';
 import { registerRoles } from './engine/roles.js';
 
@@ -59,5 +59,5 @@ navigator.storage?.persist?.().catch(() => {});   // Gerät soll Spielstand und 
 buildScene();
 setupServiceWorker();
 render();
-window.__werwolf = { S, ui, render, dispatch, musicState, debugSeekNearEnd };   // für Tests und Fehlersuche
+window.__werwolf = { S, ui, render, dispatch, musicState, debugSeekNearEnd, sfxLog };   // für Tests und Fehlersuche
 export { toast };

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, apply, nightSteps, setupProblems, checkWinner, alive, isWolf, livingIds } from '../src/engine/game.js';
+import { createGame, apply, nightSteps, setupProblems, checkWinner, alive, isWolf, livingIds, tally, eligibleVoters } from '../src/engine/game.js';
 
 /** Digitalspiel mit fest vorgegebenen Rollen; Spieler heißen p1..pn in Sitzreihenfolge. */
 function mk(roleList, rules = {}, mode = 'digital') {
@@ -362,4 +362,104 @@ test('Eigene Rollen: Wolfslager zählt als Werwolf, Aufruf mit Position vor den 
   assert.equal(isWolf(g, 'p2'), false);
   assert.deepEqual(nightSteps(g).map((s) => s.key), ['c2', 'wolf']);
   assert.equal(checkWinner({ ...g, dead: { p3: { cause: 'wolves' }, p4: { cause: 'wolves' }, p5: { cause: 'wolves' } } }), 'Die Werwölfe');
+});
+
+test('Seherin sieht nur Werwolf oder nicht: sie kommt nach allen Wölfen dran, sonst davor', () => {
+  const roles = ['wolf', 'urwolf', 'bigwolf', 'seer', 'witch', 'villager', 'villager', 'villager'];
+  assert.deepEqual(nightSteps(mk(roles, { seerSees: 'role' })).map((s) => s.key), ['seer', 'wolf', 'urwolf', 'bigwolf', 'witch']);
+  assert.deepEqual(nightSteps(mk(roles, { seerSees: 'camp' })).map((s) => s.key), ['wolf', 'urwolf', 'bigwolf', 'seer', 'witch']);
+});
+
+test('Kartenmodus Nacht 1: Fuchs kommt nach den Wölfen, ab Nacht 2 an der Regelheft-Stelle', () => {
+  const players = Array.from({ length: 6 }, (_, i) => ({ id: `p${i + 1}`, name: `P${i + 1}` }));
+  const g = createGame({ players, counts: { wolf: 1, fox: 1, seer: 1, villager: 3 }, mode: 'cards' });
+  const keys = (x) => nightSteps(x).map((s) => s.key).filter((k) => ['seer', 'fox', 'wolf'].includes(k));
+  assert.deepEqual(keys(g), ['seer', 'wolf', 'fox']);
+  assert.deepEqual(keys({ ...g, night: 2 }), ['seer', 'fox', 'wolf']);
+});
+
+const dayGame = (extra = {}, roles = ['wolf', 'villager', 'villager', 'villager', 'villager', 'villager']) => {
+  let g = mk(roles, extra);
+  g = finishNight(g);
+  return skipCaptain(g);
+};
+const taps = (g, ...ids) => ids.reduce((x, id) => apply(x, { t: 'tap', pid: id }), g);
+
+test('Stimmenzähler: Mehrheit wird erkannt und hingerichtet', () => {
+  let g = dayGame();
+  g = taps(g, 'p3', 'p3', 'p3', 'p4', 'p4');
+  const t = tally(g);
+  assert.deepEqual(t.leaders, ['p3']);
+  assert.equal(t.cast, 5);
+  assert.equal(t.rows[0].total, 3);
+  g = apply(g, { t: 'day-execute' });
+  assert.equal(alive(g, 'p3'), false);
+  assert.equal(g.phase, 'night');
+  assert.deepEqual(g.draft.votes, {});
+});
+
+test('Stimmenzähler: Gleichstand wird erkannt, Hinrichten tut dann nichts, Letzte zurück löst ihn auf', () => {
+  let g = dayGame();
+  g = taps(g, 'p3', 'p3', 'p4', 'p4');
+  assert.equal(tally(g).tie, true);
+  assert.deepEqual(tally(g).leaders.sort(), ['p3', 'p4']);
+  const same = apply(g, { t: 'day-execute' });
+  assert.equal(same.phase, 'day');
+  g = apply(taps(g, 'p4'), { t: 'day-execute' });
+  assert.equal(alive(g, 'p4'), false);
+  let h = taps(dayGame(), 'p3', 'p4');
+  h = apply(taps(h, 'p3'), { t: 'vote-undo' });
+  assert.equal(tally(h).tie, true);
+});
+
+test('Stimmenzähler: Hauptmann zählt doppelt, Rabe gibt zwei Stimmen dazu', () => {
+  let g = dayGame({ captain: true });
+  g = apply(g, { t: 'set-captain', pid: 'p2' });
+  g = apply(g, { t: 'vote-cap-arm' });
+  g = taps(g, 'p4');                       // Hauptmann wählt p4: 2 Stimmen
+  g = taps(g, 'p3', 'p3');                 // zwei Hände für p3
+  let t = tally(g);
+  assert.equal(t.tie, true, 'zwei zu zwei');
+  g.ravenMark = 'p3';
+  t = tally(g);
+  assert.deepEqual(t.leaders, ['p3']);
+  assert.equal(t.rows.find((r) => r.pid === 'p3').total, 4);
+  assert.equal(t.cast, 3);
+  g = apply(g, { t: 'vote-undo' });        // nimmt die letzte Hand von p3 zurück
+  assert.equal(tally(g).rows.find((r) => r.pid === 'p3').hands, 1);
+  assert.equal(g.draft.capVote, 'p4');
+});
+
+test('Stimmenzähler: Dorfdepp ohne Stimmrecht, nur so viele Hände wie Wahlberechtigte', () => {
+  let g = dayGame({}, ['wolf', 'idiot', 'villager', 'villager']);
+  g.idiotRevealed = true;
+  assert.deepEqual(eligibleVoters(g), ['p1', 'p3', 'p4']);
+  g = taps(g, 'p3', 'p3', 'p3', 'p3');
+  assert.equal(tally(g).cast, 3, 'vierte Hand wird abgelehnt');
+  g.voters = ['p3']; g.votersDay = g.day;
+  assert.deepEqual(eligibleVoters(g), ['p3'], 'Sündenbock beschränkt die Wähler');
+});
+
+test('Hauptmannswahl per Zähler, direkt wählen und Gleichstand', () => {
+  const start = () => finishNight(mk(['wolf', 'villager', 'villager', 'villager', 'villager', 'villager']));
+  let g = start();
+  assert.equal(g.dayMode, 'captain');
+  g = taps(g, 'p3', 'p3', 'p4');
+  g = apply(g, { t: 'captain-confirm' });
+  assert.equal(g.captain, 'p3');
+  assert.equal(g.dayMode, 'vote');
+  let h = apply(start(), { t: 'vote-mode', mode: 'direct' });
+  h = taps(h, 'p5');
+  h = apply(h, { t: 'captain-confirm' });
+  assert.equal(h.captain, 'p5');
+  let k = taps(start(), 'p3', 'p4');
+  k = apply(k, { t: 'captain-confirm' });
+  assert.equal(k.captain, null, 'bei Gleichstand wird niemand ernannt');
+});
+
+test('Ältere Spielstände ohne Zähler laufen weiter', () => {
+  let g = dayGame();
+  delete g.draft.votes; delete g.draft.voteLog; delete g.draft.voteMode; delete g.draft.capVote;
+  g = taps(g, 'p3');
+  assert.deepEqual(tally(g).leaders, ['p3']);
 });

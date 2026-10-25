@@ -26,7 +26,11 @@ const emptyDraft = () => ({
   kill: null, girlCaught: false, check: null, heal: null, poison: null, lovers: [], protect: null, infect: false,
   bigkill: null, whitekill: null, model: null, side: null, fox: null, mark: null, enchant: [], vote: null,
   actorRole: null, thiefRole: null, seance: null,
+  votes: {}, capVote: null, capArm: false, voteLog: [], voteMode: 'count',   // Stimmenzähler
 });
+
+/** Ältere Spielstände ohne Stimmenzähler ergänzen. */
+export function normalizeGame(g) { if (g) g.draft = { ...emptyDraft(), ...g.draft }; return g; }
 
 /* ---------- Zustand anlegen ---------- */
 
@@ -164,6 +168,14 @@ export function actorRoleNow(g) {
   return g.actorId && alive(g, g.actorId) && g.roles[g.actorId] !== 'actor' ? g.roles[g.actorId] : null;
 }
 
+/** Aufrufreihenfolge nach dem Regelheft. Ausnahme: Kann die Seherin nur „Werwolf oder nicht“ erfahren (und der Fuchs in Nacht 1 im Kartenmodus),
+ *  kommt sie nach allen Wölfen dran, weil der Spielleiter die Wölfe erst dort erfasst. */
+function orderOf(g, r) {
+  if (r.id === 'seer' && g.cfg.rules.seerSees === 'camp') return 255;
+  if (r.id === 'fox' && g.cfg.mode === 'cards' && g.night === 1) return 256;
+  return r.night?.order ?? SILENT_ORDER[r.id] ?? 999;
+}
+
 /** Schritte der aktuellen Nacht in der Reihenfolge des Regelhefts. */
 export function nightSteps(g) {
   const out = [];
@@ -171,7 +183,7 @@ export function nightSteps(g) {
   const borrowed = actorRoleNow(g);
   const digital = g.cfg.mode === 'digital';
   const wolfSide = Object.keys(g.cfg.counts).some((id) => isWolfRole(id) && cnt(g, id) > 0) || g.cfg.players.some((p) => isWolf(g, p.id));
-  const entries = ROLES.filter((r) => r.id !== 'villager').map((r) => ({ r, order: r.night?.order ?? SILENT_ORDER[r.id] ?? 999 })).sort((a, b) => a.order - b.order);
+  const entries = ROLES.filter((r) => r.id !== 'villager').map((r) => ({ r, order: orderOf(g, r) })).sort((a, b) => a.order - b.order);
   for (const { r } of entries) {
     const inPlay = cnt(g, r.id) > 0 || r.id === borrowed || (r.id === 'wolf' && wolfSide);
     if (!inPlay) continue;
@@ -268,6 +280,30 @@ export function unknownPool(g) {
   }
   return out;
 }
+
+/** Wer am Tag mitstimmen darf: Lebende ohne den aufgedeckten Dorfdepp, bei Sündenbock-Anordnung nur die Genannten. */
+export function eligibleVoters(g) {
+  let ids = livingIds(g).filter((id) => !(g.roles[id] === 'idiot' && g.idiotRevealed));
+  if (g.dayMode !== 'captain' && g.voters && g.votersDay === g.day) ids = ids.filter((id) => g.voters.includes(id));
+  return ids;
+}
+
+/** Auszählung: gezählte Hände, doppelte Stimme des Hauptmanns, +2 durch den Raben (nur bei der Hinrichtung). Führende und Gleichstand. */
+export function tally(g) {
+  const d = g.draft, exec = g.dayMode !== 'captain';
+  const map = {};
+  const row = (pid) => (map[pid] ??= { pid, hands: 0, bonus: 0, cap: false });
+  for (const [pid, n] of Object.entries(d.votes ?? {})) if (n > 0 && alive(g, pid)) row(pid).hands += n;
+  if (exec && d.capVote && alive(g, d.capVote)) { const r = row(d.capVote); r.hands += 2; r.cap = true; }
+  if (exec && g.ravenMark && alive(g, g.ravenMark)) row(g.ravenMark).bonus += 2;
+  const rows = Object.values(map).map((r) => ({ ...r, total: r.hands + r.bonus })).filter((r) => r.total > 0).sort((a, b) => b.total - a.total);
+  const max = rows[0]?.total ?? 0;
+  const leaders = rows.filter((r) => r.total === max).map((r) => r.pid);
+  const cast = Object.values(d.votes ?? {}).reduce((x, y) => x + y, 0) + (d.capVote ? 1 : 0);
+  return { rows, leaders, tie: leaders.length > 1, cast, eligible: eligibleVoters(g).length, max };
+}
+
+const resetVote = (g) => { const d = g.draft; d.vote = null; d.votes = {}; d.capVote = null; d.capArm = false; d.voteLog = []; };
 
 export function checkWinner(g) {
   if (g.interrupts.length || g.queue.length) return null;
@@ -394,7 +430,7 @@ function votersNote(g) {
 }
 
 function endDay(g) {
-  g.draft.vote = null; g.collectMorning = false;
+  resetVote(g); g.ravenMark = null; g.collectMorning = false;
   if (g.judgeArmed && !g.judgeUsed) {
     g.judgeArmed = false; g.judgeUsed = true; g.secondVote = true;
     log(g, 'Der Stotternde Richter verlangt eine zweite Abstimmung – ohne weitere Diskussion');
@@ -475,8 +511,14 @@ function tap(g, pid, toast) {
   }
   if (g.phase === 'day') {
     if (!alive(g, pid)) return;
-    if (g.dayMode === 'captain') { g.captain = pid; g.dayMode = 'vote'; log(g, `Hauptmann: ${nm(g, pid)}`); return; }
-    d.vote = d.vote === pid ? null : pid;
+    if (d.voteMode === 'direct') { d.vote = d.vote === pid ? null : pid; return; }
+    const t = tally(g);
+    if (d.capArm && g.dayMode === 'vote') {
+      if (d.capVote) { toast?.('Der Hauptmann hat schon gewählt: erst „Letzte Stimme zurück“.'); d.capArm = false; return; }
+      d.capVote = pid; d.capArm = false; d.voteLog.push({ k: 'c', pid }); return;
+    }
+    if (t.cast >= t.eligible) { toast?.('Alle Stimmen sind schon gezählt.'); return; }
+    d.votes[pid] = (d.votes[pid] ?? 0) + 1; d.voteLog.push({ k: 'v', pid });
     return;
   }
   const c = stepContext(g);
@@ -542,6 +584,7 @@ function resumeAfter(g) { afterDeaths(g, g.resume); }
 
 export function apply(g0, a, toast) {
   const g = clone(g0);
+  normalizeGame(g);
   const d = g.draft;
   switch (a.t) {
     case 'tap': tap(g, a.pid, toast); break;
@@ -610,7 +653,26 @@ export function apply(g0, a, toast) {
       break;
     }
     case 'maid-take': maidTakes(g, true); break;
-    case 'day-execute': executeVote(g); break;
+    case 'vote-mode': d.voteMode = a.mode === 'direct' ? 'direct' : 'count'; d.vote = null; d.capArm = false; break;
+    case 'vote-cap-arm': if (g.captain && alive(g, g.captain) && g.dayMode === 'vote') d.capArm = !d.capArm; break;
+    case 'vote-undo': {
+      const e = d.voteLog.pop();
+      if (e?.k === 'v') { d.votes[e.pid] = Math.max(0, (d.votes[e.pid] ?? 1) - 1); if (!d.votes[e.pid]) delete d.votes[e.pid]; }
+      if (e?.k === 'c') d.capVote = null;
+      d.capArm = false;
+      break;
+    }
+    case 'vote-reset': resetVote(g); break;
+    case 'day-execute': {
+      if (!d.vote && d.voteMode === 'count') { const t = tally(g); if (t.leaders.length === 1) d.vote = t.leaders[0]; }
+      if (d.vote) executeVote(g);
+      break;
+    }
+    case 'captain-confirm': {
+      if (!d.vote && d.voteMode === 'count') { const t = tally(g); if (t.leaders.length === 1) d.vote = t.leaders[0]; }
+      if (d.vote && alive(g, d.vote)) { g.captain = d.vote; g.dayMode = 'vote'; log(g, `Hauptmann: ${nm(g, d.vote)}`); resetVote(g); }
+      break;
+    }
     case 'day-tie': {
       g.collectMorning = false;
       const sg = livingHolders(g, 'scapegoat')[0];
@@ -619,8 +681,8 @@ export function apply(g0, a, toast) {
     }
     case 'day-none': log(g, 'Keine Hinrichtung'); endDay(g); break;
     case 'skip-to-night': endDay(g); break;
-    case 'set-captain': g.captain = a.pid; g.dayMode = 'vote'; log(g, `Hauptmann: ${nm(g, a.pid)}`); break;
-    case 'skip-captain': g.dayMode = 'vote'; break;
+    case 'set-captain': g.captain = a.pid; g.dayMode = 'vote'; resetVote(g); log(g, `Hauptmann: ${nm(g, a.pid)}`); break;
+    case 'skip-captain': g.dayMode = 'vote'; resetVote(g); break;
     case 'manual-kill': if (g.phase === 'day' && alive(g, a.pid)) { kill(g, a.pid, 'manual'); afterDeaths(g, 'day'); } break;
     case 'rename': { const p = g.cfg.players.find((x) => x.id === a.pid); if (p && a.name) p.name = a.name; break; }
     case 'deal-next': g.dealIdx++; g.dealShown = false; break;

@@ -1,8 +1,9 @@
 // Kern der Oberfläche: Zustand, Rendern, Ereignisverteilung, Rückgängig.
 import { load, save } from '../store.js';
-import { apply } from '../engine/game.js';
+import { apply, normalizeGame } from '../engine/game.js';
 
 export const S = load();
+if (S.game) normalizeGame(S.game);
 export const ui = {
   view: S.game && S.game.phase !== 'ended' ? 'home' : 'home',
   modal: null,          // { type, ... }

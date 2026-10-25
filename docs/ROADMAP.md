@@ -8,7 +8,7 @@ Bis M6 ist alles erledigt und live (Engine, Oberfläche, PWA, Nachtmusik, Instal
 
 Stand der Umsetzung steht hinter jeder Überschrift.
 
-## M7 Gerätetest-Paket (umgesetzt, wartet auf deine Abnahme)
+## M7 Gerätetest-Paket (abgenommen)
 Ziel: Du kannst die App auf iPad, iPhone und Android prüfen und siehst bei Problemen sofort, woran es liegt.
 - Diagnoseseite in den Optionen: Version, Service Worker, Offline-Bereitschaft (Dateien im Speicher), installiert ja/nein, Speicher dauerhaft, Ton und Musik, Bildschirmgröße, Testton.
 - Lautstärkeregler, Töne- und Musikschalter direkt im Spiel (Menü), Musikknopf in der Kopfleiste.
@@ -18,7 +18,7 @@ Ziel: Du kannst die App auf iPad, iPhone und Android prüfen und siehst bei Prob
 
 Abnahme (du): Installieren, Flugmodus an, App starten, Diagnoseseite zeigt „bereit für Offline“, Musik in Nacht 1 hörbar, Lautstärke regelbar, Wechsel in eine andere App stoppt die Musik.
 
-## M8 Android-Layout und Sound-Auswahl (umgesetzt, wartet auf deine Abnahme)
+## M8 Android-Layout und Sound-Auswahl (abgenommen, mit Nachbesserungen aus M9)
 Teil A: Layout auf Android (Meldung: manchmal muss man scrollen, Knöpfe unten sind abgeschnitten)
 - Höhen robuster: Rückfall für ältere Browser, kompakter Modus für niedrige Fenster, Querformat am Handy mit zwei Spalten.
 - Wichtige Knöpfe bleiben immer sichtbar: Hinrichten, Gleichstand, Niemand, Antworten bei Jäger, Hauptmann, Sündenbock und Magd sitzen in einer festen Fußleiste. In Dialogen klebt „Schließen“ am unteren Rand.
@@ -33,10 +33,13 @@ Teil B: Töne, jetzt als Auswahl
 
 Abnahme: Auf deinem Android-Handy ist in jeder Ansicht (Start, Assistent, Nacht, Tag, Dialoge) der untere Knopf ohne Scrollen sichtbar. Die gewählten Töne klingen stimmig und passen zur Lautstärke der Musik.
 
-## M9 Abstimmung und Überblick
+## M9 Abstimmung und Überblick (umgesetzt, wartet auf deine Abnahme)
 - Stimmenzähler: Stimmen pro Person erfassen mit doppelter Stimme des Hauptmanns, +2 des Raben, Dorfdepp ohne Stimmrecht, eingeschränkte Wähler des Sündenbocks. Ergebnis und Gleichstand erkennt die App selbst.
 - Dauerhafte Anzeige im Spiel: Wölfe gegen Rest, wer noch lebt.
 - Hauptmannswahl ebenfalls per Stimmenzähler.
+
+Umgesetzt: Stimmenzähler (für jede Hand im Kreis antippen, Zahl am Stein, Rangliste, „Stimme des Hauptmanns“ doppelt, Rabe +2, Dorfdepp und Sündenbock-Wähler begrenzen die Zahl der Hände), Hauptmannswahl mit demselben Zähler, Umschalter „Direkt wählen“, Zähler-Leiste (Wölfe gegen Rest, wer lebt).
+Nachbesserungen aus deiner Abnahme von M8: Wolfsheulen beim Erwachen aller Wölfe (auch Urwolf, Großer böser Wolf, Weißer Werwolf), Hexe mit festen Trankknöpfen samt Opfer-Anzeige, Seherin nach den Wölfen bei „Werwolf oder nicht“ (Fuchs in Nacht 1 im Kartenmodus ebenso).
 
 Abnahme: Eine Abstimmung mit 10 Spielern läuft ohne Kopfrechnen, der Gleichstand wird erkannt.
 

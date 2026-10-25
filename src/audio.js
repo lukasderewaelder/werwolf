@@ -41,7 +41,10 @@ function bufferFor(c, name) {
   return buffers.get(name);
 }
 
+export const sfxLog = [];   // nur für Tests: Namen der ausgelösten Töne
+
 export async function sfx(name, force = false) {
+  sfxLog.push(name); if (sfxLog.length > 60) sfxLog.shift();
   if (!force && !on()) return;
   const c = audioCtx(); if (!c) return;
   const buf = await bufferFor(c, name);

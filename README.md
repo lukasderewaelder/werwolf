@@ -23,7 +23,7 @@ Nach dem ersten Öffnen mit Netz ist alles auf dem Gerät gespeichert. Danach fu
 2. **Modus**: *Mit Spielkarten* (echte Karten, die App führt durch die Nacht) oder *Ohne Karten* (die App lost und zeigt jedem heimlich seine Rolle).
 3. **Rollen**: Empfehlung nutzen oder selbst wählen, eigene Rollen anlegen. Die Kartenzahl muss stimmen.
 4. **Hausregeln**: Seherin sieht Rolle oder nur Seite, keine Opfer in Nacht 1, Hauptmann, Wolfssieg bei Gleichstand u. a.
-5. **Nacht**: Ansage vorlesen, Personen im Kreis antippen, *Weiter*. **Tag**: Tote und Morgenmeldungen, Timer, Hauptmann wählen, Hinrichtung antippen.
+5. **Nacht**: Ansage vorlesen, Personen im Kreis antippen, *Weiter*. **Tag**: Tote und Morgenmeldungen, Timer, Hauptmann wählen. Bei der Abstimmung tippst du für jede erhobene Hand die gewählte Person an, die App zählt (Hauptmann doppelt, Rabe +2) und zeigt Mehrheit oder Gleichstand. „Direkt wählen“ geht ohne Zählen.
 
 Das Auge-Symbol blendet Rollen auf den Spielersteinen aus, der Pfeil macht die letzte Aktion rückgängig. Im Menü (drei Punkte) stehen Protokoll, „Wer ist wer“ mit Korrekturen und der Rollen-Spickzettel.
 
