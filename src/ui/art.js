@@ -10,6 +10,7 @@ export const roleColor = (id) => RM[id]?.color ?? '#3a4466';
 
 /** Rollenbild mit Farbhintergrund. Ohne Rolle erscheint ein Fragezeichen. */
 export function art(roleId, cls = '') {
+  if (RM[roleId]?.custom) return `<span class="rbg ${cls}" style="--rc:${roleColor(roleId)}"><span class="q">${esc(RM[roleId].name.slice(0, 1).toUpperCase())}</span></span>`;
   if (!roleId || !RM[roleId]) return `<span class="rbg ${cls}" style="--rc:#3a4466"><span class="q">?</span></span>`;
   return `<span class="rbg ${cls}" style="--rc:${roleColor(roleId)}"><i class="pimg" style="background-image:url(${portraitUrl(roleId)})"></i></span>`;
 }

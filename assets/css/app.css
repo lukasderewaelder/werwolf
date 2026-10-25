@@ -176,7 +176,7 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
 .rbg .q{display:grid;place-items:center;width:100%;height:100%;font-family:var(--serif);font-weight:800;font-size:1.6em;color:rgba(255,255,255,.8)}
 
 /* ---------- Spielansicht ---------- */
-.game{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(380px,.8fr);gap:16px;padding:0 16px max(14px,var(--safe-b))}
+.game{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(min(380px,100%),.8fr);gap:16px;padding:0 16px max(14px,var(--safe-b))}
 .table-wrap{min-height:0;display:flex;flex-direction:column;gap:8px}
 .table-box{flex:1;min-height:0;display:grid;place-items:center;container-type:size}
 .table{position:relative;width:min(100cqw,100cqh);aspect-ratio:1}
@@ -210,7 +210,7 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
 .pgrid .tok .ava{width:60px}
 .pgrid .tok .nm{max-width:100%}
 
-.side{min-height:0;display:flex;flex-direction:column;gap:12px}
+.side{min-height:0;min-width:0;display:flex;flex-direction:column;gap:12px}
 .side-scroll{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:2px 2px 4px}
 .side-foot{flex:none;display:flex;gap:10px}
 .side-foot .btn.primary{flex:1}
@@ -279,9 +279,10 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
 @media (max-width:980px),(orientation:portrait){
   .home{grid-template-columns:1fr;gap:18px;padding-top:6px;align-content:start;overflow-y:auto}
   .home-hero .logo{width:96px}
-  .game{grid-template-columns:1fr;grid-template-rows:minmax(0,.9fr) minmax(0,1.1fr);gap:10px}
-  .table-box{display:none}.pgrid{display:grid;overflow-y:auto}
-  .table-wrap{min-height:0}
+  .game{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:10px}
+  .table-box{display:none}.pgrid{display:grid;flex:1;min-height:0;overflow-y:auto}
+  .table-wrap{min-height:0;max-height:38dvh}
+  .side{min-width:0}
   .mode-grid{grid-template-columns:1fr}
   .rolebox .rbg{width:64px;height:76px}
 }
@@ -295,9 +296,14 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
 /* breite Fenster im Hochformat des iPad: Tisch trotzdem als Kreis zeigen */
 @media (min-width:700px) and (orientation:portrait){
   .game{grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
+  .table-wrap{max-height:none}
   .table-box{display:grid}.pgrid{display:none}
 }
 
 #update{position:fixed;left:50%;top:calc(12px + var(--safe-t));transform:translateX(-50%);z-index:70;display:flex;gap:12px;align-items:center;padding:10px 12px 10px 16px;border-radius:14px;background:var(--accent);color:var(--accent-ink);font-weight:700;box-shadow:var(--shadow)}
 #update[hidden]{display:none}
 #update button{padding:8px 14px;border-radius:10px;background:var(--accent-ink);color:var(--accent);font-weight:800}
+
+.page > .member-list{flex:1;min-height:0;align-content:start}
+.col.scroll .member-list,.col.scroll .role-grid{overflow:visible}
+.col.scroll > *{flex-shrink:0}

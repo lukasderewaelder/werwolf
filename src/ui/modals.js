@@ -26,6 +26,12 @@ on('confirm-yes', () => {
   if (what === 'reset-all') { S.groups = []; S.settings = defaultSettings(); S.setup = defaultSetup(); S.game = null; S.lastResult = null; clearUndo(); }
 });
 
+on('greis-open', () => { ui.modal = { type: 'greis' }; });
+const setGroups = (f) => { const ps = S.game.cfg.players; dispatch({ t: 'set-groups', groups: f(ps) }, { undoable: false }); return false; };
+on('greis-set', (el) => setGroups(() => ({ ...S.game.groups, [el.dataset.id]: el.dataset.v })));
+on('greis-halves', () => setGroups((ps) => Object.fromEntries(ps.map((p, i) => [p.id, i < Math.ceil(ps.length / 2) ? 'A' : 'B']))));
+on('greis-alt', () => setGroups((ps) => Object.fromEntries(ps.map((p, i) => [p.id, i % 2 ? 'B' : 'A']))));
+on('greis-random', () => setGroups((ps) => { const ids = ps.map((p) => p.id).sort(() => Math.random() - 0.5); return Object.fromEntries(ids.map((id, i) => [id, i < Math.ceil(ids.length / 2) ? 'A' : 'B'])); }));
 on('player-role', (el) => { dispatch({ t: 'assign-direct', pid: ui.modal.id, role: el.dataset.role }); return false; });
 on('player-kill', () => { const id = ui.modal.id; ui.modal = null; dispatch({ t: 'manual-kill', pid: id }); return false; });
 on('player-captain', () => { const id = ui.modal.id; ui.modal = null; dispatch({ t: 'set-captain', pid: id }); return false; });
@@ -39,6 +45,7 @@ views.modal = () => {
         <button class="opt" data-action="show-who"><span class="t"><b>Wer ist wer</b><span>Rollen, Status und Korrekturen pro Spieler</span></span>${I.right}</button>
         <button class="opt" data-action="show-roles"><span class="t"><b>Rollen im Spiel</b><span>Spickzettel mit allen Karten dieser Runde</span></span>${I.right}</button>
         <button class="opt" data-action="show-log-menu"><span class="t"><b>Protokoll</b><span>Was bisher passiert ist</span></span>${I.right}</button>
+        ${g?.cfg.counts.greis ? `<button class="opt" data-action="greis-open"><span class="t"><b>Gruppen des Greises</b><span>Dorf in zwei Gruppen teilen</span></span>${I.right}</button>` : ''}
         <button class="opt" data-action="end-game"><span class="t"><b style="color:var(--danger)">Spiel beenden</b><span>Abbrechen und zur Startseite</span></span></button>
       </div>${closeBtn()}`);
     case 'log': return sheet(`<h2>Protokoll</h2><div class="log">${(g?.log ?? []).slice().reverse().map((l) => `<div><b>${esc(l.p)}</b>${esc(l.t)}</div>`).join('') || '<p class="muted">Noch nichts.</p>'}</div>${closeBtn()}`);
@@ -73,6 +80,27 @@ views.modal = () => {
     }
     case 'group-new': return sheet(`<h2>Neue Gruppe</h2><form id="group-form" class="col"><input class="inp" placeholder="Name der Gruppe, z. B. Klasse 7a" maxlength="30" autofocus aria-label="Gruppenname"><button class="btn primary" type="submit">Anlegen</button></form>${closeBtn('Abbrechen')}`);
     case 'group-rename': { const grp = groupById(S, S.setup.groupId); return sheet(`<h2>Gruppe umbenennen</h2><form id="rename-form" class="col"><input class="inp" value="${esc(grp?.name ?? '')}" maxlength="30" aria-label="Gruppenname"><button class="btn primary" type="submit">Speichern</button></form>${closeBtn('Abbrechen')}`); }
+    case 'custom': {
+      const d = m.draft;
+      return sheet(`<h2>${m.id ? 'Eigene Rolle bearbeiten' : 'Eigene Rolle anlegen'}</h2>
+        <form id="custom-form" class="col">
+          <label class="col" style="gap:4px"><span class="eyebrow">Name</span><input class="inp" name="name" value="${esc(d.name)}" maxlength="28" placeholder="z. B. Nachtwächter" required></label>
+          <label class="col" style="gap:4px"><span class="eyebrow">Lager</span><select class="inp" name="camp"><option value="village" ${d.camp !== 'wolf' ? 'selected' : ''}>Dorfbewohner</option><option value="wolf" ${d.camp === 'wolf' ? 'selected' : ''}>Werwölfe (zählt als Wolf)</option></select></label>
+          <label class="col" style="gap:4px"><span class="eyebrow">Kurzbeschreibung</span><input class="inp" name="sub" value="${esc(d.sub)}" maxlength="60" placeholder="z. B. Sieht, wer nachts wach ist"></label>
+          <label class="col" style="gap:4px"><span class="eyebrow">Beschreibung</span><textarea class="inp" name="desc" maxlength="600" placeholder="Was kann die Rolle? Die Regeln führst du selbst durch.">${esc(d.desc)}</textarea></label>
+          <label class="col" style="gap:4px"><span class="eyebrow">Wann wird sie nachts aufgerufen?</span><select class="inp" name="wake"><option value="none" ${d.wake === 'none' ? 'selected' : ''}>Gar nicht</option><option value="first" ${d.wake === 'first' ? 'selected' : ''}>Nur in der ersten Nacht</option><option value="every" ${d.wake === 'every' ? 'selected' : ''}>Jede Nacht</option></select></label>
+          <label class="col" style="gap:4px"><span class="eyebrow">Reihenfolge</span><select class="inp" name="after"><option value="before" ${!d.after ? 'selected' : ''}>Vor den Werwölfen</option><option value="after" ${d.after ? 'selected' : ''}>Nach den Werwölfen, vor der Hexe</option></select></label>
+          <label class="col" style="gap:4px"><span class="eyebrow">Ansage zum Vorlesen</span><input class="inp" name="say" value="${esc(d.say)}" maxlength="300" placeholder="Der Nachtwächter erwacht."></label>
+          <button class="btn primary" type="submit">Speichern</button>
+        </form>
+        ${m.id ? `<button class="btn danger" data-action="custom-delete">${I.close}Rolle löschen</button>` : ''}${closeBtn('Abbrechen')}`);
+    }
+    case 'greis': {
+      const rows = g.cfg.players.map((p) => `<div class="member"><b>${esc(p.name)}</b><div class="seg" style="min-width:130px"><button class="${g.groups[p.id] === 'A' ? 'on' : ''}" data-action="greis-set" data-id="${p.id}" data-v="A">1</button><button class="${g.groups[p.id] === 'B' ? 'on' : ''}" data-action="greis-set" data-id="${p.id}" data-v="B">2</button></div></div>`).join('');
+      return sheet(`<h2>Gruppen des Verbitterten Greises</h2><p class="muted">Teile das Dorf nach einem sichtbaren Merkmal (Brille, Größe, Haarfarbe …) und sage es laut an. Hier ordnest du jede Person der Gruppe 1 oder 2 zu.</p>
+        <div class="row wrap"><button class="btn sm" data-action="greis-halves">Hälften</button><button class="btn sm" data-action="greis-alt">Abwechselnd</button><button class="btn sm" data-action="greis-random">Zufällig</button></div>
+        <div class="deaths">${rows}</div><button class="btn primary" data-action="close-modal">Fertig</button>`);
+    }
     case 'confirm': return sheet(`<h2>${esc(m.title)}</h2><p>${esc(m.text)}</p><div class="row"><button class="btn" data-action="close-modal" style="flex:1">Abbrechen</button><button class="btn danger" data-action="confirm-yes" style="flex:1">Ja</button></div>`);
     default: return '';
   }

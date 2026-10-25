@@ -1,6 +1,6 @@
 // Spiellogik ohne Oberfläche: Zustand ist reines JSON, jede Aktion liefert einen neuen Zustand.
 // Regelgrundlage: Regelheft "Die Werwölfe von Düsterwald – Der Pakt" (siehe docs/regelabgleich.md).
-import { ROLES, RM, WOLF_IDS, ACTOR_POOL, roleName, requiredCards } from './roles.js';
+import { ROLES, RM, ACTOR_POOL, roleName, requiredCards, registerRoles, isWolfRole } from './roles.js';
 
 export const DEFAULT_RULES = {
   captain: true,            // Hauptmann wird am ersten Tag gewählt, Stimme zählt doppelt
@@ -34,7 +34,8 @@ export function setupProblems(cfg) {
   const p = [];
   const n = cfg.players.length;
   if (n < 3) p.push('Mindestens 3 Spieler nötig.');
-  const wolves = ['wolf', 'urwolf', 'bigwolf', 'whitewolf'].reduce((s, id) => s + (cfg.counts[id] || 0), 0);
+  registerRoles(cfg.custom);
+  const wolves = Object.entries(cfg.counts).reduce((s, [id, k]) => s + (isWolfRole(id) ? k || 0 : 0), 0);
   if (wolves < 1) p.push('Mindestens 1 Werwolf nötig.');
   const total = Object.values(cfg.counts).reduce((a, b) => a + (b || 0), 0);
   const need = requiredCards(cfg.counts, n);
@@ -44,9 +45,10 @@ export function setupProblems(cfg) {
 
 /** cfg: { players:[{id,name}], counts:{roleId:n}, mode:'cards'|'digital', rules:{...} } */
 export function createGame(cfg, rnd = Math.random) {
+  registerRoles(cfg.custom);
   const g = {
     v: 1,
-    cfg: { players: cfg.players.map((p) => ({ id: p.id, name: p.name })), counts: { ...cfg.counts }, mode: cfg.mode ?? 'cards', rules: { ...DEFAULT_RULES, ...(cfg.rules ?? {}) } },
+    cfg: { players: cfg.players.map((p) => ({ id: p.id, name: p.name })), custom: cfg.custom ?? [], counts: { ...cfg.counts }, mode: cfg.mode ?? 'cards', rules: { ...DEFAULT_RULES, ...(cfg.rules ?? {}) } },
     phase: 'night', clock: 'night', night: 1, day: 0, stepIdx: 0, subMode: null,
     roles: {}, auto: {}, dead: {}, lovers: [], captain: null, captainLost: false,
     potions: { heal: false, poison: false },        // true = Trank verbraucht
@@ -105,7 +107,7 @@ export const livingHolders = (g, r) => holders(g, r).filter((p) => alive(g, p.id
 /** Werwolf im Sinne von Seherin, Fuchs, Bär und Ritter (auch Weißer Werwolf, Infizierte, Wolfshund als Wolf). */
 export function isWolf(g, id) {
   const r = g.roles[id];
-  return WOLF_IDS.includes(r) || (r === 'wolfdog' && g.wolfdogWolf) || !!g.turned[id];
+  return isWolfRole(r) || (r === 'wolfdog' && g.wolfdogWolf) || !!g.turned[id];
 }
 export const isWhiteWolf = (g, id) => g.roles[id] === 'whitewolf';
 export const powerOn = (g, roleId) => !(g.powersLost && RM[roleId]?.camp === 'village');
@@ -168,7 +170,7 @@ export function nightSteps(g) {
   const first = g.night === 1;
   const borrowed = actorRoleNow(g);
   const digital = g.cfg.mode === 'digital';
-  const wolfSide = ['wolf', 'urwolf', 'bigwolf', 'whitewolf'].some((id) => cnt(g, id) > 0) || g.cfg.players.some((p) => isWolf(g, p.id));
+  const wolfSide = Object.keys(g.cfg.counts).some((id) => isWolfRole(id) && cnt(g, id) > 0) || g.cfg.players.some((p) => isWolf(g, p.id));
   const entries = ROLES.filter((r) => r.id !== 'villager').map((r) => ({ r, order: r.night?.order ?? SILENT_ORDER[r.id] ?? 999 })).sort((a, b) => a.order - b.order);
   for (const { r } of entries) {
     const inPlay = cnt(g, r.id) > 0 || r.id === borrowed || (r.id === 'wolf' && wolfSide);
@@ -176,7 +178,7 @@ export function nightSteps(g) {
     const act = actApplies(g, r);
     const wakes = r.night && nightMatches(g, r);          // wacht in dieser Nacht (auch ohne Eingabe, z. B. Schwestern)
     if (!first && !act && !wakes) continue;
-    if (digital && !act && !(wakes && r.group)) continue;  // ohne Karten: nur Rollen mit Aktion oder Treffen
+    if (digital && !act && !(wakes && (r.group || r.custom))) continue;  // ohne Karten: nur Rollen mit Aktion, Treffen oder eigenem Aufruf
     if (r.id === borrowed && !cnt(g, r.id) && !act) continue;
     const living = r.id === 'wolf' ? g.cfg.players.filter((p) => alive(g, p.id) && isWolf(g, p.id)) : livingHolders(g, r.id);
     const gone = !first && living.length === 0;

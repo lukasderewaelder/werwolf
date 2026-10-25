@@ -347,3 +347,19 @@ test('Gaukler: gewählte Rolle wird für die Nacht gespielt und aus der Auslage 
   g = finishNight(g);
   assert.ok(!g.actorPool.includes(first));
 });
+
+test('Eigene Rollen: Wolfslager zählt als Werwolf, Aufruf mit Position vor den Wölfen', () => {
+  const custom = [
+    { id: 'c1', name: 'Schattenwolf', camp: 'wolf', wake: 'none' },
+    { id: 'c2', name: 'Nachtwächter', camp: 'village', wake: 'every', after: false, say: 'Der Nachtwächter erwacht.' },
+  ];
+  const players = Array.from({ length: 5 }, (_, i) => ({ id: `p${i + 1}`, name: `P${i + 1}` }));
+  const counts = { c1: 1, c2: 1, villager: 3 };
+  assert.deepEqual(setupProblems({ players, counts, custom }), []);
+  const g = createGame({ players, counts, custom, mode: 'digital' }, () => 0.5);
+  g.roles = { p1: 'c1', p2: 'c2', p3: 'villager', p4: 'villager', p5: 'villager' };
+  assert.equal(isWolf(g, 'p1'), true);
+  assert.equal(isWolf(g, 'p2'), false);
+  assert.deepEqual(nightSteps(g).map((s) => s.key), ['c2', 'wolf']);
+  assert.equal(checkWinner({ ...g, dead: { p3: { cause: 'wolves' }, p4: { cause: 'wolves' }, p5: { cause: 'wolves' } } }), 'Die Werwölfe');
+});

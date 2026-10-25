@@ -1,9 +1,10 @@
 // Assistent für ein neues Spiel: Spieler, Modus, Rollen, Hausregeln.
-import { S, ui, views, on, go, clearUndo, toast } from './core.js';
+import { S, ui, views, on, go, clearUndo, toast, render } from './core.js';
 import { esc, art, I } from './art.js';
 import { topBar, rosterHtml, groupChips } from './home.js';
 import { ensureGroup, presentPlayers, currentCounts } from '../store.js';
-import { ROLES, RM, SETS, CAMP_LABEL, recommendCounts, requiredCards, fillVillagers } from '../engine/roles.js';
+import { ROLES, RM, SETS, CAMP_LABEL, recommendCounts, requiredCards, fillVillagers, registerRoles } from '../engine/roles.js';
+import { uid } from '../store.js';
 import { createGame, setupProblems, DEFAULT_RULES } from '../engine/game.js';
 
 const STEPS = ['Wer spielt mit?', 'Wie spielt ihr?', 'Welche Rollen?', 'Regeln und Start'];
@@ -70,7 +71,7 @@ on('seat-shuffle', () => {
 on('seat-reverse', () => { S.setup.order.reverse(); });
 
 /* ---------- Rollenwahl ---------- */
-const maxOf = (id, n) => (id === 'wolf' ? Math.max(1, n - 1) : RM[id].group ? RM[id].group : 1);
+const maxOf = (id, n) => (id === 'wolf' || RM[id].custom ? Math.max(1, n - 1) : RM[id].group ? RM[id].group : 1);
 on('role-inc', (el) => setCount(el.dataset.id, +1));
 on('role-dec', (el) => setCount(el.dataset.id, -1));
 function setCount(id, d) {
@@ -79,7 +80,7 @@ function setCount(id, d) {
   const cur = c[id] || 0;
   let v = cur + d * step;
   if (r.group) v = d > 0 ? r.group : 0;
-  v = Math.max(0, Math.min(v, id === 'wolf' ? n : (r.group || 1)));
+  v = Math.max(0, Math.min(v, id === 'wolf' || r.custom ? n : (r.group || 1)));
   if (v) c[id] = v; else delete c[id];
   S.setup.counts = fillVillagers(c, n);
 }
@@ -103,7 +104,8 @@ function rolesStep() {
     const ctl = r.id === 'villager' ? `<span class="muted" style="font-weight:700">automatisch</span>` : r.group
       ? `<div class="stepper"><button data-action="role-dec" data-id="${r.id}" aria-label="Weniger" ${k ? '' : 'disabled'}>${I.minus}</button><span class="val">${k}</span><button data-action="role-inc" data-id="${r.id}" aria-label="Mehr" ${k ? 'disabled' : ''}>${I.plus}</button></div>`
       : `<div class="stepper"><button data-action="role-dec" data-id="${r.id}" aria-label="Weniger" ${k ? '' : 'disabled'}>${I.minus}</button><span class="val">${k}</span><button data-action="role-inc" data-id="${r.id}" aria-label="Mehr" ${k >= maxOf(r.id, n) ? 'disabled' : ''}>${I.plus}</button></div>`;
-    return `<div class="rtile ${k ? 'on' : ''}">${art(r.id)}<div class="info"><b>${esc(r.name)}</b><small>${esc(r.sub)}</small>${ctl}</div></div>`;
+    const edit = r.custom ? `<button data-action="custom-edit" data-id="${r.id}" aria-label="Bearbeiten" style="width:36px;height:36px;border-radius:10px;background:var(--surface2);border:1px solid var(--line);display:grid;place-items:center">${I.menu}</button>` : '';
+    return `<div class="rtile ${k ? 'on' : ''}">${art(r.id)}<div class="info"><b>${esc(r.name)}</b><small>${esc(r.sub)}</small>${ctl}</div>${edit}</div>`;
   };
   const inSet = (s) => ROLES.filter((r) => r.set === s);
   const setBadge = (s) => inSet(s).reduce((a, r) => a + (counts[r.id] ? 1 : 0), 0);
@@ -115,7 +117,7 @@ function rolesStep() {
     ${probs.length ? `<div class="problems">${probs.map(esc).join(' ')}</div>` : ''}
     <div class="row wrap"><button class="btn sm" data-action="roles-recommend">${I.dice}Empfehlung für ${n} Spieler</button><button class="btn sm ghost" data-action="roles-clear">Zurücksetzen</button></div>
     <div class="chips">${sets.map((s) => `<button class="chip ${s === cur ? 'on' : ''}" data-action="lib-set-setup" data-set="${s}">${SETS[s]}${setBadge(s) ? `<em>${setBadge(s)}</em>` : ''}</button>`).join('')}</div>
-    <div class="role-grid scroll" data-keep="rolegrid">${inSet(cur).map(tile).join('')}</div>`;
+    <div class="role-grid scroll" data-keep="rolegrid">${inSet(cur).map(tile).join('')}${cur === 'eigene' ? `<button class="rtile" data-action="custom-new" style="justify-content:center;font-weight:700">${I.plus} Eigene Rolle anlegen</button>` : ''}</div>`;
 }
 
 function whoStep() {
@@ -154,7 +156,7 @@ views.setup = () => {
   const body = [whoStep, modeStep, rolesStep, startStep][st]();
   return `<div class="view">${topBar(STEPS[st], `Neues Spiel · Schritt ${st + 1} von 4`, { back: 'wiz-back', right: `<button class="ibtn" data-action="back-home" aria-label="Abbrechen">${I.close}</button>` })}
     <div class="steps">${STEPS.map((_, i) => `<i class="${i <= st ? 'on' : ''}"></i>`).join('')}</div>
-    <div class="page" style="padding-top:12px">${body}
+    <div class="page" style="padding-top:12px"><div class="col scroll" data-keep="wizard" style="flex:1;min-height:0;padding:2px">${body}</div>
       <div class="foot">${st === 3 ? `<button class="btn primary" data-action="start-game">${I.moon}<span>Spiel starten</span></button>` : `<button class="btn primary" data-action="wiz-next"><span>Weiter</span>${I.right}</button>`}</div>
     </div></div>`;
 };
@@ -165,11 +167,37 @@ on('start-game', () => {
   const counts = S.setup.counts;
   const pr = setupProblems({ players, counts });
   if (pr.length) { toast(pr[0]); S.setup.step = 2; return; }
-  S.game = createGame({ players, counts, mode: S.settings.mode, rules: { ...DEFAULT_RULES, ...S.settings.rules } });
+  const custom = S.customRoles.filter((r) => counts[r.id]);
+  S.game = createGame({ players, counts, custom, mode: S.settings.mode, rules: { ...DEFAULT_RULES, ...S.settings.rules } });
   clearUndo();
   ui.timer.left = S.settings.timer; ui.timer.running = false;
   go('game');
+  if (counts.greis && S.settings.mode === 'cards') { ui.modal = { type: 'greis' }; render(); }
   return false;
 });
 
 export { CAMP_LABEL };
+
+/* ---------- Eigene Rollen ---------- */
+const blankCustom = () => ({ name: '', camp: 'village', sub: '', desc: '', say: '', wake: 'none', after: false });
+on('custom-new', () => { ui.modal = { type: 'custom', id: null, draft: blankCustom() }; });
+on('custom-edit', (el) => { const r = S.customRoles.find((x) => x.id === el.dataset.id); if (r) ui.modal = { type: 'custom', id: r.id, draft: { ...blankCustom(), ...r } }; });
+on('submit:custom-form', (f) => {
+  const d = Object.fromEntries(new FormData(f).entries());
+  const name = (d.name || '').trim().slice(0, 28);
+  if (!name) { toast('Bitte einen Namen eingeben.'); return; }
+  const role = { id: ui.modal.id ?? uid('c'), name, camp: d.camp === 'wolf' ? 'wolf' : 'village', sub: (d.sub || '').trim().slice(0, 60), desc: (d.desc || '').trim().slice(0, 600), say: (d.say || '').trim().slice(0, 300), wake: d.wake || 'none', after: d.after === 'after' };
+  const i = S.customRoles.findIndex((x) => x.id === role.id);
+  if (i >= 0) S.customRoles[i] = role; else S.customRoles.push(role);
+  registerRoles([role]);
+  ui.libSet = 'eigene';
+  ui.modal = null;
+});
+on('custom-delete', () => {
+  const id = ui.modal.id;
+  S.customRoles = S.customRoles.filter((x) => x.id !== id);
+  const i = ROLES.findIndex((x) => x.id === id); if (i >= 0) ROLES.splice(i, 1);
+  delete RM[id];
+  if (S.setup.counts) { delete S.setup.counts[id]; S.setup.counts = fillVillagers(S.setup.counts, presentPlayers(S).length); }
+  ui.modal = null;
+});

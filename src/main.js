@@ -8,8 +8,11 @@ import './ui/modals.js';
 import { bind } from './store-ref.js';
 import { startMusic, stopMusic } from './audio.js';
 import { buildScene } from './ui/scene.js';
+import { registerRoles } from './engine/roles.js';
 
 bind(() => S);
+registerRoles(S.customRoles);
+if (S.game) registerRoles(S.game.cfg.custom);
 
 function setupServiceWorker() {
   if (!('serviceWorker' in navigator)) return;

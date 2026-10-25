@@ -2,7 +2,7 @@
 // Lager: village = Dorfbewohner, wolf = Werwölfe, twofold = Zweideutige (Lager kann wechseln), solo = Einzelgänger.
 // night: when = first | every | even (jede zweite Nacht); order = Aufrufreihenfolge; act = Art der Aktion (null = nur erwachen).
 
-export const SETS = { basis: 'Basisspiel', neumond: 'Neumond', charaktere: 'Charaktere', gemeinde: 'Die Gemeinde' };
+export const SETS = { basis: 'Basisspiel', neumond: 'Neumond', charaktere: 'Charaktere', gemeinde: 'Die Gemeinde', eigene: 'Eigene' };
 
 export const ROLES = [
   { id: "villager",
@@ -327,4 +327,21 @@ export const requiredCards = (counts, n) => n + ((counts.thief ?? 0) > 0 ? 2 : 0
 export function fillVillagers(counts, n) {
   const rest = Object.entries(counts).filter(([k]) => k !== 'villager').reduce((s, [, v]) => s + (v || 0), 0);
   return { ...counts, villager: Math.max(0, requiredCards(counts, n) - rest) };
+}
+
+/** Rollen mit camp 'wolf' sowie der Weiße Werwolf zählen als Werwölfe. */
+export const isWolfRole = (id) => RM[id]?.camp === 'wolf' || id === 'whitewolf';
+
+/** Eigene Rollen (Name, Lager village|wolf, optionaler Aufruf) in die Rollentabelle eintragen. Ersetzt frühere Einträge gleicher Kennung. */
+export function registerRoles(list = []) {
+  for (const c of list) {
+    const def = {
+      id: c.id, name: c.name, set: 'eigene', camp: c.camp === 'wolf' ? 'wolf' : 'village', color: c.color || (c.camp === 'wolf' ? '#8a2a2a' : '#4a5f8f'),
+      sub: c.sub || 'Eigene Rolle', desc: c.desc || '', say: c.say || '', custom: true,
+      ...(c.wake && c.wake !== 'none' ? { night: { when: c.wake === 'first' ? 'first' : 'every', order: c.after ? 260 : 115, act: null } } : {}),
+    };
+    const i = ROLES.findIndex((x) => x.id === c.id);
+    if (i >= 0) ROLES[i] = def; else ROLES.push(def);
+    RM[c.id] = def;
+  }
 }
