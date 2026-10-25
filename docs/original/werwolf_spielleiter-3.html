@@ -1,0 +1,1717 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#140c0a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Spielleiter">
+<title>Werwolf · Spielleiter</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23c62a1f' stroke='%23050302' stroke-width='5'/%3E%3Ccircle cx='40' cy='22' r='10' fill='%23f7ead0'/%3E%3Cpath d='M8 56l8-16 6 6 6-14 6 12 6-8 8 12 8-6v14z' fill='%23050302'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: dark;
+  --ink:#110a08; --ink-2:#1c120f; --ink-3:#2a1a15; --card-edge:#050302;
+  --red:#c62a1f; --red-hi:#e5452f; --red-deep:#6e140e;
+  --ocher:#e6b24a; --ocher-hi:#f6cf6c; --ocher-deep:#a5711d;
+  --cream:#f7ead0; --muted:#c7b08f;
+  --green:#58c08a; --green-deep:#1f5a3c; --blue:#5b95db;
+  --panel:rgba(17,10,8,.86);
+  --line:rgba(230,178,74,.34);
+  --display:'Fraunces', Georgia, 'Times New Roman', serif;
+  --ui:'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--ink);color:var(--cream);font-family:var(--ui);-webkit-user-select:none;user-select:none;overscroll-behavior:none}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0;touch-action:manipulation}
+button:disabled{opacity:.38;cursor:not-allowed}
+svg{display:block}
+
+/* ---------- Hintergrund ---------- */
+.scene{position:fixed;inset:0;z-index:0;pointer-events:none;transition:opacity 1.2s ease}
+.scene svg{width:100%;height:100%}
+#scene-day{opacity:0}
+body.is-day #scene-day{opacity:1}
+body.is-day #scene-night{opacity:0}
+.grain{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:var(--grain);opacity:.32;mix-blend-mode:overlay}
+@keyframes drift{from{transform:translateX(-30%)}to{transform:translateX(130%)}}
+@keyframes moonPulse{0%,100%{opacity:.85}50%{opacity:1}}
+@keyframes flicker{0%,100%{opacity:.9}40%{opacity:.55}45%{opacity:1}70%{opacity:.7}}
+@keyframes blink{0%,86%,100%{opacity:0}88%,96%{opacity:1}91%{opacity:.1}}
+@keyframes fog{0%,100%{transform:translateX(-4%)}50%{transform:translateX(4%)}}
+@keyframes walk{from{transform:translateX(-60px)}to{transform:translateX(470px)}}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@keyframes sunSpin{to{transform:rotate(360deg)}}
+@keyframes glow{0%,100%{filter:drop-shadow(0 0 10px rgba(229,69,47,.35)) drop-shadow(0 8px 16px rgba(0,0,0,.6))}50%{filter:drop-shadow(0 0 26px rgba(246,207,108,.45)) drop-shadow(0 8px 16px rgba(0,0,0,.6))}}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes flip{from{transform:rotateY(80deg);opacity:.2}to{transform:none;opacity:1}}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:none}}
+.a-cloud{animation:drift 70s linear infinite}
+.a-cloud.c2{animation-duration:95s;animation-delay:-40s}
+.a-moon{animation:moonPulse 7s ease-in-out infinite}
+.a-win{animation:flicker 4s ease-in-out infinite}
+.a-eyes{animation:blink 9s ease-in-out infinite}
+.a-fog{animation:fog 18s ease-in-out infinite}
+.a-fog.f2{animation-duration:26s;animation-direction:reverse}
+.a-walk{animation:walk 38s linear infinite}
+.a-walk>g{animation:bob .6s ease-in-out infinite}
+.a-sun{transform-origin:330px 120px;animation:sunSpin 120s linear infinite}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- Grundgerüst ---------- */
+#app{position:relative;z-index:1;width:min(100%,520px);height:100dvh;margin:0 auto;display:flex;flex-direction:column;gap:8px;
+  padding:max(10px,env(safe-area-inset-top)) 12px max(10px,env(safe-area-inset-bottom))}
+.topbar{flex:none;display:flex;align-items:center;gap:8px;height:42px}
+.topbar .grow{flex:1;min-width:0;display:flex;justify-content:center}
+.icon-btn{flex:none;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:var(--panel);border:2px solid var(--card-edge);
+  box-shadow:0 0 0 1px var(--line),0 4px 10px rgba(0,0,0,.45);color:var(--ocher-hi)}
+.icon-btn svg{width:19px;height:19px}
+.icon-btn:active{transform:scale(.93)}
+.icon-spacer{width:42px;flex:none}
+.status{display:inline-flex;align-items:center;gap:6px;font-family:var(--display);font-weight:900;font-size:15px;padding:7px 14px;border-radius:999px;
+  background:var(--panel);border:2px solid var(--card-edge);box-shadow:0 0 0 1px var(--line);color:var(--ocher-hi);white-space:nowrap}
+.status svg{width:14px;height:14px;color:var(--red-hi)}
+.wiz-title{text-align:center;font-family:var(--display);font-weight:900;font-size:18px;line-height:1.1;color:var(--ocher-hi);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wiz-title small{display:block;font-family:var(--ui);font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.progress{flex:none;display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.progress i{height:5px;border-radius:3px;background:rgba(255,255,255,.12)}
+.progress i.on{background:linear-gradient(90deg,var(--red),var(--ocher))}
+
+/* Rollenhintergrund für Porträts */
+.rbg{display:block;overflow:hidden;background-color:var(--rc);
+  background-image:radial-gradient(circle at 50% 30%,rgba(255,255,255,.18),rgba(0,0,0,.45) 75%);position:relative}
+.rbg::after{content:"";position:absolute;inset:0;background-image:var(--grain);opacity:.38;mix-blend-mode:overlay;pointer-events:none}
+.rbg .pt{width:100%;height:100%}
+.ph{width:52px;height:52px;flex:none;border-radius:12px;border:2.5px solid var(--card-edge);box-shadow:0 0 0 1px var(--ocher)}
+.ph.big{width:72px;height:72px}
+.sunbg{--rc:#c88e33;display:grid;place-items:center;color:#fff6cf}
+.sunbg svg{width:60%;height:60%}
+.emblem{flex:none;filter:drop-shadow(0 3px 6px rgba(0,0,0,.5))}
+.emblem.ph{border:0;box-shadow:none;border-radius:50%}
+.emblem.big{width:min(40vw,160px);height:auto}
+.emblem.hero{width:min(46vw,190px);height:auto;animation:glow 5s ease-in-out infinite}
+
+/* ---------- Karten / Panels ---------- */
+.card{flex:none;position:relative;background:var(--panel);border:2.5px solid var(--card-edge);border-radius:18px;
+  box-shadow:0 0 0 1px var(--line),0 12px 28px rgba(0,0,0,.55);padding:9px 11px;display:flex;flex-direction:column;gap:6px;
+  max-height:46dvh;overflow:auto;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);animation:rise .3s ease}
+.card-head{display:flex;align-items:center;gap:10px}
+.card-head .title{flex:1;min-width:0}
+.title{margin:0;font-family:var(--display);font-weight:900;font-size:20px;line-height:1.05;color:var(--ocher-hi)}
+.title small{display:block;font-family:var(--ui);font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.say{margin:0;font-family:var(--display);font-style:italic;font-weight:700;font-size:13.5px;line-height:1.35;color:var(--cream);
+  padding:6px 10px;border-left:3px solid var(--red);background:rgba(198,42,31,.13);border-radius:0 10px 10px 0}
+.prompt{font-size:13px;font-weight:800;line-height:1.3}
+.prompt.ok{color:#a8f0c6}.prompt.warn{color:var(--ocher-hi)}
+.morning{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px;font-size:13px;font-weight:700}
+.morning li::before{content:"✦ ";color:var(--red-hi)}
+.switch{flex:none;display:flex;align-items:center;gap:6px;color:var(--ocher-hi)}
+.switch svg{width:17px;height:17px}
+.track{width:46px;height:26px;border-radius:999px;padding:3px;background:var(--red);border:2px solid var(--card-edge)}
+.track i{display:block;width:16px;height:16px;border-radius:50%;background:var(--cream);transition:transform .25s}
+body.is-day .track{background:var(--ocher-deep)}
+body.is-day .track i{transform:translateX(20px)}
+
+.steps,.set-chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;flex:none}
+.steps::-webkit-scrollbar,.set-chips::-webkit-scrollbar{display:none}
+.chip{flex:none;display:inline-flex;align-items:center;gap:5px;padding:5px 11px 5px 6px;border-radius:999px;font-size:11.5px;font-weight:800;
+  background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.12);color:var(--muted);white-space:nowrap}
+.set-chips .chip{padding:7px 12px;font-size:12.5px}
+.chip em{font-style:normal;background:var(--red);color:#fff;border-radius:999px;padding:0 6px;font-size:10.5px}
+.chip em:empty{display:none}
+.chip svg{width:13px;height:13px}
+.chip.add{border-style:dashed;color:var(--ocher-hi)}
+.chip .dot{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:var(--rc,#555);color:#fff;border:1.5px solid var(--card-edge)}
+.chip .dot svg{width:11px;height:11px}
+.chip.done{opacity:.55}.chip.gone{text-decoration:line-through;opacity:.5}
+.chip.active{background:var(--red);border-color:var(--ocher);color:#fff}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:7px 8px;border-radius:10px;font-size:12px;font-weight:800;
+  background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.12);color:var(--muted)}
+.seg button svg{width:14px;height:14px}
+.seg button.on{background:var(--ocher);border-color:var(--card-edge);color:var(--ink)}
+.seg button.good{border-color:var(--green);color:#a8f0c6}
+.act-bar{display:flex;flex-wrap:wrap;gap:6px}
+.act{flex:1 1 auto;min-width:46%;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 10px;border-radius:12px;font-size:12.5px;font-weight:800;
+  background:var(--ink-3);border:2px solid var(--card-edge);box-shadow:0 0 0 1px rgba(255,255,255,.08);color:var(--cream)}
+.act svg{width:15px;height:15px}
+.act.heal{background:var(--green-deep);box-shadow:0 0 0 1.5px var(--green);color:#c9f7dd}
+.act.poison{background:var(--red-deep);box-shadow:0 0 0 1.5px var(--red-hi);color:#ffd9d2}
+.act.on{background:var(--ocher);color:var(--ink);box-shadow:0 0 0 1.5px var(--ocher-hi)}
+.act.small{min-width:0;flex:0 1 auto;padding:6px 10px;font-size:12px}
+.timer{display:flex;align-items:center;gap:7px}
+.timer-val{font-family:var(--display);font-weight:900;font-size:25px;min-width:70px;color:var(--ocher-hi);font-variant-numeric:tabular-nums}
+.timer-val.alarm{color:var(--red-hi);animation:flicker 1s infinite}
+.mini{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--ink-3);border:1.5px solid var(--card-edge);color:var(--ocher-hi);flex:none}
+.mini svg{width:14px;height:14px}
+.dots{display:flex;flex-wrap:wrap;gap:4px}
+.dots i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.14);border:1px solid var(--card-edge)}
+.dots i.done{background:var(--ocher)}.dots i.cur{background:var(--red-hi);box-shadow:0 0 0 2px rgba(229,69,47,.35)}
+
+/* ---------- Spielerkarten ---------- */
+.players{flex:1;min-height:0;display:flex;flex-direction:column;gap:5px}
+.players-head{flex:none;display:flex;justify-content:space-between;align-items:baseline;padding:0 3px}
+.players-head h2{margin:0;font-family:var(--display);font-weight:900;font-size:16px;color:var(--ocher-hi)}
+.players-head span{font-size:11px;font-weight:700;color:var(--muted)}
+.pgrid{flex:1;min-height:0;overflow-y:auto;display:grid;gap:7px;grid-auto-rows:minmax(72px,1fr);padding:3px}
+.pc{position:relative;min-height:0;display:flex;flex-direction:column;border-radius:12px;border:3px solid var(--card-edge);overflow:hidden;background:var(--ink-2);
+  box-shadow:0 0 0 1px rgba(230,178,74,.28),0 6px 12px rgba(0,0,0,.45);transition:box-shadow .15s,transform .08s;text-align:center}
+.pc:active{transform:scale(.97)}
+.pc-art{flex:1;min-height:0;display:block}
+.pc-back{display:grid;place-items:center;
+  background:radial-gradient(circle at 50% 45%,rgba(246,207,108,.22) 0 26%,transparent 27%),
+    repeating-linear-gradient(45deg,rgba(0,0,0,.2) 0 5px,transparent 5px 11px),linear-gradient(160deg,#c62a1f,#6e140e)}
+.pc-back b{font-family:var(--display);font-weight:900;font-size:clamp(18px,7vw,30px);color:var(--cream);text-shadow:0 2px 0 var(--card-edge)}
+.pc-label{flex:none;display:block;padding:3px 4px 4px;background:linear-gradient(#21140f,#0d0807);border-top:2.5px solid var(--card-edge)}
+.pc-name{display:block;font-weight:900;font-size:12.5px;line-height:1.15;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pc-role{display:block;font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pc-role.open{color:var(--ocher)}
+.pc-badges{position:absolute;top:3px;right:3px;display:flex;flex-direction:column;gap:2px}
+.bdg{display:grid;place-items:center;min-width:19px;height:19px;padding:0 3px;border-radius:999px;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.2);font-size:9.5px;font-weight:900;color:var(--cream)}
+.bdg svg{width:11px;height:11px}
+.bdg.red{color:#ffb4a8;border-color:var(--red-hi)}.bdg.grn{color:#a8f0c6;border-color:var(--green)}.bdg.gold{color:var(--ocher-hi);border-color:var(--ocher)}.bdg.used{opacity:.3}
+.pc-skull{position:absolute;inset:0 0 28px;display:grid;place-items:center;color:var(--cream);opacity:.85}
+.pc-skull svg{width:40%;max-width:44px;height:auto}
+.pc.is-role{box-shadow:0 0 0 3px var(--ocher-hi),0 0 18px rgba(246,207,108,.5)}
+.pc.is-pick{box-shadow:0 0 0 3px var(--blue),0 0 18px rgba(91,149,219,.55)}
+.pc.is-pick .pc-label{background:linear-gradient(#24406b,#101a2e)}
+.pc.is-target{box-shadow:0 0 0 3px var(--red-hi),0 0 20px rgba(229,69,47,.6)}
+.pc.is-target .pc-label{background:linear-gradient(#a3221a,#4a0b07)}
+.pc.is-safe{box-shadow:0 0 0 3px var(--green),0 0 18px rgba(88,192,138,.5)}
+.pc.is-safe .pc-label{background:linear-gradient(#1f6a46,#0b2a1c)}
+.pc.dead .pc-art{filter:grayscale(1) brightness(.4)}
+.pc.dead .pc-name{text-decoration:line-through;color:var(--muted)}
+
+/* ---------- Leisten & Knöpfe ---------- */
+.bar{flex:none;display:flex;gap:7px;height:48px}
+.btn{flex:1;height:100%;min-height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:7px;font-weight:900;font-size:13px;
+  background:var(--panel);border:2.5px solid var(--card-edge);box-shadow:0 0 0 1px var(--line),0 6px 14px rgba(0,0,0,.45);color:var(--cream);padding:0 10px}
+.btn svg{width:17px;height:17px;flex:none}
+.btn.primary{flex:1.7;background:linear-gradient(180deg,var(--red-hi),var(--red) 55%,#9d1c14);color:#fff;box-shadow:0 0 0 1.5px var(--ocher),0 6px 18px rgba(198,42,31,.45);
+  font-family:var(--display);font-size:15px}
+.btn.gold{background:linear-gradient(180deg,var(--ocher-hi),var(--ocher));color:var(--ink);box-shadow:0 0 0 1.5px var(--card-edge),0 6px 16px rgba(230,178,74,.3);font-family:var(--display);font-size:15px}
+.btn.ghost{background:transparent;box-shadow:0 0 0 1px rgba(255,255,255,.12);color:var(--muted);flex:none;height:44px}
+.btn.danger{flex:none;height:44px;color:#ffb4a8;box-shadow:0 0 0 1px var(--red-hi)}
+.btn:active:not(:disabled){transform:scale(.97)}
+.btn.big{flex:none;height:64px;justify-content:flex-start;padding:0 18px;gap:14px;text-align:left}
+.btn.big svg{width:24px;height:24px}
+.btn.big span{display:flex;flex-direction:column;font-size:19px;line-height:1.1}
+.btn.big small{font-family:var(--ui);font-size:11.5px;font-weight:800;opacity:.85}
+.tilebtn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:10px 4px;border-radius:14px;font-size:12px;font-weight:800;
+  background:var(--panel);border:2px solid var(--card-edge);box-shadow:0 0 0 1px var(--line);color:var(--cream)}
+.tilebtn svg{width:22px;height:22px;color:var(--ocher-hi)}
+.tilebtn:active:not(:disabled){transform:scale(.96)}
+
+/* ---------- Startbildschirm ---------- */
+.home{flex:1;display:flex;flex-direction:column;justify-content:space-between;gap:12px;padding-top:4dvh}
+.home-hero{display:flex;flex-direction:column;align-items:center;text-align:center;animation:rise .5s ease}
+.home-title{margin:10px 0 0;font-family:var(--display);font-weight:900;font-size:clamp(46px,15vw,64px);line-height:.95;color:var(--cream);
+  text-shadow:0 3px 0 var(--card-edge),0 0 30px rgba(198,42,31,.6);letter-spacing:.01em}
+.home-sub{margin:6px 0 0;font-family:var(--display);font-style:italic;font-weight:700;font-size:15px;color:var(--ocher-hi)}
+.home-actions{display:flex;flex-direction:column;gap:10px;animation:rise .6s ease}
+.home-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.home-foot{margin:0;text-align:center;font-size:10.5px;font-weight:700;color:var(--muted);opacity:.7}
+
+/* ---------- Assistent ---------- */
+.wiz-body{flex:1;min-height:0;display:flex;flex-direction:column;gap:9px;animation:rise .25s ease}
+.mode-list{flex:1;display:flex;flex-direction:column;gap:12px;justify-content:center}
+.mode-card{flex:1;max-height:230px;display:flex;align-items:center;gap:14px;padding:14px;border-radius:20px;text-align:left;
+  background:var(--panel);border:3px solid var(--card-edge);box-shadow:0 0 0 1px var(--line),0 10px 24px rgba(0,0,0,.5);position:relative}
+.mode-card.on{box-shadow:0 0 0 3px var(--ocher-hi),0 10px 30px rgba(230,178,74,.25)}
+.mode-text{flex:1;display:flex;flex-direction:column;gap:5px}
+.mode-text b{font-family:var(--display);font-weight:900;font-size:21px;color:var(--ocher-hi)}
+.mode-text span{font-size:13px;font-weight:700;line-height:1.35;color:var(--cream)}
+.radio{position:absolute;top:12px;right:12px;width:22px;height:22px;border-radius:50%;border:2.5px solid var(--muted)}
+.mode-card.on .radio{border-color:var(--ocher-hi);background:radial-gradient(circle,var(--ocher-hi) 0 45%,transparent 50%)}
+.fan{position:relative;width:96px;height:110px;flex:none}
+.fan i{position:absolute;left:22px;top:6px;width:56px;height:84px;border-radius:9px;border:3px solid var(--card-edge);overflow:hidden;
+  background:repeating-linear-gradient(45deg,rgba(0,0,0,.2) 0 4px,transparent 4px 9px),linear-gradient(160deg,#c62a1f,#6e140e);box-shadow:0 4px 10px rgba(0,0,0,.5)}
+.fan i:nth-child(1){transform:rotate(-18deg) translate(-14px,6px)}
+.fan i:nth-child(2){transform:rotate(-4deg)}
+.fan i:nth-child(3){transform:rotate(14deg) translate(14px,8px)}
+.fan i .rbg{width:100%;height:100%}
+.phone{width:96px;height:110px;flex:none;display:grid;place-items:center}
+.phone i{width:62px;height:104px;border-radius:14px;border:4px solid #050302;box-shadow:0 0 0 2px var(--muted),0 6px 14px rgba(0,0,0,.6);overflow:hidden;padding:10px 4px;background:#111;display:block}
+.phone i .rbg{width:100%;height:100%;border-radius:6px}
+.add{flex:none;display:flex;gap:7px;height:46px}
+.inp{flex:1;min-width:0;border-radius:13px;padding:0 14px;background:rgba(10,6,5,.92);border:2px solid var(--card-edge);box-shadow:0 0 0 1px var(--line);outline:none;font-size:15px;-webkit-user-select:text;user-select:text}
+.inp:focus{box-shadow:0 0 0 2px var(--ocher)}
+.add-btn{width:46px;height:46px;background:var(--red);color:#fff}
+.hint{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:11px;background:rgba(10,6,5,.7);font-size:12px;font-weight:700;color:var(--muted);line-height:1.3;margin:0}
+.hint svg{width:16px;height:16px;flex:none;color:var(--ocher)}
+.name-grid{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:46px;gap:7px;padding:2px;align-content:start}
+.name-chip{display:flex;align-items:center;gap:9px;padding:0 10px 0 5px;border-radius:13px;text-align:left;
+  background:linear-gradient(180deg,rgba(40,25,20,.92),rgba(20,12,10,.94));border:2.5px solid var(--card-edge);box-shadow:0 0 0 1px rgba(230,178,74,.2)}
+.name-chip b{width:30px;height:30px;flex:none;border-radius:8px;display:grid;place-items:center;font-family:var(--display);font-weight:900;font-size:14px;
+  background:linear-gradient(160deg,#c62a1f,#6e140e);border:1.5px solid var(--card-edge)}
+.name-chip span{font-weight:900;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.empty{grid-column:1/-1;text-align:center;color:var(--muted);font-weight:700}
+.role-status{flex:none;display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:13px;background:var(--panel);border:2px solid var(--card-edge);font-size:13px;font-weight:800}
+.role-status>span{flex:1;display:flex;align-items:center;gap:6px}
+.role-status>span svg{width:16px;height:16px}
+.role-status.ok{box-shadow:0 0 0 1px var(--green);color:#a8f0c6}
+.role-status.warn{box-shadow:0 0 0 1px var(--ocher);color:var(--ocher-hi)}
+.role-grid{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:78px;gap:7px;padding:2px;align-content:start}
+.rtile{display:flex;gap:8px;padding:5px;border-radius:14px;background:linear-gradient(180deg,rgba(40,25,20,.92),rgba(20,12,10,.94));border:2.5px solid var(--card-edge);
+  box-shadow:0 0 0 1px rgba(230,178,74,.16);min-height:0}
+.rtile.on{box-shadow:0 0 0 2px var(--ocher)}
+.rtile-art{flex:none;width:52px;align-self:stretch;max-height:76px;border-radius:9px;overflow:hidden;border:2px solid var(--card-edge)}
+.rtile-art .rbg{width:100%;height:100%}
+.rtile-body{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:5px}
+.rtile-body b{font-size:12.5px;font-weight:900;line-height:1.1;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.stepper{display:flex;align-items:center;gap:4px}
+.val{min-width:20px;text-align:center;font-weight:900;font-size:15px}
+.sum{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+.sum-stats{display:flex;gap:7px}
+.sum-stats div{flex:1;display:flex;flex-direction:column;align-items:center;padding:8px 4px;border-radius:14px;background:var(--panel);border:2px solid var(--card-edge);box-shadow:0 0 0 1px var(--line)}
+.sum-stats b{font-family:var(--display);font-weight:900;font-size:28px;line-height:1;color:var(--cream)}
+.sum-stats span{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.sum-stats .wolfc b{color:var(--red-hi)}.sum-stats .vilc b{color:var(--ocher-hi)}
+.sum-roles{display:flex;flex-wrap:wrap;gap:7px;justify-content:center}
+.mini-card{position:relative;width:62px;display:flex;flex-direction:column;align-items:center;gap:3px}
+.mini-card .rbg{width:62px;height:74px;border-radius:9px;border:2.5px solid var(--card-edge);box-shadow:0 0 0 1px rgba(230,178,74,.3)}
+.mini-card em{position:absolute;top:-5px;right:-5px;font-style:normal;font-weight:900;font-size:11px;background:var(--red);border:2px solid var(--card-edge);border-radius:999px;padding:0 5px;color:#fff}
+.mini-card small{font-size:9.5px;font-weight:800;text-align:center;line-height:1.1;color:var(--muted)}
+.sum-opts{display:flex;flex-direction:column;gap:6px}
+.problems{font-size:12px;font-weight:800;color:var(--ocher-hi)}
+
+/* ---------- Nebenseiten ---------- */
+.list{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:7px;padding:2px}
+.opt{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:14px;text-align:left;background:linear-gradient(180deg,rgba(40,25,20,.92),rgba(20,12,10,.94));border:2.5px solid var(--card-edge)}
+.ptext{min-width:0;flex:1;display:flex;flex-direction:column;line-height:1.2}
+.opt .ptext b{font-size:14px}
+.opt .ptext span{font-size:11.5px;color:var(--muted);font-weight:700;line-height:1.3}
+.tg{flex:none;width:44px;height:26px;border-radius:999px;padding:3px;background:#3a2a22;border:2px solid var(--card-edge)}
+.tg i{display:block;width:16px;height:16px;border-radius:50%;background:var(--muted);transition:transform .2s}
+.tg.on{background:var(--red)}.tg.on i{transform:translateX(18px);background:var(--cream)}
+.lib-grid{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:2px;align-content:start}
+.lib-card{display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center}
+.lib-card .rbg{width:100%;aspect-ratio:4/5;border-radius:12px;border:3px solid var(--card-edge);box-shadow:0 0 0 1px rgba(230,178,74,.3),0 6px 12px rgba(0,0,0,.45)}
+.lib-card b{font-size:12.5px;font-weight:900;line-height:1.1}
+.lib-card small{font-size:10px;font-weight:700;color:var(--muted);line-height:1.15}
+.guide{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+.guide-row{display:flex;gap:11px;padding:10px 12px;border-radius:14px;background:var(--panel);border:2px solid var(--card-edge);box-shadow:0 0 0 1px var(--line)}
+.guide-num{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:900;background:var(--red);border:2px solid var(--card-edge)}
+.guide-row b{display:flex;align-items:center;gap:6px;font-family:var(--display);font-size:16px;color:var(--ocher-hi)}
+.guide-row b svg{width:16px;height:16px}
+.guide-row p{margin:3px 0 0;font-size:12.5px;font-weight:700;line-height:1.35}
+
+/* ---------- Verteilen & Intro ---------- */
+.deal{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:4px 0}
+.rolecard{width:min(100%,340px);height:100%;max-height:470px;border-radius:24px;border:4px solid var(--card-edge);
+  box-shadow:0 0 0 2px var(--ocher),0 22px 44px rgba(0,0,0,.65);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:9px;padding:16px;text-align:center;position:relative;overflow:hidden;animation:flip .35s ease}
+.rolecard::after{content:"";position:absolute;inset:0;background-image:var(--grain);opacity:.4;mix-blend-mode:overlay;pointer-events:none}
+.rolecard.back{background:radial-gradient(circle at 50% 40%,rgba(246,207,108,.18) 0 30%,transparent 31%),repeating-linear-gradient(45deg,rgba(0,0,0,.18) 0 7px,transparent 7px 15px),linear-gradient(160deg,#d23a26,#6e140e)}
+.rolecard.face{background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.72)),var(--rc)}
+.rc-player{font-weight:900;font-size:13px;letter-spacing:.06em;text-transform:uppercase;opacity:.9}
+.rc-art{width:min(50vw,200px);aspect-ratio:1;border-radius:18px;border:3px solid var(--card-edge);box-shadow:0 0 0 2px var(--ocher-hi)}
+.rc-name{font-family:var(--display);font-weight:900;font-size:clamp(26px,8vw,38px);line-height:1;color:#fff;text-shadow:0 2px 0 #050302,0 0 18px rgba(0,0,0,.5)}
+.rc-team{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--ocher-hi)}
+.rc-team svg{width:15px;height:15px}
+.rc-desc{margin:0;font-size:13px;font-weight:700;line-height:1.35;max-width:30ch}
+.intro{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:8px}
+.intro-emblem{display:flex;justify-content:center;flex:1;min-height:0;align-items:center}
+.intro-emblem .emblem{max-height:100%;animation:glow 5s ease-in-out infinite}
+.check{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:14px;background:var(--panel);border:2px solid var(--card-edge);box-shadow:0 0 0 1px var(--line);font-weight:800;font-size:13.5px}
+.check svg{width:20px;height:20px;flex:none;color:var(--green)}
+.card.win{box-shadow:0 0 0 2px var(--ocher-hi),0 12px 40px rgba(246,207,108,.25)}
+
+/* ---------- Dialoge ---------- */
+.backdrop{position:fixed;inset:0;z-index:30;background:rgba(5,2,1,.78);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:grid;place-items:center;padding:16px}
+.backdrop.is-sheet{place-items:end center;padding:0}
+.modal{width:min(100%,430px);max-height:86dvh;overflow:auto;background:linear-gradient(170deg,#2a1712,#120a08);border:2.5px solid var(--card-edge);
+  box-shadow:0 0 0 1px var(--line),0 24px 50px rgba(0,0,0,.8);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:10px;animation:rise .2s ease}
+.modal.sheet{width:min(100%,520px);border-radius:22px 22px 0 0;padding:10px 14px max(14px,env(safe-area-inset-bottom));animation:sheetUp .25s ease}
+.modal .btn{flex:none;height:46px}
+.modal .bar .btn{flex:1}
+.grab{width:44px;height:5px;border-radius:3px;background:rgba(255,255,255,.25);margin:0 auto}
+.sheet-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mtext{margin:0;font-size:14px;font-weight:700;line-height:1.4;color:var(--cream)}
+.log{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:700}
+.log div{padding:5px 8px;border-radius:8px;background:rgba(255,255,255,.04)}
+.log b{color:var(--ocher);margin-right:6px}
+.rinfo{display:flex;gap:10px;align-items:flex-start;padding:7px;border-radius:12px;background:rgba(255,255,255,.04)}
+.rinfo>.rbg{width:44px;height:52px;flex:none;border-radius:8px;border:2px solid var(--card-edge)}
+.rinfo p{margin:2px 0 0;font-size:12px;color:var(--muted);font-weight:700;line-height:1.35}
+.rdetail{display:flex;gap:12px;align-items:flex-start}
+.rdetail p{margin:6px 0 0;font-size:13px;font-weight:700;line-height:1.4}
+.rd-art{width:110px;height:132px;flex:none;border-radius:14px;border:3px solid var(--card-edge);box-shadow:0 0 0 1px var(--ocher)}
+.ov-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ov{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px}
+.ov .rbg{width:100%;aspect-ratio:1;border-radius:10px;border:2.5px solid var(--card-edge)}
+.ov b{font-size:12px;font-weight:900}
+.ov small{font-size:10px;color:var(--muted);font-weight:700}
+.title small{display:block}
+#toast{position:fixed;left:50%;bottom:calc(74px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);z-index:40;opacity:0;
+  max-width:90vw;padding:10px 16px;border-radius:12px;background:var(--ink-2);border:2px solid var(--card-edge);box-shadow:0 0 0 1px var(--ocher);
+  font-size:13px;font-weight:800;transition:opacity .2s,transform .2s;pointer-events:none;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ---------- Kleine Displays ---------- */
+@media (max-height:720px){
+  .say{font-size:12.5px;line-height:1.3}
+  .title{font-size:18px}
+  .ph{width:44px;height:44px}
+  .pgrid{gap:6px;grid-auto-rows:minmax(62px,1fr)}
+  .bar{height:44px}
+  .topbar{height:38px}.icon-btn{width:38px;height:38px}
+  .btn.big{height:56px}
+  .mode-card{padding:10px}
+  .home{padding-top:1dvh}
+}
+
+</style>
+</head>
+<body>
+<div class="scene" id="scene-night"></div>
+<div class="scene" id="scene-day"></div>
+<div class="grain"></div>
+<div id="app"></div>
+<div id="toast"></div>
+<noscript>Bitte JavaScript aktivieren.</noscript>
+
+<script>
+(() => {
+const KEY = 'werwolf-spielleiter-v6';
+
+/* ================= Hintergrund-Szenen (eigene Illustration) ================= */
+function buildScenes(){
+  // Tannen-Silhouette
+  let pines = 'M0 850 L0 600 ';
+  let x = 0; let seed = 7;
+  const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  while (x < 420){ const w = 18 + rnd()*22, h = 60 + rnd()*90, base = 610 + rnd()*20; pines += `L${x} ${base} L${x+w/2} ${base-h} L${x+w} ${base} `; x += w*0.7; }
+  pines += 'L420 850 Z';
+  const houses = [[70,640,46,36],[150,652,38,30],[250,646,52,40],[330,656,36,28]];
+  const roofs = houses.map(([hx,hy,w,h]) => `<path d="M${hx-4} ${hy} L${hx+w/2} ${hy-h*0.75} L${hx+w+4} ${hy} Z M${hx} ${hy} h${w} v${h} h-${w} Z" fill="#050302"/>`).join('');
+  const wins = houses.map(([hx,hy,w,h],i) => `<rect class="a-win" style="animation-delay:-${i*1.3}s" x="${hx+w*0.3}" y="${hy+h*0.3}" width="${w*0.18}" height="${h*0.28}" fill="#f6cf6c"/>`).join('');
+  const eyes = [[40,700,0],[200,712,3],[365,698,6],[118,730,4.5]].map(([ex,ey,d]) =>
+    `<g class="a-eyes" style="animation-delay:-${d}s"><ellipse cx="${ex}" cy="${ey}" rx="3.2" ry="2" fill="#ff5a3c"/><ellipse cx="${ex+10}" cy="${ey}" rx="3.2" ry="2" fill="#ff5a3c"/></g>`).join('');
+  document.getElementById('scene-night').innerHTML = `
+  <svg viewBox="0 0 400 850" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#151010"/><stop offset=".38" stop-color="#2a1210"/>
+        <stop offset=".66" stop-color="#8e1d15"/><stop offset=".76" stop-color="#b8271c"/><stop offset="1" stop-color="#3a0a07"/>
+      </linearGradient>
+      <radialGradient id="mg" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#f7ead0" stop-opacity=".55"/><stop offset="1" stop-color="#f7ead0" stop-opacity="0"/></radialGradient>
+    </defs>
+    <rect width="400" height="850" fill="url(#sky)"/>
+    <g class="a-moon"><circle cx="300" cy="150" r="95" fill="url(#mg)"/><circle cx="300" cy="150" r="40" fill="#f3e2bf"/>
+      <circle cx="288" cy="140" r="7" fill="#dcc79c"/><circle cx="312" cy="164" r="5" fill="#dcc79c"/></g>
+    <g class="a-cloud"><ellipse cx="0" cy="190" rx="70" ry="12" fill="#0d0807" opacity=".75"/><ellipse cx="40" cy="182" rx="40" ry="10" fill="#0d0807" opacity=".75"/></g>
+    <g class="a-cloud c2"><ellipse cx="0" cy="250" rx="90" ry="10" fill="#0d0807" opacity=".6"/></g>
+    <path d="${pines}" fill="#070403"/>
+    ${roofs}${wins}
+    <g class="a-fog"><ellipse cx="200" cy="690" rx="260" ry="28" fill="#c62a1f" opacity=".16"/></g>
+    <g class="a-fog f2"><ellipse cx="180" cy="740" rx="240" ry="30" fill="#f7ead0" opacity=".05"/></g>
+    ${eyes}
+  </svg>`;
+
+  const walker = (x,s,d,dur) => `<g class="a-walk" style="animation-delay:-${d}s;animation-duration:${dur}s"><g>
+    <g transform="translate(0 ${770 - 40*s}) scale(${s})"><circle cx="10" cy="5" r="4.5"/><path d="M5 11h10l3 14-3 1-1 14h-4l-0-11-1 11H5l-1-14-3-1z"/></g></g></g>`;
+  const walkers = [[0,1.15,0,40],[0,0.9,9,46],[0,1.3,17,36],[0,1,25,42],[0,0.8,31,50],[0,1.2,5,55]].map(a => walker(...a)).join('');
+  document.getElementById('scene-day').innerHTML = `
+  <svg viewBox="0 0 400 850" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="dsky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a2410"/><stop offset=".3" stop-color="#b4782a"/><stop offset=".62" stop-color="#e9b84f"/><stop offset="1" stop-color="#c88e33"/>
+    </linearGradient></defs>
+    <rect width="400" height="850" fill="url(#dsky)"/>
+    <g class="a-sun"><circle cx="330" cy="120" r="34" fill="#fbe3a0"/>
+      ${Array.from({length:12},(_,i)=>`<rect x="328" y="62" width="4" height="16" rx="2" fill="#fbe3a0" transform="rotate(${i*30} 330 120)"/>`).join('')}</g>
+    <path d="${pines}" fill="#5a3818" opacity=".55" transform="translate(0 40)"/>
+    ${houses.map(([hx,hy,w,h]) => `<path d="M${hx-4} ${hy+40} L${hx+w/2} ${hy+40-h*0.75} L${hx+w+4} ${hy+40} Z M${hx} ${hy+40} h${w} v${h} h-${w} Z" fill="#4a2d14" opacity=".7"/>`).join('')}
+    <rect y="770" width="400" height="80" fill="#8a5a22" opacity=".55"/>
+    <g fill="#4a2a12" opacity=".7">${walkers}</g>
+  </svg>`;
+}
+
+/* ================= Icons ================= */
+const sv = (p, w=2) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const I = {
+  wolf: sv('<path d="M4 3l4 5 4-2 4 2 4-5-1.5 9.5L12 21l-6.5-8.5L4 3z"/><path d="M9 12l1.5 1.5M15 12l-1.5 1.5M10 17h4"/>'),
+  eye: sv('<path d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="3"/>'),
+  hat: sv('<path d="M3 19h18M6 19L12 3l3 7 3-2-2 11"/><path d="M8 15h8"/>'),
+  target: sv('<circle cx="12" cy="12" r="8"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="2"/>'),
+  heart: sv('<path d="M12 20s-7-4.6-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.4-7 10-7 10z"/>'),
+  mask: sv('<path d="M3 10c3-3 6-3 9 0 3-3 6-3 9 0v4c-3 3-6 3-9 0-3 3-6 3-9 0v-4z"/><circle cx="7.5" cy="12" r="1"/><circle cx="16.5" cy="12" r="1"/>'),
+  peek: sv('<path d="M3 13c2.5-4 6-6 9-6s6.5 2 9 6"/><circle cx="12" cy="13" r="2.5"/>'),
+  house: sv('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>'),
+  shield: sv('<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>'),
+  hourglass: sv('<path d="M6 3h12M6 21h12M7 3c0 6 10 6 10 9s-10 3-10 9M17 3c0 6-10 6-10 9s10 3 10 9"/>'),
+  jester: sv('<path d="M4 19h16M5 19L4 8l5 5 3-8 3 8 5-5-1 11"/>'),
+  horns: sv('<path d="M7 4c-3 2-3 7 1 9M17 4c3 2 3 7-1 9"/><path d="M8 13l4 8 4-8"/>'),
+  flute: sv('<path d="M3 21L21 3"/><circle cx="9" cy="15" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="15" cy="9" r="1"/>'),
+  leaf: sv('<path d="M5 19C5 9 11 5 20 4c-1 9-5 15-15 15z"/><path d="M5 19l8-8"/>'),
+  paw: sv('<circle cx="7" cy="9" r="1.8"/><circle cx="12" cy="6.5" r="1.8"/><circle cx="17" cy="9" r="1.8"/><path d="M8 17c0-3 2-5 4-5s4 2 4 5-2 3-4 3-4 0-4-3z"/>'),
+  two: sv('<circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M3 20c0-4 2-6 5-6s5 2 5 6M11 20c0-4 2-6 5-6s5 2 5 6"/>'),
+  three: sv('<circle cx="6" cy="9" r="2.5"/><circle cx="12" cy="7" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M2 20c0-3 2-5 4-5M22 20c0-3-2-5-4-5M8 20c0-4 2-7 4-7s4 3 4 7"/>'),
+  fox: sv('<path d="M4 4l4 6h8l4-6v8l-8 8-8-8z"/><path d="M10 13h.01M14 13h.01"/>'),
+  sword: sv('<path d="M14 4h6v6L9 21l-3-3z"/><path d="M5 13l6 6"/>'),
+  halo: sv('<ellipse cx="12" cy="5" rx="5" ry="2"/><path d="M12 9c-4 0-8 3-9 8 3-1 5-1 9-4 4 3 6 3 9 4-1-5-5-8-9-8z"/>'),
+  broom: sv('<path d="M16 3L9 14M6 13l6 4-3 4-5-3z"/>'),
+  gavel: sv('<path d="M14 4l6 6M9 9l6 6M3 21l9-9M13 3l8 8-3 3-8-8 3-3z"/>'),
+  feather: sv('<path d="M20 4C10 4 5 10 4 20M20 4c0 8-6 13-14 12"/>'),
+  crown: sv('<path d="M3 18h18l-2-10-5 4-2-6-2 6-5-4z"/>'),
+  note: sv('<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>'),
+  heal: sv('<path d="M9 3h6M10 3v4l-5 8a3 3 0 0 0 2.5 4.6h9A3 3 0 0 0 19 15l-5-8V3"/><path d="M12 11v5M9.5 13.5h5"/>'),
+  poison: sv('<path d="M9 3h6M10 3v4l-5 8a3 3 0 0 0 2.5 4.6h9A3 3 0 0 0 19 15l-5-8V3"/><path d="M9.5 12l5 5M14.5 12l-5 5"/>'),
+  skull: sv('<circle cx="12" cy="10" r="7"/><path d="M9 16v4h6v-4"/><circle cx="9.5" cy="10" r="1.2"/><circle cx="14.5" cy="10" r="1.2"/>'),
+  moon: sv('<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/>'),
+  sun: sv('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+  check: sv('<polyline points="20 6 9 17 4 12"/>', 2.6),
+  close: sv('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>', 2.4),
+  menu: sv('<circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/>', 2.4),
+  people: sv('<circle cx="9" cy="8" r="3.5"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7"/><path d="M16 4a3.5 3.5 0 0 1 0 7M19 14c2 1 3 3.5 3 7"/>'),
+  undo: sv('<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>'),
+  reset: sv('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><polyline points="3 3 3 8 8 8"/>'),
+  plus: sv('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>', 2.6),
+  minus: sv('<line x1="5" y1="12" x2="19" y2="12"/>', 2.6),
+  up: sv('<polyline points="6 15 12 9 18 15"/>', 2.6),
+  down: sv('<polyline points="6 9 12 15 18 9"/>', 2.6),
+  left: sv('<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>'),
+  right: sv('<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>'),
+  play: sv('<polygon points="7 4 20 12 7 20 7 4"/>'),
+  pause: sv('<line x1="8" y1="5" x2="8" y2="19"/><line x1="16" y1="5" x2="16" y2="19"/>', 3),
+  book: sv('<path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z"/><path d="M20 4h-6a3 3 0 0 0-1 .2"/><path d="M20 4v14h-7"/>'),
+  list: sv('<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>'),
+  dice: sv('<rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8" cy="8" r="1.2"/><circle cx="16" cy="16" r="1.2"/><circle cx="12" cy="12" r="1.2"/>'),
+  download: sv('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'),
+  home: sv('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>'),
+  sliders: sv('<line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="9" cy="6" r="2.2" fill="currentColor"/><circle cx="15" cy="12" r="2.2" fill="currentColor"/><circle cx="7" cy="18" r="2.2" fill="currentColor"/>'),
+  scale: sv('<path d="M12 3v18M5 21h14M4 8h16M7 8l-3 7h6zM17 8l-3 7h6z"/>')
+};
+
+let emblemN = 0;
+function emblem(cls=''){
+  const id = 'ec' + (++emblemN);
+  return `<svg viewBox="0 0 64 64" class="emblem ${cls}" aria-hidden="true"><defs><clipPath id="${id}"><circle cx="32" cy="32" r="26"/></clipPath></defs>
+    <circle cx="32" cy="32" r="29" fill="#c62a1f" stroke="#050302" stroke-width="4"/>
+    <g clip-path="url(#${id})"><rect width="64" height="64" fill="#7d1710" opacity=".45"/>
+    <circle cx="38" cy="22" r="10" fill="#f7ead0"/><circle cx="43" cy="18" r="9" fill="#9f2117"/>
+    <path d="M2 64V46l6-8 4 5 5-12 5 10 4-7 5 9 4-6 5 9 4-11 5 12 4-6 5 7 4-4v20z" fill="#050302"/>
+    <ellipse cx="27" cy="51" rx="1.7" ry="1.1" fill="#ffb02e"/><ellipse cx="33" cy="51" rx="1.7" ry="1.1" fill="#ffb02e"/></g>
+    <circle cx="32" cy="32" r="26" fill="none" stroke="#e6b24a" stroke-width="1.6" stroke-dasharray="2.5 3"/></svg>`;
+}
+
+/* ================= Rollen ================= */
+// night: 'every' | 'first' | 'even' | null   act: Art der Nachtaktion  order: Weckreihenfolge
+const ROLES = [
+  {id:'villager', set:'basis', name:'Dorfbewohner', sub:'Kein Sonderkönnen', icon:'house', color:'#b98a2c', team:'village', order:999,
+   desc:'Hat keine Sonderfähigkeit. Findet mit dem ganzen Dorf die Werwölfe – durch gutes Zuhören, kluge Fragen und geschicktes Abstimmen.'},
+  {id:'wolf', set:'basis', name:'Werwolf', sub:'Frisst nachts ein Opfer', icon:'wolf', color:'#b3261e', team:'wolf', night:'every', act:'kill', order:40, meetWolves:true,
+   say:'Die Werwölfe erwachen, erkennen einander und einigen sich lautlos auf ein Opfer.',
+   desc:'Wacht jede Nacht mit den anderen Wölfen auf und wählt gemeinsam ein Opfer. Gewinnt, wenn das Dorf besiegt ist.'},
+  {id:'seer', set:'basis', name:'Seherin', sub:'Sieht eine Identität', icon:'eye', color:'#7a3fa6', team:'village', night:'every', act:'check', order:50,
+   say:'Die Seherin erwacht und zeigt auf eine Person, deren Karte sie sehen möchte.',
+   desc:'Erfährt jede Nacht die Rolle einer Person. Du zeigst ihr die Karte bzw. nennst die Rolle stumm.'},
+  {id:'witch', set:'basis', name:'Hexe', sub:'Heil- & Gifttrank', icon:'hat', color:'#2a9a8a', team:'village', night:'every', act:'witch', order:70,
+   say:'Die Hexe erwacht. Ich zeige ihr das Opfer dieser Nacht. Will sie es retten? Will sie jemanden vergiften?',
+   desc:'Hat einen Heiltrank (rettet das Wolfsopfer) und einen Gifttrank (tötet eine Person). Jeder Trank nur einmal pro Spiel.'},
+  {id:'hunter', set:'basis', name:'Jäger', sub:'Letzter Schuss', icon:'target', color:'#5f7a2b', team:'village', order:20,
+   say:'Der Jäger öffnet kurz die Augen, damit ich ihn notieren kann.',
+   desc:'Stirbt der Jäger, nimmt er sofort eine Person seiner Wahl mit in den Tod.'},
+  {id:'cupid', set:'basis', name:'Amor', sub:'Stiftet das Liebespaar', icon:'heart', color:'#3b77c4', team:'village', night:'first', act:'lovers', order:10,
+   say:'Amor erwacht und bestimmt zwei Personen, die sich unsterblich ineinander verlieben.',
+   desc:'Verbindet in Nacht 1 zwei Personen. Stirbt eine davon, stirbt die andere vor Kummer. Wolf + Dorf als Paar gewinnen nur zu zweit.'},
+  {id:'thief', set:'basis', name:'Dieb', sub:'Tauscht seine Karte', icon:'mask', color:'#6b6b75', team:'village', night:'first', act:'swap', order:5,
+   say:'Der Dieb erwacht und darf seine Karte gegen eine der beiden Karten in der Mitte tauschen.',
+   desc:'Mit Dieb liegen zwei Karten mehr im Spiel. In Nacht 1 darf er eine davon nehmen. Liegen dort zwei Werwölfe, muss er einen nehmen.'},
+  {id:'girl', set:'basis', name:'Blinzelmädchen', sub:'Blinzelt bei den Wölfen', icon:'peek', color:'#d0658e', team:'village', order:21,
+   say:'Das Blinzelmädchen öffnet kurz die Augen, damit ich es notieren kann.',
+   desc:'Darf nachts während der Wolfsphase heimlich blinzeln. Wird es erwischt, droht ihm Gefahr.'},
+
+  {id:'guard', set:'neumond', name:'Heiler', sub:'Beschützt eine Person', icon:'shield', color:'#3a9a5a', team:'village', night:'every', act:'protect', order:30,
+   say:'Der Heiler erwacht und zeigt auf die Person, die er heute Nacht beschützen möchte.',
+   desc:'Schützt jede Nacht eine Person (auch sich selbst) vor den Werwölfen, aber nie zweimal hintereinander dieselbe. Kartenname kann je nach Ausgabe abweichen.'},
+  {id:'elder', set:'neumond', name:'Dorfältester', sub:'Übersteht einen Biss', icon:'hourglass', color:'#8a6a4a', team:'village', order:22,
+   say:'Der Dorfälteste öffnet kurz die Augen.',
+   desc:'Überlebt den ersten Angriff der Werwölfe. (Wird er vom Dorf getötet, verlieren laut Regel alle Dorfbewohner ihre Fähigkeiten – bitte selbst handhaben.)'},
+  {id:'idiot', set:'neumond', name:'Dorfdepp', sub:'Überlebt das Dorfgericht', icon:'jester', color:'#d08a2a', team:'village', order:23,
+   say:'Der Dorfdepp öffnet kurz die Augen.',
+   desc:'Wird er vom Dorf verurteilt, deckt er seine Karte auf und überlebt – darf danach aber nicht mehr abstimmen.'},
+  {id:'scapegoat', set:'neumond', name:'Sündenbock', sub:'Stirbt bei Gleichstand', icon:'horns', color:'#8d5a3a', team:'village', order:24,
+   say:'Der Sündenbock öffnet kurz die Augen.',
+   desc:'Endet eine Abstimmung unentschieden, stirbt der Sündenbock.'},
+  {id:'piper', set:'neumond', name:'Flötenspieler', sub:'Verzaubert alle', icon:'flute', color:'#6a4fc0', team:'solo', night:'every', act:'enchant', order:85,
+   say:'Der Flötenspieler erwacht und verzaubert zwei Personen.',
+   desc:'Verzaubert jede Nacht zwei Personen. Gewinnt allein, sobald alle Lebenden verzaubert sind.'},
+
+  {id:'urwolf', set:'charaktere', name:'Urwolf', sub:'Infiziert einmal', icon:'wolf', color:'#7a0f0f', team:'wolf', night:'every', act:'infect', order:42,
+   say:'Der Urwolf entscheidet, ob er das Opfer der Wölfe infiziert.',
+   desc:'Frisst mit den Wölfen. Einmal pro Spiel kann er das Opfer statt zu töten in einen Werwolf verwandeln (geheim).'},
+  {id:'bigwolf', set:'charaktere', name:'Großer böser Wolf', sub:'Zweites Opfer', icon:'wolf', color:'#4a0d0d', team:'wolf', night:'every', act:'bigkill', order:44,
+   say:'Der große böse Wolf erwacht noch einmal und wählt ein zweites Opfer.',
+   desc:'Darf zusätzlich ein eigenes Opfer wählen, solange noch kein Werwolf gestorben ist.'},
+  {id:'whitewolf', set:'charaktere', name:'Weißer Werwolf', sub:'Spielt allein', icon:'wolf', color:'#3a3a46', team:'wolf', night:'even', act:'whitekill', order:46,
+   say:'Der weiße Werwolf erwacht und darf einen Werwolf töten.',
+   desc:'Gilt als Werwolf, will aber allein überleben. In jeder zweiten Nacht darf er einen Werwolf töten.'},
+  {id:'wildchild', set:'charaktere', name:'Wildes Kind', sub:'Wählt ein Vorbild', icon:'leaf', color:'#4c8a3a', team:'village', night:'first', act:'model', order:12,
+   say:'Das wilde Kind erwacht und zeigt auf sein Vorbild.',
+   desc:'Wählt in Nacht 1 ein Vorbild. Stirbt das Vorbild, wird das wilde Kind zum Werwolf.'},
+  {id:'wolfdog', set:'charaktere', name:'Wolfshund', sub:'Wählt seine Seite', icon:'paw', color:'#8a5a2a', team:'village', night:'first', act:'side', order:13,
+   say:'Der Wolfshund erwacht und entscheidet: Dorf oder Werwölfe?',
+   desc:'Entscheidet in Nacht 1, ob er Dorfbewohner bleibt oder zum Werwolf wird.'},
+  {id:'sisters', set:'charaktere', name:'Zwei Schwestern', sub:'Kennen einander', icon:'two', color:'#c05a8a', team:'village', night:'first', order:14, def:2, meet:true,
+   say:'Die beiden Schwestern erwachen und erkennen einander.',
+   desc:'Erkennen sich in Nacht 1 (je nach Regel auch später) und dürfen sich stumm absprechen.'},
+  {id:'brothers', set:'charaktere', name:'Drei Brüder', sub:'Kennen einander', icon:'three', color:'#4a6a9a', team:'village', night:'first', order:15, def:3, meet:true,
+   say:'Die drei Brüder erwachen und erkennen einander.',
+   desc:'Erkennen sich in Nacht 1 und dürfen sich stumm absprechen.'},
+  {id:'fox', set:'charaktere', name:'Fuchs', sub:'Wittert Wölfe', icon:'fox', color:'#d2691e', team:'village', night:'every', act:'fox', order:55,
+   say:'Der Fuchs erwacht und zeigt auf eine Person. Ich sage ihm, ob sie oder ein Nachbar ein Werwolf ist.',
+   desc:'Prüft eine 3er-Gruppe (Person + beide Sitznachbarn). Ist kein Wolf dabei, verliert er seine Gabe. Sitzordnung = Spielerliste.'},
+  {id:'bear', set:'charaktere', name:'Bärenführer', sub:'Sein Bär brummt', icon:'paw', color:'#6b4a2b', team:'village', order:25,
+   say:'Der Bärenführer öffnet kurz die Augen.',
+   desc:'Sitzt morgens ein Werwolf direkt neben ihm, brummt der Bär. Die App prüft das automatisch anhand der Sitzordnung.'},
+  {id:'knight', set:'charaktere', name:'Ritter', sub:'Rostiges Schwert', icon:'sword', color:'#7c8a99', team:'village', order:26,
+   say:'Der Ritter öffnet kurz die Augen.',
+   desc:'Wird er von den Wölfen gefressen, stirbt in der nächsten Nacht der nächste Werwolf in Sitzrichtung (automatisch).'},
+  {id:'angel', set:'charaktere', name:'Engel', sub:'Will sofort sterben', icon:'halo', color:'#efe2b0', light:true, team:'solo', order:27,
+   say:'Der Engel öffnet kurz die Augen.',
+   desc:'Gewinnt sofort allein, wenn er bei der ersten Abstimmung (Tag 1) hingerichtet wird. Sonst normaler Dorfbewohner.'},
+  {id:'maid', set:'charaktere', name:'Ergebene Magd', sub:'Übernimmt eine Rolle', icon:'broom', color:'#9a6a8a', team:'village', order:28,
+   say:'Die ergebene Magd öffnet kurz die Augen.',
+   desc:'Darf vor dem Aufdecken eines Hingerichteten dessen Rolle übernehmen. Bitte manuell im Menü per Rollenänderung abbilden.'},
+  {id:'judge', set:'charaktere', name:'Stotternder Richter', sub:'Zweite Abstimmung', icon:'scale', color:'#5a4a7a', team:'village', order:29,
+   say:'Der stotternde Richter öffnet kurz die Augen und zeigt mir sein geheimes Zeichen.',
+   desc:'Darf einmal pro Spiel per vereinbartem Zeichen eine sofortige zweite Abstimmung auslösen.'},
+
+  {id:'raven', set:'extra', name:'Rabe', sub:'Belastet eine Person', icon:'feather', color:'#3a3a48', team:'village', night:'every', act:'mark', order:80,
+   say:'Der Rabe erwacht und zeigt auf eine verdächtige Person.',
+   desc:'Die markierte Person bekommt bei der nächsten Abstimmung zwei Stimmen zusätzlich.'}
+];
+const RM = Object.fromEntries(ROLES.map(r => [r.id, r]));
+const SETS = {basis:'Basisspiel', neumond:'Neumond', charaktere:'Charaktere', extra:'Weitere Rollen'};
+const WOLF_IDS = ['wolf','urwolf','bigwolf','whitewolf'];
+
+/* ================= Zustand ================= */
+const defaultOptions = () => ({mode:'cards', expansions:false, captain:true, parityWin:true, callDeadRoles:true, revealRoles:true, wakeLock:true, haptics:true, timer:180});
+const defaultState = () => ({
+  view:'home', wizStep:0, libSet:'basis', prevView:'home',
+  players:['Michael','Marie','Ben','Lisa','Jakob','Johanna','Paul','Emma'].map((n,i) => ({id:'p'+(i+1), name:n})),
+  counts:{wolf:2, seer:1, witch:1, hunter:1, villager:3},
+  options:defaultOptions(), game:null
+});
+const emptyDraft = () => ({kill:null, check:null, heal:false, poison:null, lovers:[], thiefRole:null, protect:null, infect:false,
+  bigkill:null, whitekill:null, model:null, side:null, fox:null, mark:null, enchant:[], vote:null});
+const newGame = () => ({phase:'night', night:1, day:1, stepIdx:0, subMode:null, roles:{}, auto:{}, dead:{}, lovers:[],
+  potions:{heal:false, poison:false}, poisonMode:false, interrupts:[], resume:null, winner:null, captain:null, dayMode:'vote',
+  lastDeaths:[], morning:[], turned:{}, enchanted:{}, model:null, wolfdogWolf:false, thiefId:null, lastProtect:null,
+  urwolfUsed:false, elderHit:false, idiotRevealed:false, angelWin:false, knightCurse:null, ravenMark:null, foxLost:false,
+  log:[], draft:emptyDraft(), digital:false, dealIdx:0, dealShown:false, middle:[]});
+
+let state = defaultState();
+try {
+  const s = JSON.parse(localStorage.getItem(KEY) || localStorage.getItem('werwolf-spielleiter-v5'));
+  if (s && Array.isArray(s.players) && s.counts) {
+    state = {...defaultState(), ...s, options:{...defaultOptions(), ...(s.options||{})}};
+    if (!['home','setup','game','settings','library','guide'].includes(state.view) || (state.view === 'game' && !state.game)) state.view = 'home';
+  }
+} catch(e) {}
+let modal = null;
+let undoStack = [];
+const timer = {left: state.options.timer, running:false, endAt:0, h:null};
+
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {} };
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const cnt = id => Number(state.counts[id] || 0);
+const nm = id => state.players.find(p => p.id === id)?.name || '?';
+const alive = (g,id) => !g.dead[id];
+const holders = (g,r) => state.players.filter(p => g.roles[p.id] === r || (r === 'thief' && p.id === g.thiefId));
+const livingHolders = (g,r) => holders(g,r).filter(p => alive(g,p.id));
+const isWolf = (g,id) => WOLF_IDS.includes(g.roles[id]) || (g.roles[id] === 'wolfdog' && g.wolfdogWolf) || !!g.turned[id];
+const roleName = (g,id) => { const r = RM[g.roles[id]]; let s = r ? r.name : 'Unbekannt'; if (g.turned[id]) s += ' (jetzt Wolf)'; if (id === g.thiefId) s += ' (ehem. Dieb)'; return s; };
+const requiredCards = () => state.players.length + (cnt('thief') > 0 ? 2 : 0);
+const totalCards = () => Object.values(state.counts).reduce((a,b) => a + Number(b||0), 0);
+const buzz = p => { if (state.options.haptics && navigator.vibrate) try { navigator.vibrate(p); } catch(e) {} };
+function log(g, t){ g.log.push({p: g.phase === 'day' ? `Tag ${g.day}` : `Nacht ${g.night}`, t}); }
+function toast(msg){ const el = document.getElementById('toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('show'), 2200); }
+
+function seatNeighbors(g, id){
+  const liv = state.players.filter(p => alive(g,p.id) || p.id === id);
+  const i = liv.findIndex(p => p.id === id);
+  if (i < 0 || liv.length < 2) return [];
+  const a = liv[(i - 1 + liv.length) % liv.length].id, b = liv[(i + 1) % liv.length].id;
+  return [...new Set([a,b])].filter(x => x !== id);
+}
+function nextWolf(g, id){
+  const n = state.players.length, i = state.players.findIndex(p => p.id === id);
+  for (let k = 1; k < n; k++){ const p = state.players[(i + k) % n]; if (alive(g,p.id) && isWolf(g,p.id)) return p.id; }
+  return null;
+}
+function syncVillagers(){
+  const nonV = Object.entries(state.counts).filter(([k]) => k !== 'villager').reduce((s,[,v]) => s + Number(v||0), 0);
+  state.counts.villager = Math.max(0, requiredCards() - nonV);
+}
+function setupProblems(){
+  const p = [];
+  if (state.players.length < 3) p.push('Mindestens 3 Spieler nötig.');
+  if (cnt('wolf') + cnt('urwolf') + cnt('bigwolf') + cnt('whitewolf') < 1) p.push('Mindestens 1 Werwolf nötig.');
+  if (totalCards() !== requiredCards()) p.push(`Karten: ${totalCards()} – benötigt ${requiredCards()}${cnt('thief') ? ' (Spieler + 2 für den Dieb)' : ''}.`);
+  return p;
+}
+
+/* ================= Nachtablauf ================= */
+function actApplies(r, g){
+  if (!r.act) return false;
+  if (r.night === 'first' && g.night !== 1) return false;
+  if (r.night === 'even' && g.night % 2 !== 0) return false;
+  if (r.id === 'urwolf' && g.urwolfUsed) return false;
+  if (r.id === 'bigwolf' && Object.keys(g.dead).some(id => isWolf(g,id))) return false;
+  if (r.id === 'fox' && g.foxLost) return false;
+  return true;
+}
+function nightSteps(g){
+  const out = [];
+  const first = g.night === 1;
+  const rs = ROLES.filter(r => r.id !== 'villager' && cnt(r.id) > 0).sort((a,b) => a.order - b.order);
+  for (const r of rs){
+    const act = actApplies(r, g);
+    if (!first && !act) continue;
+    if (g.digital && first && !act && !r.meet) continue;
+    const gone = !first && livingHolders(g, r.id).length === 0;
+    if (gone && !state.options.callDeadRoles) continue;
+    out.push({key:r.id, role:r.id, act: act && !gone ? r.act : null, gone, say:r.say, label:r.name});
+    if (r.id === 'cupid' && first) out.push({key:'lovers', role:null, info:true, label:'Verliebte', say:'Ich tippe die Verliebten an. Sie öffnen die Augen, erkennen einander und schlafen wieder ein.'});
+    if (r.id === 'piper' && act && !gone) out.push({key:'enchanted', role:null, info:true, label:'Verzauberte', say:'Alle Verzauberten erwachen, erkennen einander und schlafen wieder ein.'});
+  }
+  return out;
+}
+function ctxOf(g){
+  const steps = nightSteps(g);
+  if (!steps.length) return null;
+  g.stepIdx = Math.max(0, Math.min(g.stepIdx, steps.length - 1));
+  const step = steps[g.stepIdx];
+  const r = step.role ? RM[step.role] : null;
+  const need = r ? cnt(r.id) : 0;
+  const have = r ? holders(g, r.id).length : 0;
+  const complete = have >= need;
+  let mode = 'info';
+  if (r && g.digital){
+    mode = step.act ? 'action' : 'info';
+  } else if (r){
+    if (g.night === 1 && (!step.act || have === 0 || g.subMode === 'assign' || (!complete && g.subMode !== 'action'))) mode = 'assign';
+    else mode = step.act ? 'action' : 'info';
+  }
+  return {steps, step, r, need, have, complete, mode};
+}
+function reconcileAuto(g){
+  for (const pid of Object.keys(g.auto)) { if (g.roles[pid] === 'villager') delete g.roles[pid]; delete g.auto[pid]; }
+  if (cnt('thief')) return; // mit Dieb liegen Karten in der Mitte – nicht automatisch auffüllen
+  const unassigned = state.players.filter(p => !g.roles[p.id]);
+  if (!unassigned.length) return;
+  const missing = ROLES.filter(r => r.id !== 'villager').reduce((a,r) => a + Math.max(0, cnt(r.id) - holders(g,r.id).length), 0);
+  if (missing === 0) for (const p of unassigned){ g.roles[p.id] = 'villager'; g.auto[p.id] = true; }
+}
+
+function dealRoles(g){
+  const bag = ROLES.flatMap(r => Array(cnt(r.id)).fill(r.id));
+  for (let i = bag.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
+  const n = state.players.length;
+  g.roles = Object.fromEntries(state.players.map((p,i) => [p.id, bag[i] || 'villager']));
+  g.middle = bag.slice(n); g.auto = {}; g.thiefId = null;
+  log(g, 'Rollen ausgelost' + (g.middle.length ? ` (Mitte: ${g.middle.map(x => RM[x].name).join(', ')})` : ''));
+}
+const TEAM = {village:'Team Dorf', wolf:'Team Werwölfe', solo:'Spielt allein'};
+
+function kill(g, id, cause){
+  const q = [[id, cause]];
+  while (q.length){
+    const [x, c] = q.shift();
+    if (!x || g.dead[x]) continue;
+    g.dead[x] = {cause:c};
+    log(g, `† ${nm(x)} (${roleName(g,x)}) – ${c}`);
+    if (g.roles[x] === 'hunter') g.interrupts.push({type:'hunter', id:x});
+    if (g.captain === x && state.options.captain) g.interrupts.push({type:'captain', id:x});
+    if (g.lovers.includes(x)){ const pt = g.lovers.find(y => y !== x); if (pt && !g.dead[pt]) q.push([pt, 'Liebeskummer']); }
+    if (g.model === x){ const wc = livingHolders(g,'wildchild')[0]; if (wc && !g.turned[wc.id]){ g.turned[wc.id] = true; log(g, `Wildes Kind ${nm(wc.id)} wird zum Werwolf`); } }
+  }
+}
+function checkWinner(g){
+  if (g.interrupts.length) return null;
+  if (g.angelWin) return 'Der Engel';
+  const liv = state.players.filter(p => alive(g,p.id)).map(p => p.id);
+  if (!liv.length) return 'Niemand – alle sind tot';
+  if (liv.length === 2 && g.lovers.length === 2 && g.lovers.every(id => liv.includes(id)) && isWolf(g,g.lovers[0]) !== isWolf(g,g.lovers[1])) return 'Das Liebespaar';
+  const piper = liv.find(id => g.roles[id] === 'piper');
+  if (piper && liv.length > 1 && liv.every(id => id === piper || g.enchanted[id])) return 'Der Flötenspieler';
+  const wolves = liv.filter(id => isWolf(g,id));
+  const ww = liv.find(id => g.roles[id] === 'whitewolf');
+  if (ww && liv.length === 1) return 'Der weiße Werwolf';
+  if (!wolves.length) return 'Das Dorf';
+  const others = liv.length - wolves.length;
+  if (others === 0 || (state.options.parityWin && wolves.length >= others)) return (ww && wolves.length === 1) ? 'Der weiße Werwolf' : 'Die Werwölfe';
+  return null;
+}
+function afterDeaths(g, resume){
+  if (g.interrupts.length){ g.phase = 'interrupt'; g.resume = resume; return; }
+  const w = checkWinner(g);
+  if (w){ log(g, `Sieg: ${w}`); g.winner = w; g.phase = 'ended'; buzz([200,100,200,100,400]); return; }
+  if (resume === 'day'){ g.phase = 'day'; } else startNight(g);
+}
+function startNight(g){
+  g.night++; g.day++; g.phase = 'night'; g.stepIdx = 0; g.subMode = null; g.poisonMode = false; g.draft = emptyDraft();
+  log(g, '— Nacht beginnt —');
+}
+function finishNight(g){
+  const d = g.draft;
+  for (const p of state.players) if (!g.roles[p.id]) g.roles[p.id] = 'villager';
+  g.auto = {};
+  const before = new Set(Object.keys(g.dead));
+  g.morning = [];
+  if (g.night === 1){
+    if (d.lovers.length === 2){ g.lovers = [...d.lovers]; log(g, `Amor verliebt ${nm(d.lovers[0])} & ${nm(d.lovers[1])}`); }
+    if (d.model){ g.model = d.model; log(g, `Vorbild des wilden Kindes: ${nm(d.model)}`); }
+    if (d.side){ g.wolfdogWolf = d.side === 'wolf'; log(g, `Wolfshund wählt: ${d.side === 'wolf' ? 'Werwölfe' : 'Dorf'}`); }
+    if (g.thiefId && d.thiefRole) log(g, `Dieb ${nm(g.thiefId)} nimmt: ${RM[d.thiefRole].name}`);
+  }
+  if (d.check) log(g, `Seherin prüft ${nm(d.check)}: ${roleName(g,d.check)}`);
+  g.ravenMark = d.mark || null;
+  if (d.mark) log(g, `Rabe markiert ${nm(d.mark)}`);
+  g.lastProtect = d.protect || null;
+  if (d.protect) log(g, `Heiler schützt ${nm(d.protect)}`);
+  if (d.enchant.length){ d.enchant.forEach(id => g.enchanted[id] = true); log(g, `Verzaubert: ${d.enchant.map(nm).join(', ')}`); }
+  if (d.fox){ const grp = [d.fox, ...seatNeighbors(g,d.fox)]; const hit = grp.some(id => isWolf(g,id)); log(g, `Fuchs prüft ${grp.map(nm).join(', ')}: ${hit ? 'Wolf dabei' : 'kein Wolf'}`); if (!hit) g.foxLost = true; }
+  if (g.knightCurse){ const k = g.knightCurse; g.knightCurse = null; if (alive(g,k)) kill(g, k, 'Rostiges Schwert des Ritters'); }
+
+  const v = d.kill;
+  if (v && alive(g,v)){
+    if (d.infect && !g.urwolfUsed && livingHolders(g,'urwolf').length){ g.turned[v] = true; g.urwolfUsed = true; log(g, `Urwolf infiziert ${nm(v)} – ab jetzt heimlich Werwolf`); }
+    else if (v === d.protect){ log(g, `${nm(v)} wurde vom Heiler gerettet`); }
+    else if (d.heal && !g.potions.heal){ g.potions.heal = true; log(g, `Hexe heilt ${nm(v)}`); }
+    else if (g.roles[v] === 'elder' && !g.elderHit){ g.elderHit = true; log(g, `Dorfältester ${nm(v)} übersteht den Angriff`); }
+    else {
+      kill(g, v, 'Werwölfe');
+      if (g.roles[v] === 'knight'){ const w = nextWolf(g, v); if (w){ g.knightCurse = w; log(g, `Ritter: ${nm(w)} stirbt nächste Nacht`); } }
+    }
+  }
+  if (d.bigkill && alive(g,d.bigkill) && d.bigkill !== d.protect) kill(g, d.bigkill, 'Großer böser Wolf');
+  if (d.whitekill && alive(g,d.whitekill)) kill(g, d.whitekill, 'Weißer Werwolf');
+  if (d.poison && !g.potions.poison && alive(g,d.poison)){ g.potions.poison = true; kill(g, d.poison, 'Gifttrank der Hexe'); }
+
+  g.lastDeaths = Object.keys(g.dead).filter(id => !before.has(id));
+  const bear = livingHolders(g,'bear')[0];
+  if (bear) g.morning.push(seatNeighbors(g,bear.id).some(id => isWolf(g,id)) ? 'Der Bär brummt laut! (Werwolf sitzt neben dem Bärenführer)' : 'Der Bär bleibt ruhig.');
+  if (g.ravenMark && alive(g,g.ravenMark)) g.morning.push(`Der Rabe hat ${nm(g.ravenMark)} markiert: +2 Stimmen bei der Abstimmung.`);
+  g.draft = emptyDraft(); g.subMode = null; g.poisonMode = false;
+  g.dayMode = (state.options.captain && !(g.captain && alive(g,g.captain))) ? 'captain' : 'vote';
+  g.phase = 'day';
+  log(g, '— Das Dorf erwacht —');
+  resetTimer();
+  afterDeaths(g, 'day');
+}
+function endDay(g){ g.draft.vote = null; stopTimer(); afterDeaths(g, 'night'); }
+/* ================= Rollen-Porträts (eigene Silhouetten, 100×100) ================= */
+const PK = '#0b0605', PE = '#ffb02e', PC = '#f7ead0';
+const pBust = (cx = 50, s = 1, extra = '') => `<g transform="translate(${cx} 100) scale(${s}) translate(-50 -100)">
+  <path d="M12 100C14 80 30 72 50 72S86 80 88 100Z" fill="${PK}"/><rect x="44" y="60" width="12" height="14" fill="${PK}"/><circle cx="50" cy="50" r="16" fill="${PK}"/>${extra}</g>`;
+const pEyes = (y = 50, dx = 6, c = PE, r = 1.8) => `<circle cx="${50 - dx}" cy="${y}" r="${r}" fill="${c}"/><circle cx="${50 + dx}" cy="${y}" r="${r}" fill="${c}"/>`;
+const pMoon = `<circle cx="50" cy="42" r="34" fill="${PC}" opacity=".16"/>`;
+const pWolf = (fill = PK, eye = PE, extra = '') => `${pMoon}<g>
+  <path d="M20 18L36 40 50 35 64 40 80 18 79 46 88 56 72 62 64 82 50 94 36 82 28 62 12 56 21 46Z" fill="${fill}" stroke="${PK}" stroke-width="${fill === PK ? 0 : 2.5}" stroke-linejoin="round"/>
+  <path d="M26 27L34 39 29 40Z M74 27L66 39 71 40Z" fill="#7d1710"/>
+  <path d="M33 52L45 56 36 59Z M67 52L55 56 64 59Z" fill="${eye}"/>
+  <path d="M44 83L46 89 48 83Z M52 83L54 89 56 83Z" fill="${fill === PK ? PC : PK}"/>${extra}</g>`;
+const outline = (d, w = 4) => `<path d="${d}" fill="none" stroke="${PC}" stroke-width="${w + 3}" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/><path d="${d}" fill="none" stroke="${PK}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+
+const PORTRAIT = {
+  villager: () => pBust(50, 1, `<ellipse cx="50" cy="38" rx="23" ry="4.5" fill="${PK}"/><path d="M36 38Q37 25 50 25T64 38Z" fill="${PK}"/>${pEyes(51, 6, PE, 1.4)}`) +
+    outline('M84 100V32M76 32V20M84 32V18M92 32V20M76 32H92', 3),
+  wolf: () => pWolf(),
+  seer: () => `<path d="M50 22C33 22 26 40 26 56 26 68 22 82 16 100H84C78 82 74 68 74 56 74 40 67 22 50 22Z" fill="${PK}"/>
+    <ellipse cx="50" cy="52" rx="10" ry="12" fill="#2a1712"/>${pEyes(51, 4.5, PE, 1.6)}
+    <circle cx="50" cy="84" r="13" fill="#e6dcff" opacity=".95"/><circle cx="50" cy="84" r="13" fill="none" stroke="${PK}" stroke-width="2.5"/>
+    <path d="M42 84Q50 77 58 84Q50 91 42 84Z" fill="none" stroke="#5b2d86" stroke-width="2"/><circle cx="50" cy="84" r="2.6" fill="#5b2d86"/>
+    <ellipse cx="36" cy="94" rx="7" ry="5" fill="${PK}"/><ellipse cx="64" cy="94" rx="7" ry="5" fill="${PK}"/>`,
+  witch: () => pBust(50, 1, `<path d="M34 46L30 72 40 66Z M66 46L70 72 60 66Z" fill="${PK}"/>${pEyes(52, 6, PE, 1.5)}`) +
+    `<ellipse cx="50" cy="38" rx="29" ry="5" fill="${PK}"/><path d="M35 38L55 5 60 13 66 38Z" fill="${PK}"/><path d="M38 34H64" stroke="#7a3fa6" stroke-width="3"/>
+    <rect x="15" y="62" width="7" height="9" fill="${PK}"/><circle cx="18.5" cy="80" r="10" fill="#36e0b0"/><circle cx="18.5" cy="80" r="10" fill="none" stroke="${PK}" stroke-width="2.5"/>
+    <circle cx="15" cy="78" r="2" fill="${PC}"/><circle cx="21" cy="84" r="1.3" fill="${PC}"/>`,
+  hunter: () => pBust(50, 1, pEyes(51, 6, PE, 1.4)) + `<ellipse cx="50" cy="38" rx="22" ry="4" fill="${PK}"/><path d="M36 38L38 26H62L64 38Z" fill="${PK}"/>
+    <path d="M62 28Q75 14 71 4Q66 17 59 26Z" fill="#e6b24a" stroke="${PK}" stroke-width="1.5"/>` + outline('M16 96L86 28', 4.5) + `<path d="M9 95L21 82 29 91 18 100Z" fill="${PK}" stroke="${PC}" stroke-width="2"/>`,
+  cupid: () => `<path d="M50 88C20 66 14 50 14 38 14 26 24 18 34 18 42 18 47 23 50 28 53 23 58 18 66 18 76 18 86 26 86 38 86 50 80 66 50 88Z" fill="#e04a5a" stroke="${PK}" stroke-width="3"/>
+    <path d="M30 14Q66 50 30 90" fill="none" stroke="${PK}" stroke-width="4.5" stroke-linecap="round"/><path d="M30 14V90" stroke="${PK}" stroke-width="1.5"/>
+    <path d="M12 52H88" stroke="${PK}" stroke-width="3.5" stroke-linecap="round"/><path d="M92 52L80 46V58Z" fill="${PK}"/>
+    <path d="M12 52L6 45M12 52L6 59M18 52L12 45M18 52L12 59" stroke="${PK}" stroke-width="2.5" stroke-linecap="round"/>`,
+  thief: () => pBust(50, 1, `<rect x="31" y="44" width="38" height="10" rx="5" fill="#d8392b"/><circle cx="42" cy="49" r="2.8" fill="${PK}"/><circle cx="58" cy="49" r="2.8" fill="${PK}"/>`) +
+    `<path d="M22 40Q50 22 78 40Q50 33 22 40Z" fill="${PK}"/><path d="M34 37Q50 16 66 37Z" fill="${PK}"/>
+    <circle cx="82" cy="86" r="12" fill="${PK}" stroke="${PC}" stroke-width="2"/><path d="M78 74L82 70 86 74" stroke="${PC}" stroke-width="2" fill="none"/>`,
+  girl: () => pBust(50, .95, `<circle cx="30" cy="48" r="8" fill="${PK}"/><circle cx="70" cy="48" r="8" fill="${PK}"/>
+    <path d="M22 40L28 36 28 44Z M78 40L72 36 72 44Z" fill="#d0658e"/>
+    <path d="M36 56Q42 42 48 56Z M64 56Q58 42 52 56Z" fill="#2a1712"/><circle cx="44" cy="50" r="2" fill="${PE}"/><circle cx="56" cy="50" r="2" fill="${PE}"/>`),
+  guard: () => `<path d="M50 12L82 23 80 55C78 76 64 88 50 95 36 88 22 76 20 55L18 23Z" fill="${PK}"/>
+    <path d="M50 18L76 27 75 54C73 71 62 81 50 87 38 81 27 71 25 54L24 27Z" fill="none" stroke="#e6b24a" stroke-width="1.5"/>
+    <rect x="44" y="32" width="12" height="44" rx="2" fill="#bff0cf"/><rect x="32" y="45" width="36" height="12" rx="2" fill="#bff0cf"/>`,
+  elder: () => pBust(46, 1, `<path d="M38 54Q50 95 62 54Z" fill="${PC}" opacity=".9"/><path d="M40 46H47M53 46H60" stroke="${PC}" stroke-width="2.5"/>${pEyes(49, 6, PE, 1.3)}`) +
+    outline('M80 100V42Q80 32 88 32', 3.5),
+  idiot: () => pBust(50, 1, `<path d="M41 55Q50 64 59 55" fill="none" stroke="${PC}" stroke-width="2.5" stroke-linecap="round"/>${pEyes(49, 6, PE, 1.6)}`) +
+    `<path d="M31 42L16 16 40 32 50 8 60 32 84 16 69 42Z" fill="${PK}"/><path d="M33 40H67" stroke="#d08a2a" stroke-width="3"/>
+    <circle cx="16" cy="16" r="4.5" fill="${PE}"/><circle cx="50" cy="8" r="4.5" fill="${PE}"/><circle cx="84" cy="16" r="4.5" fill="${PE}"/>`,
+  scapegoat: () => `<path d="M42 32Q32 10 18 18" ${''}fill="none" stroke="${PK}" stroke-width="7" stroke-linecap="round"/><path d="M58 32Q68 10 82 18" fill="none" stroke="${PK}" stroke-width="7" stroke-linecap="round"/>
+    <path d="M36 32Q50 26 64 32L61 72Q50 88 39 72Z" fill="${PK}"/><path d="M37 40L18 46 35 52Z M63 40L82 46 65 52Z" fill="${PK}"/>
+    <path d="M45 82L50 98 55 82Z" fill="${PK}"/><rect x="40" y="47" width="7" height="2.5" rx="1" fill="${PE}"/><rect x="53" y="47" width="7" height="2.5" rx="1" fill="${PE}"/>`,
+  piper: () => pBust(46, 1, pEyes(49, 6, PE, 1.4)) + `<path d="M30 38Q46 24 62 38Z" fill="${PK}"/><path d="M58 30Q70 18 78 22Q68 26 62 34Z" fill="#6a4fc0" stroke="${PK}" stroke-width="1.2"/>` +
+    outline('M44 60L94 46', 3.5) + `<path d="M20 30v-14l8-2v14" fill="none" stroke="${PC}" stroke-width="2"/><ellipse cx="18" cy="31" rx="3.5" ry="2.6" fill="${PC}"/><ellipse cx="26" cy="29" rx="3.5" ry="2.6" fill="${PC}"/>
+    <path d="M12 56V44" stroke="${PC}" stroke-width="2"/><ellipse cx="10" cy="57" rx="3.5" ry="2.6" fill="${PC}"/>`,
+  urwolf: () => pWolf(PK, '#ff5a3c', `<path d="M50 38Q45 46 50 51Q55 46 50 38Z" fill="#ff3b2f"/>`),
+  bigwolf: () => pWolf(PK, '#ff5a3c', `<path d="M37 80L41 87 45 80 49 87 53 80 57 87 61 80Z" fill="${PC}"/>`),
+  whitewolf: () => pWolf('#f2ecdd', '#c62a1f'),
+  wildchild: () => pBust(50, .86, `${pEyes(51, 6, PE, 1.6)}
+    <ellipse cx="36" cy="36" rx="8" ry="4" transform="rotate(-35 36 36)" fill="#7bd36a"/><ellipse cx="50" cy="31" rx="8" ry="4" fill="#7bd36a"/><ellipse cx="64" cy="36" rx="8" ry="4" transform="rotate(35 64 36)" fill="#7bd36a"/>`),
+  wolfdog: () => `<path d="M34 32Q50 24 66 32L68 64Q60 82 50 84 40 82 32 64Z" fill="${PK}"/>
+    <path d="M35 34Q18 38 21 66Q30 58 35 50Z M65 34Q82 38 79 66Q70 58 65 50Z" fill="${PK}"/>
+    <ellipse cx="50" cy="70" rx="5" ry="3.5" fill="${PC}" opacity=".8"/>${pEyes(50, 8, PE, 2)}
+    <path d="M30 90Q50 98 70 90V96Q50 104 30 96Z" fill="#c62a1f" stroke="${PK}" stroke-width="1.5"/><circle cx="50" cy="98" r="3" fill="${PE}"/>`,
+  sisters: () => pBust(34, .8, `<path d="M34 46L30 74 40 68Z M66 46L70 74 60 68Z" fill="${PK}"/>`) + pBust(66, .8, `<path d="M34 46L30 74 40 68Z M66 46L70 74 60 68Z" fill="${PK}"/>`) +
+    `<path d="M50 36C47 32 42 33 42 37 42 41 50 45 50 45S58 41 58 37C58 33 53 32 50 36Z" fill="#e04a5a"/>`,
+  brothers: () => pBust(24, .64) + pBust(76, .64) + pBust(50, .74, `<ellipse cx="50" cy="38" rx="20" ry="4" fill="${PK}"/>`),
+  fox: () => `<path d="M16 14L38 40H62L84 14 81 50 50 92 19 50Z" fill="${PK}"/>
+    <path d="M22 50L50 92 40 60Z M78 50L50 92 60 60Z" fill="${PC}"/><path d="M26 24L35 38 30 38Z M74 24L65 38 70 38Z" fill="#7d1710"/>
+    <path d="M33 52L44 55 35 57Z M67 52L56 55 65 57Z" fill="${PE}"/><ellipse cx="50" cy="86" rx="4" ry="3" fill="${PK}"/>`,
+  bear: () => `<circle cx="27" cy="31" r="11" fill="${PK}"/><circle cx="73" cy="31" r="11" fill="${PK}"/><circle cx="50" cy="56" r="30" fill="${PK}"/>
+    <ellipse cx="50" cy="69" rx="13" ry="10" fill="#4a2e1b"/><ellipse cx="50" cy="64" rx="4.5" ry="3.2" fill="${PK}"/>${pEyes(50, 10, PE, 2.2)}`,
+  knight: () => pBust(46, 1) + `<path d="M28 66V40Q28 16 46 16Q64 16 64 40V66Q46 76 28 66Z" fill="${PK}"/><rect x="33" y="40" width="26" height="4" rx="1" fill="${PE}"/>
+    <path d="M46 16Q56 2 70 6Q58 10 52 18Z" fill="#c62a1f"/><rect x="80" y="14" width="5" height="62" fill="#c9ccd1" stroke="${PK}" stroke-width="1.5"/>
+    <rect x="73" y="74" width="19" height="4.5" rx="1" fill="${PK}"/><rect x="80" y="78" width="5" height="14" fill="${PK}"/>`,
+  angel: () => `<path d="M44 66Q14 40 5 60Q16 62 10 72Q22 70 18 82Q32 76 44 82Z" fill="${PK}"/><path d="M56 66Q86 40 95 60Q84 62 90 72Q78 70 82 82Q68 76 56 82Z" fill="${PK}"/>` +
+    pBust(50, .9) + `<ellipse cx="50" cy="28" rx="15" ry="4.5" fill="none" stroke="#fff6cf" stroke-width="3.5"/><ellipse cx="50" cy="28" rx="15" ry="4.5" fill="none" stroke="${PK}" stroke-width="1"/>`,
+  maid: () => pBust(46, 1, pEyes(52, 6, PE, 1.4)) + `<path d="M28 52Q28 26 46 26Q64 26 64 52Q56 40 46 40Q36 40 28 52Z" fill="${PC}"/>
+    <path d="M34 82H58L56 100H36Z" fill="${PC}"/>` + outline('M84 28V88', 3) + `<path d="M77 100L80 88H88L91 100Z" fill="${PK}" stroke="${PC}" stroke-width="1.5"/>`,
+  judge: () => pBust(46, 1, pEyes(51, 6, PE, 1.4)) + `<g fill="${PC}"><circle cx="46" cy="32" r="10"/><circle cx="30" cy="40" r="7"/><circle cx="62" cy="40" r="7"/><circle cx="28" cy="54" r="7"/><circle cx="64" cy="54" r="7"/><circle cx="30" cy="67" r="6"/><circle cx="62" cy="67" r="6"/></g>
+    <g transform="rotate(-30 82 78)"><rect x="70" y="66" width="24" height="11" rx="2" fill="${PK}" stroke="${PC}" stroke-width="2"/><rect x="80" y="77" width="4" height="20" fill="${PK}" stroke="${PC}" stroke-width="1.5"/></g>`,
+  raven: () => `<rect x="6" y="86" width="88" height="5" rx="2.5" fill="#3a2418"/><ellipse cx="48" cy="62" rx="26" ry="16" transform="rotate(-18 48 62)" fill="${PK}"/>
+    <circle cx="70" cy="40" r="11" fill="${PK}"/><path d="M79 36L96 41 79 46Z" fill="${PK}"/><path d="M28 70L4 86 30 80Z" fill="${PK}"/>
+    <path d="M44 76L42 88M56 74L58 88" stroke="${PK}" stroke-width="3"/><circle cx="73" cy="38" r="2.2" fill="${PE}"/>`
+};
+function portrait(roleId){
+  const f = PORTRAIT[roleId];
+  return `<svg class="pt" viewBox="0 0 100 100" preserveAspectRatio="xMidYMax meet" aria-hidden="true">${f ? f() : ''}</svg>`;
+}
+
+function stepBox(g, c){
+  const d = g.draft, {step, r, mode} = c;
+  let prompt = '', cls = '', extra = '';
+  if (step.info){ prompt = step.key === 'lovers' && d.lovers.length === 2 ? `Verliebte: ${nm(d.lovers[0])} & ${nm(d.lovers[1])}` : step.key === 'enchanted' ? 'Nur ansagen – keine Eingabe nötig.' : 'Nur ansagen – keine Eingabe nötig.'; }
+  else if (step.gone){ prompt = `${r.name} ist nicht mehr im Spiel – zum Schein kurz aufrufen, dann weiter.`; cls = 'warn'; }
+  else if (mode === 'assign'){
+    const rem = Math.max(0, c.need - c.have);
+    prompt = rem > 0 ? `Wer ist ${r.name}? Tippe ${rem === 1 ? 'die Person' : rem + ' Personen'} an (${c.have}/${c.need}).` : `${r.name} zugeordnet (${c.have}/${c.need}). Antippen zum Ändern.`;
+    if (rem > 0 && cnt('thief')) prompt += ' Niemand wach? Karte liegt in der Mitte → Weiter.';
+    cls = rem > 0 ? '' : 'ok';
+  } else if (mode === 'info'){ prompt = r && r.meet ? `Erwachen gemeinsam: ${holders(g,r.id).map(x => nm(x.id)).join(', ') || '–'}` : 'Keine Nachtaktion.'; }
+  else {
+    switch (step.act){
+      case 'kill': prompt = d.kill ? `Opfer der Werwölfe: ${nm(d.kill)}` : 'Wen fressen die Werwölfe? Opfer antippen.'; cls = d.kill ? 'ok' : ''; break;
+      case 'check': prompt = !d.check ? 'Wen prüft die Seherin? Person antippen.' : g.roles[d.check] ? `${nm(d.check)} ist: ${roleName(g,d.check)}${isWolf(g,d.check) ? ' – gehört zu den Wölfen!' : ''}` : `${nm(d.check)}: Rolle noch nicht erfasst – zeig der Seherin die Karte. (Wird später automatisch protokolliert.)`; cls = d.check ? 'ok' : ''; break;
+      case 'witch': {
+        const w = livingHolders(g,'witch')[0];
+        const victims = [d.kill, d.bigkill].filter(Boolean).map(nm);
+        if (g.poisonMode) prompt = 'Gifttrank: Tippe die Person an, die vergiftet wird.';
+        else prompt = `Opfer der Nacht: ${victims.length ? victims.join(' & ') : 'niemand'}` + (d.heal ? ' · wird geheilt' : '') + (d.poison ? ` · Gift: ${nm(d.poison)}` : '');
+        cls = g.poisonMode ? 'warn' : '';
+        extra = `<div class="act-bar">
+          <button class="act ${d.heal ? 'heal' : ''}" data-action="witch-heal" ${g.potions.heal || !d.kill || !w ? 'disabled' : ''}>${I.heal}<span>${g.potions.heal ? 'Heiltrank leer' : d.heal ? `${esc(nm(d.kill))} geheilt` : d.kill ? `${esc(nm(d.kill))} heilen` : 'Kein Opfer'}</span></button>
+          <button class="act ${g.poisonMode || d.poison ? 'poison' : ''}" data-action="witch-poison" ${g.potions.poison || !w ? 'disabled' : ''}>${I.poison}<span>${g.potions.poison ? 'Gifttrank leer' : d.poison ? `Gift: ${esc(nm(d.poison))}` : g.poisonMode ? 'Ziel antippen…' : 'Gifttrank'}</span></button>
+        </div>`;
+        break;
+      }
+      case 'lovers': prompt = d.lovers.length === 2 ? `Liebespaar: ${nm(d.lovers[0])} & ${nm(d.lovers[1])}` : `Tippe 2 Verliebte an (${d.lovers.length}/2).`; cls = d.lovers.length === 2 ? 'ok' : ''; break;
+      case 'swap': {
+        const opts = g.digital ? [...new Set(g.middle)].map(x => RM[x]) : ROLES.filter(x => x.id !== 'thief' && (cnt(x.id) > 0));
+        const mustWolf = g.digital && g.middle.length === 2 && g.middle.every(x => WOLF_IDS.includes(x));
+        prompt = d.thiefRole ? `Der Dieb ist jetzt: ${RM[d.thiefRole].name}` : g.digital ? `In der Mitte: ${g.middle.map(x => RM[x].name).join(' & ')}. ${mustWolf ? 'Er MUSS einen Werwolf nehmen.' : 'Nimmt er eine Karte? (oder weiter)'}` : 'Welche Karte nimmt der Dieb? (oder keine – dann weiter)';
+        extra = `<div class="act-bar">${opts.map(x => `<button class="act small ${d.thiefRole === x.id ? 'on' : ''}" data-action="thief-role" data-role="${x.id}">${esc(x.name)}</button>`).join('')}</div>`;
+        break;
+      }
+      case 'protect': prompt = d.protect ? `Beschützt: ${nm(d.protect)}` : `Wen beschützt der Heiler?${g.lastProtect ? ` (nicht erneut ${nm(g.lastProtect)})` : ''}`; cls = d.protect ? 'ok' : ''; break;
+      case 'infect':
+        prompt = !d.kill ? 'Erst muss ein Wolfsopfer gewählt sein (Schritt Werwölfe).' : d.infect ? `${nm(d.kill)} wird infiziert und zum Werwolf.` : `Opfer ${nm(d.kill)} infizieren? (einmal pro Spiel)`;
+        extra = `<div class="act-bar"><button class="act ${d.infect ? 'on' : ''}" data-action="infect" ${!d.kill ? 'disabled' : ''}>${I.wolf}<span>${d.infect ? 'Infektion aktiv' : 'Opfer infizieren'}</span></button></div>`;
+        break;
+      case 'bigkill': prompt = d.bigkill ? `Zweites Opfer: ${nm(d.bigkill)}` : 'Zweites Opfer des großen bösen Wolfs antippen (optional).'; break;
+      case 'whitekill': prompt = d.whitekill ? `Weißer Werwolf tötet: ${nm(d.whitekill)}` : 'Welchen Werwolf tötet er? (optional – nur Wölfe antippbar)'; break;
+      case 'model': prompt = d.model ? `Vorbild: ${nm(d.model)}` : 'Wen wählt das wilde Kind als Vorbild?'; cls = d.model ? 'ok' : ''; break;
+      case 'side':
+        prompt = d.side ? `Wolfshund gehört zu: ${d.side === 'wolf' ? 'den Werwölfen' : 'dem Dorf'}` : 'Auf welche Seite schlägt sich der Wolfshund?';
+        extra = `<div class="act-bar"><button class="act ${d.side==='village'?'on':''}" data-action="wolfdog" data-side="village">${I.house}<span>Dorf</span></button><button class="act ${d.side==='wolf'?'on':''}" data-action="wolfdog" data-side="wolf">${I.wolf}<span>Werwölfe</span></button></div>`;
+        break;
+      case 'fox': {
+        if (d.fox){ const grp = [d.fox, ...seatNeighbors(g,d.fox)]; const hit = grp.some(id => isWolf(g,id));
+          prompt = hit ? `JA – unter ${grp.map(nm).join(', ')} ist ein Werwolf (nicken).` : `NEIN – kein Werwolf dabei. Der Fuchs verliert seine Gabe (Kopf schütteln).`; cls = 'ok'; }
+        else prompt = 'Der Fuchs zeigt auf die Mitte einer 3er-Gruppe – Person antippen.';
+        break;
+      }
+      case 'mark': prompt = d.mark ? `Markiert: ${nm(d.mark)} (+2 Stimmen)` : 'Wen belastet der Rabe? (optional)'; break;
+      case 'enchant': prompt = `Tippe 2 Personen zum Verzaubern an (${d.enchant.length}/2).`; cls = d.enchant.length === 2 ? 'ok' : ''; break;
+    }
+  }
+  const seg = (!g.digital && g.night === 1 && step.act && r) ? `
+    <div class="seg">
+      <button class="${mode==='assign' ? 'on' : c.complete ? 'good' : ''}" data-action="submode" data-mode="assign">1 · Wer? (${c.have}/${c.need})</button>
+      <button class="${mode==='action' ? 'on' : ''}" data-action="submode" data-mode="action" ${c.have === 0 ? 'disabled' : ''}>2 · Nachtaktion</button>
+    </div>` : '';
+  return `${seg}<div class="prompt ${cls}">${esc(prompt)}</div>${extra}`;
+}
+/* ================= UI-Bausteine ================= */
+const fmt = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+const rc = id => (RM[id] && RM[id].color) || '#3a2a22';
+const art = (roleId, cls = '') => `<span class="rbg ${cls}" style="--rc:${rc(roleId)}">${portrait(roleId)}</span>`;
+const iconBtn = (action, icon, label, attrs = '') => `<button class="icon-btn" data-action="${action}" aria-label="${label}" ${attrs}>${icon}</button>`;
+const living = g => state.players.filter(p => alive(g,p.id)).length;
+const gameRunning = () => state.game && state.game.phase !== 'ended';
+const modeLabel = m => m === 'digital' ? 'Ohne Karten' : 'Mit Spielkarten';
+const optRow = (k, t, s) => `<button class="opt" data-action="opt" data-key="${k}"><span class="ptext"><b>${t}</b>${s ? `<span>${s}</span>` : ''}</span><span class="tg ${state.options[k] ? 'on' : ''}"><i></i></span></button>`;
+function phaseSwitch(day){
+  return `<button class="switch" data-action="toggle-phase" aria-label="Phase wechseln">${day ? I.sun : I.moon}<span class="track"><i></i></span></button>`;
+}
+function recommend(){
+  const n = state.players.length;
+  const c = {wolf: n < 6 ? 1 : n < 12 ? 2 : n < 18 ? 3 : 4, seer: 1};
+  if (n >= 5) c.witch = 1;
+  if (n >= 6) c.hunter = 1;
+  if (n >= 8) c.cupid = 1;
+  if (n >= 10) c.girl = 1;
+  state.counts = c; syncVillagers();
+}
+function teamCounts(){
+  let wolf = 0, solo = 0;
+  for (const r of ROLES){ if (r.team === 'wolf') wolf += cnt(r.id); if (r.team === 'solo') solo += cnt(r.id); }
+  return {wolf, solo, village: totalCards() - wolf - solo};
+}
+
+/* ================= Startbildschirm ================= */
+function renderHome(){
+  const g = state.game, run = gameRunning(), n = state.players.length;
+  const where = !g ? '' : g.phase === 'deal' ? 'Rollen werden gezeigt' : g.phase === 'intro' ? 'Vor der 1. Nacht' : g.phase === 'day' ? `Tag ${g.day}` : `Nacht ${g.night}`;
+  return `<div class="home">
+    <div class="home-hero">${emblem('hero')}
+      <h1 class="home-title">Werwolf</h1>
+      <p class="home-sub">Der Spielleiter für eure Nacht im Dorf</p>
+    </div>
+    <div class="home-actions">
+      ${run ? `<button class="btn gold big" data-action="go" data-view="game">${I.play}<span>Weiterspielen<small>${esc(where)} · ${living(g)} von ${n} leben</small></span></button>` : ''}
+      <button class="btn primary big" data-action="new-game">${I.moon}<span>Neues Spiel<small>${modeLabel(state.options.mode)} · ${n} Spieler</small></span></button>
+      <div class="home-grid">
+        <button class="tilebtn" data-action="go" data-view="library">${I.book}<span>Rollen</span></button>
+        <button class="tilebtn" data-action="go" data-view="guide">${I.feather}<span>Anleitung</span></button>
+        <button class="tilebtn" data-action="go" data-view="settings">${I.sliders}<span>Optionen</span></button>
+      </div>
+    </div>
+    <p class="home-foot">Inoffizieller Helfer für Spielleiter von Werwolf-Kartenspielen</p>
+  </div>`;
+}
+
+/* ================= Einrichtung (Assistent) ================= */
+const WIZ = ['Wie spielt ihr?', 'Wer spielt mit?', 'Welche Rollen?', 'Bereit für die Nacht?'];
+function renderWizard(){
+  const st = state.wizStep || 0, n = state.players.length, o = state.options;
+  const head = `<header class="topbar">${iconBtn('wiz-back', I.left, 'Zurück')}
+    <div class="grow"><div class="wiz-title"><small>Neues Spiel · Schritt ${st + 1} von 4</small>${WIZ[st]}</div></div>
+    ${iconBtn('go', I.home, 'Hauptmenü', 'data-view="home"')}</header>
+    <div class="progress">${WIZ.map((_, i) => `<i class="${i <= st ? 'on' : ''}"></i>`).join('')}</div>`;
+  let body = '', foot = '';
+
+  if (st === 0){
+    const m = o.mode;
+    body = `<div class="mode-list">
+      <button class="mode-card ${m === 'cards' ? 'on' : ''}" data-action="set-mode" data-mode="cards">
+        <span class="fan"><i></i><i></i><i>${art('wolf')}</i></span>
+        <span class="mode-text"><b>Mit Spielkarten</b><span>Ihr verteilt eure echten Karten. Die App führt dich durch die Nacht – du tippst an, wer erwacht.</span></span>
+        <span class="radio"></span>
+      </button>
+      <button class="mode-card ${m === 'digital' ? 'on' : ''}" data-action="set-mode" data-mode="digital">
+        <span class="phone"><i>${art('seer')}</i></span>
+        <span class="mode-text"><b>Ohne Karten</b><span>Die App lost die Rollen aus. Du gehst reihum und zeigst jedem heimlich seine Rolle.</span></span>
+        <span class="radio"></span>
+      </button>
+    </div>`;
+    foot = `<button class="btn primary" data-action="wiz-next"><span>Weiter</span>${I.right}</button>`;
+  } else if (st === 1){
+    body = `<form id="add-form" class="add">
+        <input class="inp" id="add-inp" placeholder="Name eingeben (mehrere mit Komma)" autocomplete="off" enterkeyhint="done">
+        <button type="submit" class="icon-btn add-btn" aria-label="Hinzufügen">${I.plus}</button>
+      </form>
+      <div class="hint">${I.people}<span>Reihenfolge = Sitzordnung im Uhrzeigersinn. Namen antippen zum Bearbeiten.</span></div>
+      <div class="name-grid">${state.players.map((p, i) => `
+        <button class="name-chip" data-action="player-sheet" data-id="${esc(p.id)}"><b>${i + 1}</b><span>${esc(p.name)}</span></button>`).join('') || '<p class="empty">Noch niemand da – füge oben Namen hinzu.</p>'}</div>`;
+    foot = `<button class="btn" data-action="wiz-back">${I.left}<span>Zurück</span></button>
+      <button class="btn primary" data-action="wiz-next" ${n < 3 ? 'disabled' : ''}><span>${n < 3 ? 'Mind. 3 Spieler' : `Weiter mit ${n}`}</span>${I.right}</button>`;
+  } else if (st === 2){
+    const req = requiredCards(), tot = totalCards(), ok = tot === req;
+    const sets = o.expansions ? Object.keys(SETS) : ['basis'];
+    const cur = sets.includes(state.libSet) ? state.libSet : 'basis';
+    const wolves = teamCounts().wolf;
+    body = `<div class="role-status ${ok && wolves ? 'ok' : 'warn'}">
+        <span>${I.book}<b>${tot} / ${req}</b> Karten ${ok ? '– passt!' : tot < req ? `– ${req - tot} fehlen` : `– ${tot - req} zu viel`}${!wolves ? ' · kein Werwolf!' : ''}</span>
+        ${ok ? '' : `<button class="act small" data-action="balance">Auffüllen</button>`}
+        <button class="act small" data-action="recommend">${I.dice}<span>Empfehlung</span></button>
+      </div>
+      <div class="set-chips">
+        ${sets.map(s => `<button class="chip ${s === cur ? 'active' : ''}" data-action="set-tab" data-set="${s}">${SETS[s]}<em>${ROLES.filter(r => r.set === s).reduce((a, r) => a + cnt(r.id), 0) || ''}</em></button>`).join('')}
+        <button class="chip ${o.expansions ? '' : 'add'}" data-action="opt" data-key="expansions">${o.expansions ? I.minus : I.plus}<span>${o.expansions ? 'Erweiterungen aus' : 'Erweiterungen'}</span></button>
+      </div>
+      <div class="role-grid">${ROLES.filter(r => r.set === cur).map(r => `
+        <div class="rtile ${cnt(r.id) ? 'on' : ''}">
+          <button class="rtile-art" data-action="role-info" data-role="${r.id}" aria-label="${esc(r.name)} erklären">${art(r.id)}</button>
+          <div class="rtile-body"><b>${esc(r.name)}</b>
+            <div class="stepper">
+              <button class="mini" data-action="role-dec" data-role="${r.id}" ${!cnt(r.id) ? 'disabled' : ''}>${I.minus}</button>
+              <span class="val">${cnt(r.id)}</span>
+              <button class="mini" data-action="role-inc" data-role="${r.id}">${I.plus}</button>
+            </div></div>
+        </div>`).join('')}</div>`;
+    foot = `<button class="btn" data-action="wiz-back">${I.left}<span>Zurück</span></button>
+      <button class="btn primary" data-action="wiz-next" ${setupProblems().length ? 'disabled' : ''}><span>Weiter</span>${I.right}</button>`;
+  } else {
+    const t = teamCounts(), probs = setupProblems();
+    body = `<div class="sum">
+      <div class="sum-stats">
+        <div><b>${n}</b><span>Spieler</span></div>
+        <div class="wolfc"><b>${t.wolf}</b><span>Werwölfe</span></div>
+        <div class="vilc"><b>${t.village}</b><span>Dorf</span></div>
+        ${t.solo ? `<div><b>${t.solo}</b><span>Einzelgänger</span></div>` : ''}
+      </div>
+      <div class="sum-roles">${ROLES.filter(r => cnt(r.id) > 0).map(r => `
+        <button class="mini-card" data-action="role-info" data-role="${r.id}">${art(r.id)}${cnt(r.id) > 1 ? `<em>×${cnt(r.id)}</em>` : ''}<small>${esc(r.name)}</small></button>`).join('')}</div>
+      ${cnt('thief') ? '<p class="hint">Mit Dieb liegen 2 Karten zusätzlich in der Mitte.</p>' : ''}
+      <div class="sum-opts">
+        ${optRow('captain', 'Hauptmann wählen', 'Stimme zählt doppelt')}
+        ${optRow('revealRoles', 'Rollen auf den Spielerkarten zeigen', 'Aus, falls jemand mitliest')}
+      </div>
+      <div class="hint">${o.mode === 'digital' ? I.dice : I.book}<span>${o.mode === 'digital' ? 'Die App lost jetzt aus. Danach zeigst du jedem einzeln seine Rolle.' : 'Mischt und verteilt jetzt die Karten. Wer was hat, tippst du in Nacht 1 an.'}</span></div>
+      ${probs.length ? `<div class="problems">${probs.map(esc).join('<br>')}</div>` : ''}
+    </div>`;
+    foot = `<button class="btn" data-action="wiz-back">${I.left}<span>Zurück</span></button>
+      <button class="btn primary" data-action="start" ${probs.length ? 'disabled' : ''}>${o.mode === 'digital' ? I.dice : I.moon}<span>${o.mode === 'digital' ? 'Rollen auslosen' : 'Spiel beginnen'}</span></button>`;
+  }
+  return `${head}<section class="wiz-body">${body}</section><footer class="bar">${foot}</footer>`;
+}
+
+/* ================= Nebenseiten ================= */
+function subHead(title, sub){
+  return `<header class="topbar">${iconBtn('back', I.left, 'Zurück')}<div class="grow"><div class="wiz-title"><small>${sub}</small>${title}</div></div><span class="icon-spacer"></span></header>`;
+}
+function renderSettings(){
+  return `${subHead('Optionen', 'Einstellungen')}
+    <section class="list">
+      ${optRow('captain', 'Hauptmann', 'Wird am 1. Tag gewählt, Stimme zählt doppelt, bestimmt beim Tod einen Nachfolger')}
+      ${optRow('parityWin', 'Wolfssieg bei Gleichstand', 'Wölfe gewinnen, sobald sie so viele sind wie der Rest')}
+      ${optRow('callDeadRoles', 'Tote Rollen weiter aufrufen', 'Zum Schein wecken – niemand kann Rückschlüsse ziehen')}
+      ${optRow('revealRoles', 'Rollen auf Spielerkarten zeigen', 'Ausschalten, wenn Mitspieler aufs Display schauen könnten')}
+      ${optRow('expansions', 'Rollen der Erweiterungen', 'Neumond, Charaktere und weitere Rollen anbieten')}
+      ${optRow('wakeLock', 'Bildschirm anlassen', 'Display geht während des Spiels nicht aus')}
+      ${optRow('haptics', 'Vibration', 'Kurzes Feedback bei Aktionen und Timer-Ende')}
+      <button class="btn ghost" data-action="ask" data-what="reset">${I.reset}<span>Alles auf Standard zurücksetzen</span></button>
+    </section>`;
+}
+function renderLibrary(){
+  const sets = Object.keys(SETS);
+  const cur = sets.includes(state.libSet) ? state.libSet : 'basis';
+  return `${subHead('Rollen', 'Nachschlagen')}
+    <div class="set-chips">${sets.map(s => `<button class="chip ${s === cur ? 'active' : ''}" data-action="set-tab" data-set="${s}">${SETS[s]}</button>`).join('')}</div>
+    <section class="lib-grid">${ROLES.filter(r => r.set === cur).map(r => `
+      <button class="lib-card" data-action="role-info" data-role="${r.id}">${art(r.id)}<b>${esc(r.name)}</b><small>${esc(r.sub)}</small></button>`).join('')}</section>`;
+}
+function renderGuide(){
+  const steps = [
+    ['moon', 'Nacht', 'Lies die kursiven Ansagen vor. Die App weckt die Rollen in der richtigen Reihenfolge – Schritt für Schritt mit „Weiter“.'],
+    ['people', 'Antippen', 'Wer handelt, wird oben gezeigt. Tippe unten die Spieler an: Opfer, Verliebte, geprüfte Person …'],
+    ['sun', 'Tag', 'Die App verkündet die Toten. Starte den Timer für die Diskussion und tippe an, wen das Dorf hinrichtet.'],
+    ['undo', 'Vertippt?', 'Der Pfeil oben macht jede Aktion rückgängig. Im Menü findest du Protokoll und Spickzettel.'],
+    ['eye', 'Geheim halten', 'Halte das Handy flach in der Hand. Rollen auf den Karten lassen sich in den Optionen verbergen.']
+  ];
+  return `${subHead('So leitest du', 'Anleitung')}
+    <section class="guide">${steps.map(([ic, t, d], i) => `
+      <div class="guide-row"><span class="guide-num">${i + 1}</span><div><b>${I[ic]}${t}</b><p>${d}</p></div></div>`).join('')}</section>
+    <footer class="bar"><button class="btn primary" data-action="new-game">${I.moon}<span>Neues Spiel</span></button></footer>`;
+}
+
+/* ================= Spiel ================= */
+function stepHead(g, c){
+  if (!c) return art(null, 'ph');
+  if (c.step.key === 'lovers') return art('cupid', 'ph');
+  if (c.step.key === 'enchanted') return art('piper', 'ph');
+  return art(c.step.role, 'ph');
+}
+function renderGame(){
+  const g = state.game;
+  const isNight = g.phase === 'night';
+  const c = isNight ? ctxOf(g) : null;
+  const n = state.players.length, o = state.options;
+  let card = '', foot = '', main = null;
+
+  if (g.phase === 'deal'){
+    const p = state.players[g.dealIdx], r = RM[g.roles[p.id]];
+    const last = g.dealIdx === n - 1;
+    card = `<section class="card">
+      <div class="card-head">${emblem('ph')}<h1 class="title"><small>Rollen zeigen · ${g.dealIdx + 1} von ${n}</small>Gehe zu ${esc(p.name)}</h1>
+        <button class="mini" data-action="overview" aria-label="Übersicht">${I.list}</button></div>
+      <p class="say">„Alle schließen die Augen. Nur ${esc(p.name)} schaut aufs Display.“</p>
+      <div class="dots">${state.players.map((x, i) => `<i class="${i < g.dealIdx ? 'done' : i === g.dealIdx ? 'cur' : ''}"></i>`).join('')}</div>
+    </section>`;
+    main = `<section class="deal" data-action="deal-toggle">${g.dealShown ? `
+      <div class="rolecard face" style="--rc:${r.color}">
+        <div class="rc-player">${esc(p.name)}, du bist …</div>
+        ${art(r.id, 'rc-art')}
+        <div class="rc-name">${esc(r.name)}</div>
+        <div class="rc-team">${TEAM[r.team]}</div>
+        <p class="rc-desc">${esc(r.desc)}</p>
+      </div>` : `
+      <div class="rolecard back">
+        ${emblem('big')}
+        <div class="rc-name">${esc(p.name)}</div>
+        <div class="rc-team">${I.eye} Antippen zum Aufdecken</div>
+      </div>`}</section>`;
+    foot = `<button class="btn" data-action="deal-prev" ${g.dealIdx === 0 && !g.dealShown ? 'disabled' : ''}>${I.left}<span>Zurück</span></button>
+      ${g.dealShown
+        ? `<button class="btn primary" data-action="deal-next">${last ? I.check : I.right}<span>${last ? 'Verdecken – fertig' : 'Verdecken & weiter'}</span></button>`
+        : `<button class="btn primary" data-action="deal-toggle">${I.eye}<span>Rolle zeigen</span></button>`}`;
+  } else if (g.phase === 'intro'){
+    card = `<section class="card">
+      <div class="card-head">${emblem('ph')}<h1 class="title"><small>Gleich geht’s los</small>Die erste Nacht</h1></div>
+      <p class="say">„In unserem Dorf am Waldrand geschehen seltsame Dinge. Man munkelt, dass sich unter uns Werwölfe verbergen – Menschen am Tag, Bestien in der Nacht. Die Sonne geht unter … Alle schließen die Augen.“</p>
+    </section>`;
+    main = `<section class="intro">
+      <div class="intro-emblem">${emblem('big')}</div>
+      <div class="check">${I.check}<span>Alle sitzen im Kreis – in der Reihenfolge der App</span></div>
+      <div class="check">${I.check}<span>${g.digital ? 'Jeder hat seine Rolle gesehen' : 'Jeder hat seine Karte angeschaut und verdeckt abgelegt'}</span></div>
+      <div class="check">${I.check}<span>Licht dimmen, Handy auf lautlos</span></div>
+      <div class="check">${I.check}<span>Du sprichst ruhig und gleichmäßig – auch bei toten Rollen</span></div>
+    </section>`;
+    foot = `<button class="btn" data-action="go" data-view="home">${I.home}<span>Menü</span></button>
+      <button class="btn primary" data-action="begin-night">${I.moon}<span>Die Nacht bricht herein</span></button>`;
+  } else if (isNight){
+    if (!c){
+      card = `<section class="card"><div class="card-head">${emblem('ph')}<h1 class="title"><small>Nacht ${g.night}</small>Stille Nacht</h1>${phaseSwitch(false)}</div>
+        <p class="say">„Alle schließen die Augen …“ – in dieser Nacht wacht niemand auf.</p></section>`;
+      foot = `<button class="btn primary" data-action="next">${I.sun}<span>Tag beginnen</span></button>`;
+    } else {
+      const isLast = g.stepIdx === c.steps.length - 1;
+      card = `<section class="card">
+        <div class="card-head">${stepHead(g, c)}<h1 class="title"><small>Nacht ${g.night} · Schritt ${g.stepIdx + 1} von ${c.steps.length}</small>${esc(c.step.label)}</h1>${phaseSwitch(false)}</div>
+        <div class="steps">${c.steps.map((s, i) => `
+          <button class="chip ${i === g.stepIdx ? 'active' : ''} ${i < g.stepIdx ? 'done' : ''} ${s.gone ? 'gone' : ''}" data-action="jump" data-idx="${i}">
+            <span class="dot" style="--rc:${s.role ? RM[s.role].color : '#3b77c4'}">${i < g.stepIdx ? I.check : s.role ? I[RM[s.role].icon] : I.heart}</span>${esc(s.label)}</button>`).join('')}</div>
+        <p class="say">„${esc(g.stepIdx === 0 ? 'Alle schließen die Augen. ' : '')}${esc(c.step.say || '')}“</p>
+        ${stepBox(g, c)}
+      </section>`;
+      const toAction = !g.digital && g.night === 1 && c.mode === 'assign' && c.step.act && c.complete;
+      foot = `<button class="btn" data-action="prev" ${g.stepIdx === 0 && c.mode !== 'action' ? 'disabled' : ''}>${I.left}<span>Zurück</span></button>
+        ${toAction ? `<button class="btn primary" data-action="submode" data-mode="action"><span>Zur Aktion</span>${I.right}</button>`
+                   : `<button class="btn primary" data-action="next"><span>${isLast ? 'Tag beginnen' : 'Weiter'}</span>${isLast ? I.sun : I.right}</button>`}`;
+    }
+  } else if (g.phase === 'day'){
+    const deaths = g.lastDeaths.map(id => `${nm(id)} (${roleName(g, id)})`);
+    const capAlive = g.captain && alive(g, g.captain);
+    const sg = livingHolders(g, 'scapegoat')[0];
+    card = `<section class="card">
+      <div class="card-head"><span class="rbg ph sunbg">${I.sun}</span><h1 class="title"><small>Tag ${g.day}</small>Das Dorf erwacht</h1>${phaseSwitch(true)}</div>
+      <p class="say">„${deaths.length ? `Heute Nacht hat es uns ${deaths.length === 1 ? 'eine Person' : deaths.length + ' Personen'} gekostet …` : 'Wie durch ein Wunder ist in dieser Nacht niemand gestorben!'}“</p>
+      ${deaths.length || g.morning.length ? `<ul class="morning">${deaths.map(t => `<li>† ${esc(t)}</li>`).join('')}${g.morning.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
+      <div class="timer">
+        <span class="timer-val ${timer.left === 0 ? 'alarm' : ''}" id="timer-val">${fmt(timer.left)}</span>
+        <button class="act small" data-action="timer-toggle">${timer.running ? I.pause : I.play}<span>${timer.running ? 'Pause' : 'Diskussion'}</span></button>
+        <button class="act small" data-action="timer-preset">${fmt(o.timer)}</button>
+        <button class="act small" data-action="timer-reset" aria-label="Timer zurücksetzen">${I.reset}</button>
+      </div>
+      ${o.captain ? `<div class="seg"><button class="${g.dayMode === 'captain' ? 'on' : ''}" data-action="daymode" data-mode="captain">${I.crown}${capAlive ? esc(nm(g.captain)) : 'Hauptmann wählen'}</button><button class="${g.dayMode === 'vote' ? 'on' : ''}" data-action="daymode" data-mode="vote">${I.gavel}Abstimmung</button></div>` : ''}
+      <div class="prompt ${g.draft.vote ? 'ok' : ''}">${g.dayMode === 'captain' ? 'Tippe den gewählten Hauptmann an.' : g.draft.vote ? `Das Dorf richtet ${esc(nm(g.draft.vote))} hin.` : 'Tippe an, wen das Dorf hinrichtet.'}</div>
+    </section>`;
+    foot = `<button class="btn" data-action="day-none"><span>Ohne Opfer</span></button>
+      ${sg ? `<button class="btn" data-action="day-tie"><span>Gleichstand</span></button>` : ''}
+      <button class="btn primary" data-action="day-kill" ${!g.draft.vote ? 'disabled' : ''}>${I.gavel}<span>Hinrichten</span></button>`;
+  } else if (g.phase === 'interrupt'){
+    const it = g.interrupts[0], isH = it.type === 'hunter';
+    card = `<section class="card">
+      <div class="card-head">${isH ? art('hunter', 'ph') : `<span class="rbg ph sunbg">${I.crown}</span>`}<h1 class="title"><small>${isH ? 'Letzter Schuss' : 'Nachfolge'}</small>${esc(nm(it.id))}</h1></div>
+      <p class="say">„${isH ? `${esc(nm(it.id))} war der Jäger und reißt mit letzter Kraft jemanden mit in den Tod.` : `${esc(nm(it.id))} war Hauptmann und bestimmt nun einen Nachfolger.`}“</p>
+      <div class="prompt warn">${isH ? 'Ziel des Jägers antippen.' : 'Neuen Hauptmann antippen.'}</div>
+    </section>`;
+    foot = `<button class="btn primary" data-action="interrupt-skip"><span>${isH ? 'Kein Schuss' : 'Kein Nachfolger'}</span>${I.right}</button>`;
+  } else {
+    const w = g.winner || '';
+    const wr = /Werw|weiße/.test(w) ? (/weiße/.test(w) ? 'whitewolf' : 'wolf') : /Liebes/.test(w) ? 'cupid' : /Flöt/.test(w) ? 'piper' : /Engel/.test(w) ? 'angel' : 'villager';
+    card = `<section class="card win">
+      <div class="card-head">${art(wr, 'ph big')}<h1 class="title"><small>Spielende nach ${g.day} ${g.day === 1 ? 'Tag' : 'Tagen'}</small>Sieg: ${esc(w)}</h1></div>
+      <p class="say">„Der Morgen bricht an – und die Wahrheit kommt ans Licht.“ Alle Rollen sind jetzt aufgedeckt.</p>
+    </section>`;
+    foot = `<button class="btn" data-action="go" data-view="home">${I.home}<span>Hauptmenü</span></button>
+      <button class="btn primary" data-action="restart">${I.reset}<span>Neue Runde</span></button>`;
+  }
+
+  if (!main){
+    const cols = n <= 4 ? 2 : n <= 9 ? 3 : n <= 16 ? 4 : 5;
+    const hint = c && c.mode === 'assign' ? 'Erwachte Spieler antippen' : g.phase === 'intro' ? '' : 'Sitzordnung im Uhrzeigersinn';
+    main = `<section class="players">
+      <div class="players-head"><h2>Das Dorf</h2><span>${hint}</span></div>
+      <div class="pgrid" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">${state.players.map((p, i) => playerCard(g, p, i, c)).join('')}</div>
+    </section>`;
+  }
+  return `
+    <header class="topbar">
+      ${iconBtn('go', I.home, 'Hauptmenü', 'data-view="home"')}
+      <div class="grow"><div class="status">${I.heart}${living(g)} / ${n} leben</div></div>
+      ${iconBtn('undo', I.undo, 'Rückgängig', !undoStack.length ? 'disabled' : '')}
+      ${iconBtn('open-menu', I.menu, 'Menü')}
+    </header>
+    ${card}${main}
+    <footer class="bar">${foot}</footer>`;
+}
+
+function playerCard(g, p, idx, c){
+  const id = p.id, rid = g.roles[id], r = rid ? RM[rid] : null, dead = !alive(g, id);
+  const show = state.options.revealRoles || g.phase === 'ended' || dead;
+  const d = g.draft;
+  let cls = '', badges = [];
+
+  if (g.phase === 'night' && c){
+    const s = c.step;
+    if (s.role && holders(g, s.role).some(x => x.id === id)) cls = 'is-role';
+    if (c.mode === 'action'){
+      const pick = cond => { if (cond) cls = 'is-pick'; };
+      if (['kill', 'witch', 'infect', 'bigkill'].includes(s.act)){
+        if (d.kill === id) cls = d.heal || d.protect === id ? 'is-safe' : 'is-target';
+        if (d.bigkill === id) cls = 'is-target';
+      }
+      if (s.act === 'witch' && d.poison === id) cls = 'is-target';
+      if (s.act === 'check') pick(d.check === id);
+      if (s.act === 'lovers') pick(d.lovers.includes(id));
+      if (s.act === 'protect' && d.protect === id) cls = 'is-safe';
+      if (s.act === 'whitekill' && d.whitekill === id) cls = 'is-target';
+      if (s.act === 'model') pick(d.model === id);
+      if (s.act === 'fox' && d.fox) pick(id === d.fox || seatNeighbors(g, d.fox).includes(id));
+      if (s.act === 'mark') pick(d.mark === id);
+      if (s.act === 'enchant') pick(d.enchant.includes(id));
+    }
+    if (d.kill === id) badges.push(`<span class="bdg ${d.heal || d.protect === id ? 'grn' : 'red'}">${I.wolf}</span>`);
+    if (d.protect === id) badges.push(`<span class="bdg grn">${I.shield}</span>`);
+    if (d.poison === id) badges.push(`<span class="bdg red">${I.poison}</span>`);
+  }
+  if (g.phase === 'day' && g.draft.vote === id) cls = 'is-target';
+  if (g.phase === 'day' && g.dayMode === 'captain' && g.captain === id) cls = 'is-pick';
+  if (dead) cls += ' dead';
+
+  if (g.captain === id && !dead) badges.push(`<span class="bdg gold">${I.crown}</span>`);
+  if (g.lovers.includes(id)) badges.push(`<span class="bdg red">${I.heart}</span>`);
+  if (g.enchanted[id]) badges.push(`<span class="bdg">${I.note}</span>`);
+  if (g.ravenMark === id && !dead) badges.push(`<span class="bdg">+2</span>`);
+  if (show && isWolf(g, id) && !WOLF_IDS.includes(rid)) badges.push(`<span class="bdg red">${I.wolf}</span>`);
+  if (rid === 'witch' && show && !dead) badges.push(`<span class="bdg ${g.potions.heal ? 'used' : 'grn'}">${I.heal}</span><span class="bdg ${g.potions.poison ? 'used' : 'red'}">${I.poison}</span>`);
+  if (g.idiotRevealed && rid === 'idiot') badges.push(`<span class="bdg gold">${I.minus}</span>`);
+
+  let label = !r ? (g.phase === 'night' ? 'offen' : '–') : show ? roleName(g, id) : 'geheim';
+  if (dead) label = `† ${r ? r.name : ''}`;
+  const face = r && show
+    ? `<span class="pc-art rbg" style="--rc:${r.color}">${portrait(rid)}</span>`
+    : `<span class="pc-art pc-back"><b>${idx + 1}</b></span>`;
+  return `<button class="pc ${cls}" data-action="tap" data-id="${esc(id)}">
+    ${face}${dead ? `<span class="pc-skull">${I.skull}</span>` : ''}
+    <span class="pc-badges">${badges.slice(0, 4).join('')}</span>
+    <span class="pc-label"><span class="pc-name">${esc(p.name)}</span><span class="pc-role ${!r ? 'open' : ''}">${esc(label)}</span></span>
+  </button>`;
+}
+
+/* ================= Menü & Dialoge ================= */
+const CONFIRM = {
+  restart: ['Neue Runde?', 'Die laufende Runde wird beendet. Spieler und Rollen bleiben gleich.', 'restart-now', 'Neue Runde'],
+  start: ['Laufendes Spiel ersetzen?', 'Es läuft noch ein Spiel. Mit dem Start eines neuen Spiels geht es verloren.', 'start-now', 'Neues Spiel starten'],
+  reset: ['Alles zurücksetzen?', 'Spieler, Rollen und Optionen werden auf den Standard gesetzt.', 'reset-now', 'Zurücksetzen']
+};
+function renderModal(){
+  if (!modal) return '';
+  const g = state.game;
+  let inner = '', sheet = false;
+  const head = t => `<div class="card-head"><h3 class="title">${t}</h3><button class="mini" data-action="close-modal" aria-label="Schließen">${I.close}</button></div>`;
+  if (modal === 'menu'){
+    sheet = true;
+    const tile = (action, icon, label, attrs = '') => `<button class="tilebtn" data-action="${action}" ${attrs}>${icon}<span>${label}</span></button>`;
+    inner = `<div class="grab"></div>${head('Spielleiter-Menü')}
+      <div class="sheet-grid">
+        ${tile('undo', I.undo, 'Rückgängig', !undoStack.length ? 'disabled' : '')}
+        ${tile('show-log', I.list, 'Protokoll')}
+        ${tile('show-roles', I.book, 'Spickzettel')}
+        ${g && g.digital ? tile('overview', I.people, 'Wer ist was?') : ''}
+        ${tile('opt', state.options.revealRoles ? I.eye : I.peek, state.options.revealRoles ? 'Rollen verbergen' : 'Rollen zeigen', 'data-key="revealRoles"')}
+        ${g && !g.digital && g.phase === 'night' && g.night === 1 ? tile('random-roles', I.dice, 'Zufällig zuteilen') : ''}
+        ${tile('go', I.sliders, 'Optionen', 'data-view="settings"')}
+        ${tile('download-html', I.download, 'Als Datei sichern')}
+        ${tile('go', I.home, 'Hauptmenü', 'data-view="home"')}
+      </div>
+      <button class="btn primary" data-action="ask" data-what="restart">${I.reset}<span>Neue Runde starten</span></button>`;
+  } else if (modal === 'log'){
+    inner = `${head('Spielprotokoll')}
+      <div class="log">${(g?.log || []).length ? g.log.slice().reverse().map(e => `<div><b>${esc(e.p)}</b>${esc(e.t)}</div>`).join('') : '<div>Noch keine Einträge.</div>'}</div>`;
+  } else if (modal === 'overview'){
+    inner = `${head('Wer ist was? <small>nur für dich</small>')}
+      <div class="ov-grid">${state.players.map(p => { const r = RM[g.roles[p.id]]; return `<div class="ov">${art(r.id)}<b>${esc(p.name)}</b><small>${esc(r.name)}</small></div>`; }).join('')}</div>
+      ${g.middle.length ? `<div class="prompt warn">In der Mitte: ${g.middle.map(x => esc(RM[x].name)).join(' & ')}</div>` : ''}
+      ${g.phase === 'deal' ? `<button class="btn" data-action="deal-reroll">${I.dice}<span>Alles neu auslosen</span></button>` : ''}`;
+  } else if (modal === 'roles' || modal.startsWith('role:')){
+    const list = modal === 'roles' ? ROLES.filter(r => cnt(r.id) > 0) : [RM[modal.slice(5)]];
+    if (list.length === 1 && modal !== 'roles'){
+      const r = list[0];
+      inner = `${head(esc(r.name))}
+        <div class="rdetail">${art(r.id, 'rd-art')}<div><span class="rc-team">${TEAM[r.team]} · ${SETS[r.set]}</span><p>${esc(r.desc)}</p>
+        ${r.say ? `<p class="say">„${esc(r.say)}“</p>` : ''}</div></div>`;
+    } else {
+      inner = `${head('Spickzettel')}${list.map(r => `<div class="rinfo">${art(r.id)}<div><b>${esc(r.name)}${cnt(r.id) > 1 ? ' ×' + cnt(r.id) : ''}</b><p>${esc(r.desc)}</p></div></div>`).join('')}`;
+    }
+  } else if (modal.startsWith('player:')){
+    const p = state.players.find(x => x.id === modal.slice(7));
+    if (!p){ modal = null; return ''; }
+    const i = state.players.indexOf(p);
+    inner = `${head(`Platz ${i + 1}`)}
+      <form id="rename-form" class="add"><input class="inp" id="rename-inp" value="${esc(p.name)}" maxlength="20" autocomplete="off" enterkeyhint="done"><button type="submit" class="icon-btn add-btn" aria-label="Speichern">${I.check}</button></form>
+      <div class="seg">
+        <button data-action="move" data-id="${esc(p.id)}" data-dir="-1" ${i === 0 ? 'disabled' : ''}>${I.up}Nach vorne</button>
+        <button data-action="move" data-id="${esc(p.id)}" data-dir="1" ${i === state.players.length - 1 ? 'disabled' : ''}>${I.down}Nach hinten</button>
+      </div>
+      <button class="btn danger" data-action="del-player" data-id="${esc(p.id)}">${I.close}<span>Aus dem Spiel nehmen</span></button>`;
+  } else if (modal.startsWith('confirm:')){
+    const [t, txt, action, label] = CONFIRM[modal.slice(8)];
+    inner = `<h3 class="title">${t}</h3><p class="mtext">${txt}</p>
+      <div class="bar"><button class="btn" data-action="close-modal">Abbrechen</button><button class="btn primary" data-action="${action}">${label}</button></div>`;
+  }
+  return `<div class="backdrop ${sheet ? 'is-sheet' : ''}" data-action="backdrop"><div class="modal ${sheet ? 'sheet' : ''}">${inner}</div></div>`;
+}
+
+function render(){
+  const app = document.getElementById('app');
+  if (state.view === 'game' && !state.game) state.view = 'home';
+  const g = state.game;
+  document.body.classList.toggle('is-day', state.view === 'game' && g && (g.phase === 'day' || (g.phase === 'interrupt' && g.resume === 'day')));
+  const v = state.view;
+  app.className = 'v-' + v;
+  app.innerHTML = (v === 'home' ? renderHome() : v === 'setup' ? renderWizard() : v === 'settings' ? renderSettings()
+    : v === 'library' ? renderLibrary() : v === 'guide' ? renderGuide() : renderGame()) + renderModal();
+  const act = document.querySelector('.steps .chip.active');
+  if (act) act.scrollIntoView({block:'nearest', inline:'center'});
+  save();
+}
+
+/* ================= Timer & Wake-Lock ================= */
+function stopTimer(){ timer.running = false; clearInterval(timer.h); }
+function resetTimer(){ stopTimer(); timer.left = state.options.timer; }
+function tick(){
+  timer.left = Math.max(0, Math.round((timer.endAt - Date.now()) / 1000));
+  const el = document.getElementById('timer-val');
+  if (el) el.textContent = fmt(timer.left);
+  if (timer.left === 0){ stopTimer(); buzz([400,150,400,150,600]); toast('Die Zeit ist um!'); render(); }
+}
+let wl = null;
+async function applyWakeLock(){
+  try {
+    const want = state.options.wakeLock && state.view === 'game' && document.visibilityState === 'visible';
+    if (want && !wl && 'wakeLock' in navigator){ wl = await navigator.wakeLock.request('screen'); wl.addEventListener('release', () => { wl = null; }); }
+    else if (!want && wl){ await wl.release(); wl = null; }
+  } catch(e) {}
+}
+document.addEventListener('visibilitychange', applyWakeLock);
+
+/* ================= Eingaben ================= */
+function tapPlayer(pid){
+  const g = state.game;
+  if (!g || g.phase === 'ended') return;
+  const d = g.draft;
+
+  if (g.phase === 'interrupt'){
+    const it = g.interrupts[0];
+    if (it.type === 'hunter'){
+      if (pid === it.id || !alive(g,pid)) return;
+      g.interrupts.shift();
+      const before = new Set(Object.keys(g.dead));
+      kill(g, pid, 'Schuss des Jägers');
+      if (g.resume === 'day') g.lastDeaths.push(...Object.keys(g.dead).filter(x => !before.has(x)));
+    } else {
+      if (!alive(g,pid)) return;
+      g.interrupts.shift(); g.captain = pid; log(g, `Neuer Hauptmann: ${nm(pid)}`);
+    }
+    afterDeaths(g, g.resume);
+    return;
+  }
+  if (g.phase === 'day'){
+    if (!alive(g,pid)) return;
+    if (g.dayMode === 'captain'){ g.captain = pid; g.dayMode = 'vote'; log(g, `Hauptmann: ${nm(pid)}`); return; }
+    d.vote = d.vote === pid ? null : pid;
+    return;
+  }
+
+  const c = ctxOf(g);
+  if (!c || c.step.info || c.step.gone) return;
+  const {step, r, mode, need} = c;
+
+  if (mode === 'assign'){
+    if (!r) return;
+    if (g.roles[pid] === r.id && pid !== g.thiefId){ delete g.roles[pid]; }
+    else if (pid === g.thiefId && r.id === 'thief'){ return toast('Der Dieb hat schon getauscht.'); }
+    else {
+      const ex = holders(g, r.id);
+      if (ex.length >= need){
+        if (need === 1 && ex[0].id !== g.thiefId) delete g.roles[ex[0].id];
+        else return toast(`Schon ${need} zugeordnet – erst jemanden abwählen.`);
+      }
+      delete g.auto[pid];
+      g.roles[pid] = r.id;
+    }
+    reconcileAuto(g);
+    if (holders(g, r.id).length >= need && step.act) g.subMode = 'action';
+    return;
+  }
+  if (mode !== 'action') return;
+  if (!alive(g,pid)) return;
+  const tog = (k) => { d[k] = d[k] === pid ? null : pid; };
+  switch (step.act){
+    case 'kill':
+      if (isWolf(g,pid)) return toast('Werwölfe fressen keine Werwölfe.');
+      tog('kill'); if (!d.kill){ d.infect = false; d.heal = false; }
+      break;
+    case 'check':
+      if (holders(g,'seer').some(x => x.id === pid)) return;
+      tog('check'); break;
+    case 'witch':
+      if (g.poisonMode){ d.poison = d.poison === pid ? null : pid; g.poisonMode = false; }
+      else if (pid === d.kill && !g.potions.heal) d.heal = !d.heal;
+      else if (!g.potions.poison) d.poison = d.poison === pid ? null : pid;
+      break;
+    case 'lovers': {
+      const i = d.lovers.indexOf(pid);
+      if (i >= 0) d.lovers.splice(i,1); else if (d.lovers.length < 2) d.lovers.push(pid); else toast('Schon 2 Verliebte gewählt.');
+      break;
+    }
+    case 'protect':
+      if (pid === g.lastProtect) return toast('Nicht zweimal hintereinander dieselbe Person.');
+      tog('protect'); break;
+    case 'bigkill':
+      if (isWolf(g,pid)) return; tog('bigkill'); break;
+    case 'whitekill':
+      if (!isWolf(g,pid) || g.roles[pid] === 'whitewolf') return toast('Nur andere Werwölfe antippbar.'); tog('whitekill'); break;
+    case 'model':
+      if (holders(g,'wildchild').some(x => x.id === pid)) return; tog('model'); break;
+    case 'fox': tog('fox'); break;
+    case 'mark': tog('mark'); break;
+    case 'enchant': {
+      if (g.roles[pid] === 'piper' || g.enchanted[pid]) return toast('Bereits verzaubert oder Flötenspieler.');
+      const i = d.enchant.indexOf(pid);
+      if (i >= 0) d.enchant.splice(i,1); else if (d.enchant.length < 2) d.enchant.push(pid);
+      break;
+    }
+    default: toast('Diese Aktion wird oben über die Knöpfe gewählt.');
+  }
+}
+
+/* ================= Eingaben ================= */
+const NO_UNDO = new Set(['deal-toggle','overview','set-mode','open-menu','close-modal','backdrop','undo','show-log','show-roles','role-info',
+  'timer-toggle','timer-reset','timer-preset','set-tab','download-html','go','back','new-game','wiz-next','wiz-back','player-sheet','ask','opt','recommend','balance']);
+
+function doStart(){
+  modal = null;
+  if (setupProblems().length){ state.view = 'setup'; state.wizStep = 2; toast('Bitte zuerst Spieler und Rollen prüfen.'); return; }
+  const g = newGame();
+  g.digital = state.options.mode === 'digital';
+  if (g.digital){ dealRoles(g); g.phase = 'deal'; } else g.phase = 'intro';
+  state.game = g; undoStack = []; state.view = 'game'; resetTimer();
+  applyWakeLock(); buzz(30);
+}
+function goBack(){
+  if (modal){ modal = null; return true; }
+  if (state.view === 'setup'){ if (state.wizStep > 0) state.wizStep--; else state.view = 'home'; return true; }
+  if (['settings','library','guide'].includes(state.view)){ state.view = (state.prevView === 'game' && state.game) ? 'game' : 'home'; return true; }
+  if (state.view === 'game'){ modal = 'menu'; return true; }
+  return false;
+}
+try { window.history.pushState({ww:1}, ''); } catch(e) {}
+window.addEventListener('popstate', () => { goBack(); try { window.history.pushState({ww:1}, ''); } catch(e) {} render(); });
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-action]');
+  if (!el || el.disabled) return;
+  const a = el.dataset.action;
+  if (a === 'backdrop' && e.target !== el) return;
+  const g = state.game;
+  const before = g ? JSON.stringify(g) : null;
+
+  switch (a){
+    /* --- Navigation --- */
+    case 'go': {
+      const v = el.dataset.view;
+      if (v === 'game' && !state.game) break;
+      if (['settings','library','guide'].includes(v)) state.prevView = state.view === 'game' ? 'game' : 'home';
+      state.view = v; modal = null;
+      if (v !== 'game') stopTimer();
+      applyWakeLock(); break;
+    }
+    case 'back': goBack(); break;
+    case 'new-game': state.view = 'setup'; state.wizStep = 0; modal = null; break;
+    case 'wiz-next': if (state.wizStep < 3) state.wizStep++; break;
+    case 'wiz-back': if (state.wizStep > 0) state.wizStep--; else state.view = 'home'; break;
+    case 'set-tab': state.libSet = el.dataset.set; break;
+    case 'set-mode': state.options.mode = el.dataset.mode; break;
+    case 'ask': modal = 'confirm:' + el.dataset.what; break;
+
+    /* --- Einrichtung --- */
+    case 'player-sheet': modal = 'player:' + el.dataset.id; break;
+    case 'move': {
+      const i = state.players.findIndex(x => x.id === el.dataset.id), j = i + Number(el.dataset.dir);
+      if (i >= 0 && j >= 0 && j < state.players.length) [state.players[i], state.players[j]] = [state.players[j], state.players[i]];
+      break;
+    }
+    case 'del-player': state.players = state.players.filter(p => p.id !== el.dataset.id); syncVillagers(); modal = null; break;
+    case 'role-inc': {
+      const id = el.dataset.role, r = RM[id];
+      state.counts[id] = cnt(id) + (cnt(id) === 0 && r.def ? r.def : 1);
+      if (id !== 'villager') syncVillagers(); break;
+    }
+    case 'role-dec': {
+      const id = el.dataset.role, r = RM[id];
+      state.counts[id] = (r.def && cnt(id) === r.def) ? 0 : Math.max(0, cnt(id) - 1);
+      if (id !== 'villager') syncVillagers(); break;
+    }
+    case 'balance': syncVillagers(); break;
+    case 'recommend': recommend(); toast(`Empfehlung für ${state.players.length} Spieler geladen`); break;
+    case 'opt': {
+      const k = el.dataset.key; state.options[k] = !state.options[k];
+      if (k === 'expansions' && !state.options.expansions){ ROLES.filter(r => r.set !== 'basis').forEach(r => delete state.counts[r.id]); syncVillagers(); state.libSet = 'basis'; }
+      if (k === 'expansions' && state.options.expansions) state.libSet = 'neumond';
+      if (k === 'wakeLock') applyWakeLock();
+      if (k === 'revealRoles') modal = null;
+      break;
+    }
+    case 'start': if (gameRunning()) modal = 'confirm:start'; else doStart(); break;
+    case 'restart': if (gameRunning()) modal = 'confirm:restart'; else doStart(); break;
+    case 'start-now': case 'restart-now': doStart(); break;
+    case 'reset-now': state = defaultState(); undoStack = []; modal = null; break;
+
+    /* --- Verteilen & Start --- */
+    case 'deal-toggle': if (g && g.phase === 'deal'){ g.dealShown = !g.dealShown; buzz(15); } break;
+    case 'deal-prev': if (g.dealShown) g.dealShown = false; else if (g.dealIdx > 0) g.dealIdx--; break;
+    case 'deal-next':
+      g.dealShown = false;
+      if (g.dealIdx < state.players.length - 1) g.dealIdx++;
+      else g.phase = 'intro';
+      break;
+    case 'overview': modal = 'overview'; break;
+    case 'deal-reroll': dealRoles(g); g.dealIdx = 0; g.dealShown = false; modal = null; toast('Rollen neu ausgelost'); break;
+    case 'begin-night': g.phase = 'night'; g.stepIdx = 0; log(g, '— Nacht 1 beginnt —'); buzz(40); break;
+
+    /* --- Nacht --- */
+    case 'tap': tapPlayer(el.dataset.id); buzz(12); break;
+    case 'submode': if (g){ g.subMode = el.dataset.mode; g.poisonMode = false; } break;
+    case 'jump': if (g){ g.stepIdx = Number(el.dataset.idx); g.subMode = null; g.poisonMode = false; } break;
+    case 'prev': {
+      const c = ctxOf(g);
+      if (!g.digital && g.night === 1 && c && c.mode === 'action' && c.step.act) g.subMode = 'assign';
+      else if (g.stepIdx > 0){ g.stepIdx--; g.subMode = null; }
+      g.poisonMode = false; break;
+    }
+    case 'next': {
+      const c = ctxOf(g);
+      if (c && g.stepIdx < c.steps.length - 1){ g.stepIdx++; g.subMode = null; g.poisonMode = false; }
+      else finishNight(g);
+      break;
+    }
+    case 'toggle-phase':
+      if (g.phase === 'night') finishNight(g);
+      else if (g.phase === 'day'){ log(g, 'Tag ohne Hinrichtung beendet'); endDay(g); }
+      break;
+    case 'witch-heal': if (g.draft.kill && !g.potions.heal){ g.draft.heal = !g.draft.heal; g.poisonMode = false; } break;
+    case 'witch-poison':
+      if (g.potions.poison) break;
+      if (g.draft.poison){ g.draft.poison = null; g.poisonMode = false; } else g.poisonMode = !g.poisonMode;
+      break;
+    case 'infect': if (g.draft.kill) g.draft.infect = !g.draft.infect; break;
+    case 'wolfdog': g.draft.side = g.draft.side === el.dataset.side ? null : el.dataset.side; break;
+    case 'thief-role': {
+      const tid = g.thiefId || holders(g,'thief')[0]?.id;
+      if (!tid){ toast('Erst den Dieb zuordnen.'); break; }
+      if (g.draft.thiefRole === el.dataset.role){ g.draft.thiefRole = null; g.roles[tid] = 'thief'; g.thiefId = null; }
+      else { g.draft.thiefRole = el.dataset.role; g.thiefId = tid; g.roles[tid] = el.dataset.role; }
+      break;
+    }
+    case 'random-roles': dealRoles(g); modal = null; toast('Rollen zufällig zugeteilt'); break;
+
+    /* --- Tag --- */
+    case 'daymode': g.dayMode = el.dataset.mode; break;
+    case 'day-kill': {
+      const v = g.draft.vote; if (!v) break;
+      if (g.roles[v] === 'idiot' && !g.idiotRevealed){ g.idiotRevealed = true; log(g, `Dorfdepp ${nm(v)} entlarvt – überlebt ohne Stimmrecht`); toast('Dorfdepp! Überlebt, darf aber nicht mehr abstimmen.'); }
+      else { if (g.roles[v] === 'angel' && g.day === 1) g.angelWin = true; kill(g, v, 'Dorfgericht'); }
+      endDay(g); break;
+    }
+    case 'day-tie': { const sg = livingHolders(g,'scapegoat')[0]; if (sg) kill(g, sg.id, 'Sündenbock (Gleichstand)'); endDay(g); break; }
+    case 'day-none': log(g, 'Keine Hinrichtung'); endDay(g); break;
+    case 'interrupt-skip': { const it = g.interrupts.shift(); if (it && it.type === 'captain') g.captain = null; afterDeaths(g, g.resume); break; }
+
+    case 'timer-toggle':
+      if (timer.running) stopTimer();
+      else { if (timer.left === 0) timer.left = state.options.timer; timer.running = true; timer.endAt = Date.now() + timer.left * 1000; clearInterval(timer.h); timer.h = setInterval(tick, 250); }
+      break;
+    case 'timer-reset': resetTimer(); break;
+    case 'timer-preset': { const P = [60,120,180,300,600]; state.options.timer = P[(P.indexOf(state.options.timer) + 1) % P.length]; resetTimer(); break; }
+
+    /* --- Menü --- */
+    case 'undo': if (undoStack.length){ state.game = JSON.parse(undoStack.pop()); modal = null; toast('Rückgängig gemacht'); } break;
+    case 'open-menu': modal = 'menu'; break;
+    case 'close-modal': case 'backdrop': modal = null; break;
+    case 'show-log': modal = 'log'; break;
+    case 'show-roles': modal = 'roles'; break;
+    case 'role-info': modal = 'role:' + el.dataset.role; break;
+    case 'download-html': modal = null; render(); downloadHtml(); return;
+  }
+
+  if (g && state.game === g && !NO_UNDO.has(a)){
+    const after = JSON.stringify(g);
+    if (after !== before){ undoStack.push(before); if (undoStack.length > 80) undoStack.shift(); }
+  }
+  render();
+});
+
+document.addEventListener('submit', e => {
+  e.preventDefault();
+  if (e.target.id === 'add-form'){
+    const inp = document.getElementById('add-inp');
+    const names = (inp.value || '').split(/[,;\n]+/).map(s => s.trim().slice(0,20)).filter(Boolean);
+    for (const name of names){
+      if (!state.players.some(p => p.name.toLowerCase() === name.toLowerCase()))
+        state.players.push({id:'p' + Date.now().toString(36) + Math.random().toString(36).slice(2,6), name});
+    }
+    syncVillagers(); render();
+    document.getElementById('add-inp')?.focus();
+  } else if (e.target.id === 'rename-form'){
+    const p = state.players.find(x => 'player:' + x.id === modal);
+    const v = document.getElementById('rename-inp').value.trim().slice(0,20);
+    if (p && v) p.name = v;
+    modal = null; render();
+  }
+});
+
+function downloadHtml(){
+  try {
+    const clone = document.documentElement.cloneNode(true);
+    clone.querySelector('#app').innerHTML = '';
+    clone.querySelector('#scene-night').innerHTML = '';
+    clone.querySelector('#scene-day').innerHTML = '';
+    const blob = new Blob(['<!doctype html>\n' + clone.outerHTML], {type:'text/html;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const link = Object.assign(document.createElement('a'), {href:url, download:'werwolf_spielleiter.html'});
+    document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  } catch(e) { toast('Speichern hier nicht möglich.'); }
+}
+
+buildScenes();
+render();
+applyWakeLock();
+})();
+
+</script>
+</body>
+</html>
