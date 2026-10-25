@@ -5,6 +5,7 @@ import { topBar } from './home.js';
 import { rulesHtml } from './setup.js';
 import { ROLES, RM, SETS, CAMP_LABEL, findRoles } from '../engine/roles.js';
 import { exportBackup, importBackup, defaultSettings } from '../store.js';
+import { installButton, isStandalone } from './install.js';
 
 on('lib-set', (el) => { ui.libSet = el.dataset.set; ui.query = ''; });
 on('input:lib-q', (el) => { ui.query = el.value; });
@@ -67,10 +68,13 @@ views.settings = () => {
       <div class="card flat col"><b>Diskussionszeit</b><div class="seg">${timers.map((t) => `<button class="${s.timer === t ? 'on' : ''}" data-action="set-timer" data-v="${t}">${t / 60} min</button>`).join('')}</div></div>
       <div class="eyebrow" style="margin-top:6px">Hausregeln für neue Spiele</div>
       ${rulesHtml(s.rules)}
+      ${installButton() ? `<div class="eyebrow" style="margin-top:6px">App</div><div class="card flat col"><span class="muted" style="font-size:14px">Installiert läuft die App im Vollbild und ohne Netz.</span>${installButton()}</div>` : (isStandalone() ? '<div class="hint">' + I.check + '<span>Du nutzt die installierte App.</span></div>' : '')}
       <div class="eyebrow" style="margin-top:6px">Sicherung</div>
       <div class="card flat col"><span class="muted" style="font-size:14px">Gruppen und Einstellungen liegen nur auf diesem Gerät. Die installierte App auf dem iPad hat einen eigenen Speicher, getrennt von Safari. Mit einer Sicherungsdatei ziehst du um.</span>
         <div class="row wrap"><button class="btn" data-action="backup-export">${I.download}Sicherung speichern</button><label class="btn" for="backup-file" style="cursor:pointer">Sicherung laden</label><input type="file" id="backup-file" accept="application/json,.json" hidden></div>
         <button class="btn danger" data-action="reset-all">${I.reset}Alles zurücksetzen</button></div>
+      <div class="eyebrow" style="margin-top:6px">Quellen</div>
+      <div class="card flat col"><span class="muted" style="font-size:13px">Nachtmusik: „Cathedral in the forest“ von congusbongus und „Dark Place“ von SkyleTheFrench (beide CC0, OpenGameArt). Rollenbilder aus der bisherigen App.</span></div>
     </div></div></div>`;
 };
 

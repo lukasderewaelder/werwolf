@@ -3,6 +3,7 @@ import { S, ui, views, on, go, persist, toast } from './core.js';
 import { esc, I } from './art.js';
 import { groupById, ensureGroup, selectGroup, addMembers, removeMember, uid, presentPlayers } from '../store.js';
 import { nm, livingIds } from '../engine/game.js';
+import { installButton } from './install.js';
 
 export function emblem(cls = '') {
   return `<svg viewBox="0 0 120 120" class="${cls}" aria-hidden="true">
@@ -33,6 +34,7 @@ views.home = () => {
       <div class="home-actions">
         ${resume}${last}
         <button class="btn primary block" data-action="new-game">${I.moon}<span>${running ? 'Neues Spiel (ersetzt das laufende)' : 'Neues Spiel'}</span></button>
+        ${installButton()}
         <div class="menu-grid">
           <button class="tile" data-action="go" data-view="groups">${I.people}<b>Gruppen</b><span>Spieler und Runden verwalten</span></button>
           <button class="tile" data-action="go" data-view="library">${I.book}<b>Rollen</b><span>Nachschlagen und Regeln</span></button>

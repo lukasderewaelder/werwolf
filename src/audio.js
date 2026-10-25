@@ -1,6 +1,6 @@
 // Töne und Nachtmusik. Liegt eine Datei in assets/audio/, wird sie abgespielt, sonst entsteht der Klang per Web Audio.
 import { S } from './store-ref.js';
-import { AUDIO } from './audio-files.js';
+import { AUDIO, MUSIC } from './audio-files.js';
 
 let ctx = null, master = null, music = null;
 
@@ -64,20 +64,69 @@ function synth(name) {
 }
 
 /* ---------- Nachtmusik ---------- */
-export async function startMusic() {
-  if (music || !S().settings.music || !S().settings.sound) return;
-  const url = await findFile('night');
-  if (url) {
-    const a = new Audio(url); a.loop = true; a.volume = 0.35 * (S().settings.volume ?? 0.7);
-    try { await a.play(); music = { stop: () => { a.pause(); a.currentTime = 0; } }; } catch { /* noch keine Berührung */ }
-    return;
+const MUSIC_LEVEL = 0.5;
+let starting = false;
+
+/** Stücke nacheinander mit Überblendung. Läuft über Web Audio, weil iOS die Lautstärke von Audio-Elementen ignoriert. */
+function playlist(c) {
+  const out = c.createGain();
+  out.gain.setValueAtTime(0.0001, c.currentTime);
+  out.gain.linearRampToValueAtTime(MUSIC_LEVEL, c.currentTime + 2.5);
+  out.connect(master);
+  const cache = new Map(), live = new Set();
+  let stopped = false, timer = 0;
+
+  const decode = (ab) => new Promise((res, rej) => c.decodeAudioData(ab, res, rej));
+  async function load(i) {
+    if (!cache.has(i)) cache.set(i, decode(await (await fetch(MUSIC[i])).arrayBuffer()));
+    return cache.get(i);
   }
-  const c = audioCtx(); if (!c) return;
+  async function play(i, when) {
+    let buf;
+    try { buf = await load(i); } catch (e) { console.warn('Musik nicht ladbar:', e); return; }
+    if (stopped) return;
+    const t = Math.max(when, c.currentTime + 0.05);
+    const xf = Math.min(4, buf.duration / 4);
+    const src = c.createBufferSource(), g = c.createGain();
+    src.buffer = buf;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(1, t + xf);
+    g.gain.setValueAtTime(1, t + buf.duration - xf);
+    g.gain.linearRampToValueAtTime(0.0001, t + buf.duration);
+    src.connect(g); g.connect(out); src.start(t);
+    const node = { src, g }; live.add(node);
+    src.onended = () => live.delete(node);
+    const next = (i + 1) % MUSIC.length, nextAt = t + buf.duration - xf;
+    timer = setTimeout(() => play(next, nextAt), Math.max(0, (nextAt - c.currentTime - 6) * 1000));
+  }
+  play(Math.floor(Math.random() * MUSIC.length), c.currentTime);
+  return {
+    live: () => live.size,
+    stop() {
+      stopped = true; clearTimeout(timer);
+      out.gain.cancelScheduledValues(c.currentTime); out.gain.setValueAtTime(out.gain.value, c.currentTime); out.gain.linearRampToValueAtTime(0.0001, c.currentTime + 1.2);
+      setTimeout(() => { live.forEach((n) => { try { n.src.stop(); } catch { /* schon beendet */ } }); out.disconnect(); }, 1400);
+    },
+  };
+}
+
+/** Rückfall ohne Dateien: leiser Klangteppich aus Schwingungen. */
+function drone(c) {
   const out = c.createGain(); out.gain.value = 0.0001; out.connect(master);
   out.gain.exponentialRampToValueAtTime(0.1, c.currentTime + 3);
   const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 500; lp.connect(out);
   const lfo = c.createOscillator(), lg = c.createGain(); lfo.frequency.value = 0.07; lg.gain.value = 250; lfo.connect(lg); lg.connect(lp.frequency); lfo.start();
   const oscs = [55, 82.4, 110.2, 164.9].map((f, i) => { const o = c.createOscillator(); o.type = i % 2 ? 'triangle' : 'sine'; o.frequency.value = f; o.detune.value = i * 4; o.connect(lp); o.start(); return o; });
-  music = { stop: () => { out.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 1.2); setTimeout(() => { oscs.forEach((o) => o.stop()); lfo.stop(); }, 1400); } };
+  return { stop() { out.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 1.2); setTimeout(() => { oscs.forEach((o) => o.stop()); lfo.stop(); }, 1400); } };
+}
+
+export function startMusic() {
+  if (music || starting || !S().settings.music || !S().settings.sound) return;
+  const c = audioCtx(); if (!c) return;
+  starting = true;
+  try { music = MUSIC.length ? playlist(c) : drone(c); } finally { starting = false; }
 }
 export function stopMusic() { if (music) { music.stop(); music = null; } }
+
+/** Zustand für Tests und Fehlersuche. */
+export const musicState = () => ({ playing: !!music, context: ctx?.state ?? null, streams: music?.live?.() ?? 0 });

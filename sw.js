@@ -2,9 +2,11 @@
 // Der Block zwischen den Marken wird von tools/precache.mjs erzeugt (node tools/precache.mjs).
 
 // >>> precache
-const VERSION = '298781ea9e';
+const VERSION = 'cf865dfdca';
 const ASSETS = [
   './',
+  './assets/audio/nacht-1.mp3',
+  './assets/audio/nacht-2.mp3',
   './assets/css/app.css',
   './assets/icons/apple-touch-icon.png',
   './assets/icons/icon-192.png',
@@ -57,6 +59,7 @@ const ASSETS = [
   './src/ui/game.js',
   './src/ui/home.js',
   './src/ui/icons.js',
+  './src/ui/install.js',
   './src/ui/modals.js',
   './src/ui/pages.js',
   './src/ui/scene.js',

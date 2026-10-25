@@ -5,8 +5,9 @@ import './ui/setup.js';
 import './ui/pages.js';
 import './ui/game.js';
 import './ui/modals.js';
+import './ui/install.js';
 import { bind } from './store-ref.js';
-import { startMusic, stopMusic } from './audio.js';
+import { startMusic, stopMusic, musicState } from './audio.js';
 import { buildScene } from './ui/scene.js';
 import { registerRoles } from './engine/roles.js';
 
@@ -47,7 +48,7 @@ let touched = false;
 function syncMusic() {
   const g = S.game;
   const night = ui.view === 'game' && g && g.phase === 'night' && !(g.cfg.mode === 'digital' && g.dealIdx < g.cfg.players.length);
-  if (night && touched) startMusic(); else stopMusic();
+  if (night && touched && S.settings.sound && S.settings.music) startMusic(); else stopMusic();
 }
 document.addEventListener('pointerdown', () => { if (!touched) { touched = true; syncMusic(); } }, { once: false });
 import('./ui/core.js').then((m) => m.afterRender.push(syncMusic));
@@ -55,5 +56,5 @@ import('./ui/core.js').then((m) => m.afterRender.push(syncMusic));
 buildScene();
 setupServiceWorker();
 render();
-window.__werwolf = { S, ui, render, dispatch };   // für Tests und Fehlersuche
+window.__werwolf = { S, ui, render, dispatch, musicState };   // für Tests und Fehlersuche
 export { toast };

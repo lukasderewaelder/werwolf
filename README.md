@@ -11,6 +11,8 @@ Live-Adresse (GitHub Pages): `https://lukasderewaelder.github.io/werwolf/`
 | iPad, iPhone | In **Safari** die Adresse öffnen, Teilen-Knopf, **Zum Home-Bildschirm**. Danach die App vom Home-Bildschirm starten. |
 | Android | In **Chrome** die Adresse öffnen, Menü, **App installieren** (oder Zum Startbildschirm). |
 
+Auf Android erscheint auf der Startseite und in den Optionen ein Knopf **App installieren**, auf iPad und iPhone **Zum Home-Bildschirm hinzufügen** mit Anleitung. Läuft die App schon installiert, verschwindet der Knopf.
+
 Nach dem ersten Öffnen mit Netz ist alles auf dem Gerät gespeichert. Danach funktioniert die App im Flugmodus. Gibt es eine neue Version, erscheint oben der Hinweis „Neue Version bereit“.
 
 **Wichtig für iOS:** Die installierte App hat einen eigenen Speicher, getrennt von Safari. Gruppen und Einstellungen überträgst du über *Optionen, Sicherung speichern* und *Sicherung laden*.
@@ -40,6 +42,8 @@ node tools/precache.mjs   # nach jeder Dateiänderung in src/ oder assets/ ausf�
 node tools/icons.mjs      # PNG-Icons aus assets/icons/icon.svg neu erzeugen
 ```
 
+Musik: Zwei CC0-Stücke für die Nacht (Quellen in [docs/QUELLEN.md](docs/QUELLEN.md)). Weitere Pläne in [docs/ROADMAP.md](docs/ROADMAP.md).
+
 Aufbau: `index.html`, `src/engine/` (Spiellogik ohne Oberfläche, vollständig getestet), `src/ui/` (Ansichten), `src/store.js` (Speicher), `src/audio.js` (Töne), `sw.js` (Service Worker mit Precache), `assets/` (CSS, Rollenporträts, Icons), `docs/` (Plan, Regelabgleich, Originale der alten App).
 
 Auf localhost ist der Service Worker aus; `?sw=1` an die Adresse hängen, um den Offlinebetrieb zu testen.
@@ -57,4 +61,4 @@ Auf localhost ist der Service Worker aus; `?sw=1` an die Adresse hängen, um den
 
 ## Lizenzen und Quellen
 
-Die Rollenporträts stammen aus der bisherigen App. Rollenbeschreibungen sind eigene Zusammenfassungen. „Die Werwölfe von Düsterwald“ ist ein Spiel von Philippe des Pallières und Hervé Marly; diese App ist ein privates Hilfsmittel und steht in keiner Verbindung zu den Verlagen.
+Nachtmusik von congusbongus und SkyleTheFrench (CC0, OpenGameArt). Die Rollenporträts stammen aus der bisherigen App. Rollenbeschreibungen sind eigene Zusammenfassungen. „Die Werwölfe von Düsterwald“ ist ein Spiel von Philippe des Pallières und Hervé Marly; diese App ist ein privates Hilfsmittel und steht in keiner Verbindung zu den Verlagen.

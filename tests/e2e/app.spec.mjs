@@ -168,3 +168,71 @@ test('Verbitterter Greis: Gruppen lassen sich zuordnen', async () => {
   assert.deepEqual(problems, []);
   await page.context().close();
 });
+
+test('Musik: beide Nachtstücke sind abspielbar (Länge, Pegel)', async () => {
+  const { page, problems } = await app.openApp();
+  const r = await page.evaluate(async () => {
+    const { MUSIC } = await import('/src/audio-files.js');
+    const c = new AudioContext();
+    const out = [];
+    for (const url of MUSIC) {
+      const buf = await c.decodeAudioData(await (await fetch(url)).arrayBuffer());
+      const d = buf.getChannelData(0); let peak = 0;
+      for (let i = 0; i < d.length; i += 97) peak = Math.max(peak, Math.abs(d[i]));
+      out.push({ url, sec: Math.round(buf.duration), ch: buf.numberOfChannels, peak: +peak.toFixed(2) });
+    }
+    return out;
+  });
+  assert.equal(r.length, 2);
+  assert.ok(Math.abs(r[0].sec - 137) <= 2 && Math.abs(r[1].sec - 55) <= 2, JSON.stringify(r));
+  for (const t of r) { assert.equal(t.ch, 2); assert.ok(t.peak > 0.02 && t.peak <= 1, JSON.stringify(t)); }
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});
+
+test('Installieren: Chrome-Installationsfenster, Android-Anleitung, iPad-Anleitung', async () => {
+  // Chrome bietet die Installation an
+  let { page, problems } = await app.openApp();
+  assert.equal(await page.locator('[data-action=install]').count(), 0, 'Desktop ohne Angebot: kein Knopf');
+  await page.evaluate(() => {
+    const e = new Event('beforeinstallprompt');
+    e.prompt = () => { window.__prompted = true; return Promise.resolve(); };
+    e.userChoice = Promise.resolve({ outcome: 'accepted' });
+    window.dispatchEvent(e);
+  });
+  await page.click('[data-action=install]');
+  assert.equal(await page.evaluate(() => window.__prompted), true);
+  assert.equal(await page.locator('[data-action=install]').count(), 0, 'nach dem Angebot verschwindet der Knopf');
+  assert.deepEqual(problems, []);
+  await page.context().close();
+
+  // Android-Handy ohne Installationsereignis: Knopf mit Anleitung für Chrome
+  const android = await app.newContext({ viewport: PHONE, userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36', hasTouch: true });
+  ({ page } = await app.openApp({ context: android }));
+  await page.click('[data-action=install]');
+  assert.match(await page.locator('.modal').innerText(), /App installieren/);
+  assert.match(await page.locator('.modal').innerText(), /Chrome/);
+  await android.close();
+
+  // iPad (meldet sich als Mac, hat aber Touch): Safari-Anleitung
+  const ipad = await app.newContext({ userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15', hasTouch: true });
+  await ipad.addInitScript(() => Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5 }));  // echtes iPad-Safari meldet 5
+  ({ page } = await app.openApp({ context: ipad }));
+  await page.click('[data-action=install]');
+  assert.match(await page.locator('.modal').innerText(), /Zum Home-Bildschirm/);
+  await ipad.close();
+});
+
+test('Musik: läuft in der Nacht nach der ersten Berührung, endet am Tag', async () => {
+  const { page, problems } = await app.openApp();
+  await startGame(page, { names: NAMES.slice(0, 5), counts: { wolf: 1, seer: 1, villager: 3 }, roles: ['wolf', 'seer', 'villager', 'villager', 'villager'] });
+  assert.equal((await page.evaluate(() => window.__werwolf.musicState())).playing, false, 'ohne Berührung bleibt es still');
+  await page.locator('.tok').first().click();
+  await page.waitForFunction(() => window.__werwolf.musicState().streams >= 1, null, { timeout: 15000 });
+  const st = await page.evaluate(() => window.__werwolf.musicState());
+  assert.equal(st.context, 'running');
+  await page.evaluate(() => { const g = window.__werwolf.S.game; g.phase = 'day'; g.clock = 'day'; g.dayMode = 'vote'; window.__werwolf.render(); });
+  await page.waitForFunction(() => !window.__werwolf.musicState().playing);
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});
