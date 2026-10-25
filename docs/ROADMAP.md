@@ -33,7 +33,7 @@ Teil B: Töne, jetzt als Auswahl
 
 Abnahme: Auf deinem Android-Handy ist in jeder Ansicht (Start, Assistent, Nacht, Tag, Dialoge) der untere Knopf ohne Scrollen sichtbar. Die gewählten Töne klingen stimmig und passen zur Lautstärke der Musik.
 
-## M9 Abstimmung und Überblick (umgesetzt, wartet auf deine Abnahme)
+## M9 Abstimmung und Überblick (abgenommen)
 - Stimmenzähler: Stimmen pro Person erfassen mit doppelter Stimme des Hauptmanns, +2 des Raben, Dorfdepp ohne Stimmrecht, eingeschränkte Wähler des Sündenbocks. Ergebnis und Gleichstand erkennt die App selbst.
 - Dauerhafte Anzeige im Spiel: Wölfe gegen Rest, wer noch lebt.
 - Hauptmannswahl ebenfalls per Stimmenzähler.
@@ -43,10 +43,17 @@ Nachbesserungen aus deiner Abnahme von M8: Wolfsheulen beim Erwachen aller Wölf
 
 Abnahme: Eine Abstimmung mit 10 Spielern läuft ohne Kopfrechnen, der Gleichstand wird erkannt.
 
-## M10 Regel-Randfälle
+## M10 Regel-Randfälle (umgesetzt, wartet auf deine Abnahme)
 Mit Tests je Fall, Quelle ist das Regelheft:
 - Urwolf und Alter, Ergebene Magd mit Amor und Flötenspieler, Heiler gegen den Weißen Werwolf, Jäger bei Liebeskummer, Wildes Kind und Wolfshund als Hauptmann, Dieb mit zwei Wölfen in der Mitte.
 - Ich nenne dir vorher jede Stelle, an der das Regelheft nicht eindeutig ist, und du entscheidest.
+
+Umgesetzt und mit Tests belegt:
+- Dieb mit zwei Werwölfen in der Mitte muss einen nehmen, Abwählen stellt die Karten wieder her.
+- Ergebene Magd: im Kartenmodus bekommt sie die Rolle, sobald die Karte aufgedeckt ist. Infektion bleibt, Hauptmannsamt und Verzauberung nicht. Als Flötenspieler erfährt der Spielleiter die bisher Verzauberten.
+- Jäger verliebt: stirbt der Partner, schießt der Jäger noch. Sterben dadurch alle, gewinnt niemand.
+Deine Entscheidungen: Urwolf darf den Alten beim ersten Biss infizieren, danach nicht. Die Magd darf die Jägerkarte nicht übernehmen. Heiler-Schutz und Heiltrank wirken auch gegen den Weißen Werwolf. Die Seherin sieht beim Infizierten nur die Karte (bei „Werwolf oder nicht“ gilt er als Werwolf).
+Festgelegt ohne Rückfrage (ändere es, wenn es dich stört): Stirbt der Alte an Liebeskummer, behält das Dorf seine Fähigkeiten, denn das Regelheft nennt nur Abstimmung, Gifttrank und Jägerschuss.
 
 Abnahme: Du spielst die Fälle durch, die dich interessieren, und bestätigst das Verhalten.
 

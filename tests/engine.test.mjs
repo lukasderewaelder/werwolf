@@ -539,3 +539,56 @@ test('Ergebene Magd bleibt infiziert und verliert Hauptmannsamt und Verzauberung
   assert.equal(g.captain, null);
   assert.equal(g.enchanted.p2, undefined);
 });
+
+test('Urwolf darf den Alten beim ersten Biss infizieren, nach dem ersten Biss nicht mehr', () => {
+  let g = mk(['urwolf', 'wolf', 'elder', 'villager', 'villager', 'villager']);
+  g = goKey(g, 'wolf'); g = tap(g, 'p3');
+  g = goKey(g, 'urwolf'); g = apply(g, { t: 'infect' });
+  g = finishNight(g);
+  assert.equal(alive(g, 'p3'), true);
+  assert.equal(isWolf(g, 'p3'), true, 'beim ersten Biss infiziert');
+  let h = mk(['urwolf', 'wolf', 'elder', 'villager', 'villager', 'villager']);
+  h = goKey(h, 'wolf'); h = tap(h, 'p3'); h = finishNight(h);
+  assert.equal(alive(h, 'p3'), true);
+  h = skipCaptain(h); h = apply(h, { t: 'day-none' });
+  h = goKey(h, 'wolf'); h = tap(h, 'p3');
+  h = goKey(h, 'urwolf'); h = apply(h, { t: 'infect' });
+  assert.equal(h.draft.infect, false, 'nach dem ersten Biss nicht infizierbar');
+  h = finishNight(h);
+  assert.equal(alive(h, 'p3'), false);
+  assert.equal(h.urwolfUsed, false);
+});
+
+test('Ergebene Magd darf die Jägerkarte nicht übernehmen: keine Abfrage, der Jäger schießt', () => {
+  let g = dayGame({}, ['wolf', 'maid', 'hunter', 'villager', 'villager', 'villager']);
+  g = apply(taps(g, 'p3'), { t: 'day-execute' });
+  assert.equal(g.interrupts[0].type, 'hunter');
+  assert.equal(g.roles.p2, 'maid');
+});
+
+test('Ergebene Magd im Kartenmodus: stellt sich der unbekannte Hingerichtete als Jäger heraus, bleibt sie Magd', () => {
+  const players = Array.from({ length: 6 }, (_, i) => ({ id: `p${i + 1}`, name: `P${i + 1}` }));
+  let g = createGame({ players, counts: { wolf: 1, maid: 1, hunter: 1, villager: 3 }, mode: 'cards' });
+  g.roles = { p1: 'wolf', p2: 'maid' };
+  g = { ...g, phase: 'day', clock: 'day', day: 1, dayMode: 'vote' };
+  g = apply(taps(g, 'p3'), { t: 'day-execute' });
+  g = apply(g, { t: 'maid-take' });
+  g = apply(g, { t: 'reveal', role: 'hunter' });
+  assert.equal(g.roles.p2, 'maid');
+  assert.equal(g.interrupts[0].type, 'hunter', 'der Jäger schießt trotzdem');
+});
+
+test('Weißer Werwolf: Heiler schützt sein Opfer, die Hexe kann es heilen', () => {
+  const start = (extra) => {
+    let g = mk(['wolf', 'whitewolf', 'guard', 'witch', 'villager', 'villager', 'villager', 'villager']);
+    g = { ...g, night: 2 };
+    return extra(g);
+  };
+  const protectedG = finishNight(start((g) => { g = goKey(g, 'guard'); g = tap(g, 'p1'); g = goKey(g, 'whitewolf'); return tap(g, 'p1'); }));
+  assert.equal(alive(protectedG, 'p1'), true, 'vom Heiler gerettet');
+  const healedG = finishNight(start((g) => { g = goKey(g, 'whitewolf'); g = tap(g, 'p1'); g = goKey(g, 'witch'); return tap(g, 'p1'); }));
+  assert.equal(alive(healedG, 'p1'), true, 'von der Hexe geheilt');
+  assert.equal(healedG.potions.heal, true);
+  const plain = finishNight(start((g) => { g = goKey(g, 'whitewolf'); return tap(g, 'p1'); }));
+  assert.equal(alive(plain, 'p1'), false);
+});

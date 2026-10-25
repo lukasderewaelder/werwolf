@@ -396,7 +396,7 @@ function finishNight(g) {
   if (!quiet) {
     wolfAttack(d.kill, 'wolves');
     if (d.bigkill && d.bigkill !== d.kill) wolfAttack(d.bigkill, 'bigwolf');
-    if (d.whitekill && alive(g, d.whitekill)) kill(g, d.whitekill, 'whitewolf');
+    if (d.whitekill && alive(g, d.whitekill)) wolfAttack(d.whitekill, 'whitewolf');
     if (d.poison && !g.potions.poison && alive(g, d.poison)) { g.potions.poison = true; kill(g, d.poison, 'poison'); }
   }
 
@@ -454,7 +454,7 @@ function executeVote(g) {
     return;
   }
   const maid = livingHolders(g, 'maid')[0];
-  if (maid && maid.id !== v && !g.lovers.includes(maid.id)) {
+  if (maid && maid.id !== v && !g.lovers.includes(maid.id) && g.roles[v] !== 'hunter') {
     g.interrupts.unshift({ type: 'maid', id: maid.id, victim: v });
     g.phase = 'interrupt'; g.resume = 'night';
     return;
@@ -465,6 +465,7 @@ function executeVote(g) {
 
 /** Die Magd spielt ab jetzt die Rolle des Hingerichteten, als wäre es die erste Nacht. Verliebt, Hauptmann, Verzauberung bleiben nicht erhalten, eine Infektion schon. */
 function applyMaidRole(g, maidId, victimId, role) {
+  if (role === 'hunter') { log(g, `Ergebene Magd ${nm(g, maidId)} darf die Jägerkarte nicht übernehmen und bleibt Magd`); return; }
   g.roles[maidId] = role;
   log(g, `Ergebene Magd ${nm(g, maidId)} übernimmt die Rolle ${roleName(role)} von ${nm(g, victimId)}`);
   if (role === 'witch') g.potions = { heal: false, poison: false };
@@ -560,7 +561,7 @@ function tap(g, pid, toast) {
     case 'check': if (holders(g, 'seer').some((x) => x.id === pid)) return; tog('check'); break;
     case 'witch':
       if (g.poisonMode) { d.poison = d.poison === pid ? null : pid; g.poisonMode = false; }
-      else if ((pid === d.kill || pid === d.bigkill) && !g.potions.heal && !(g.cfg.rules.noVictimsNight1 && g.night === 1)) d.heal = d.heal === pid ? null : pid;
+      else if ((pid === d.kill || pid === d.bigkill || pid === d.whitekill) && !g.potions.heal && !(g.cfg.rules.noVictimsNight1 && g.night === 1)) d.heal = d.heal === pid ? null : pid;
       else if (!g.potions.poison) d.poison = d.poison === pid ? null : pid;
       break;
     case 'lovers': {

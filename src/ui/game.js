@@ -22,7 +22,7 @@ function marks(g, c) {
       switch (step.act) {
         case 'kill': if (d.kill) m.target.add(d.kill); break;
         case 'check': if (d.check) m.pick.add(d.check); break;
-        case 'witch': [d.kill, d.bigkill].filter(Boolean).forEach((x) => m.target.add(x)); if (d.heal) { m.target.delete(d.heal); m.safe.add(d.heal); } if (d.poison) m.target.add(d.poison); break;
+        case 'witch': [d.kill, d.bigkill, d.whitekill].filter(Boolean).forEach((x) => m.target.add(x)); if (d.heal) { m.target.delete(d.heal); m.safe.add(d.heal); } if (d.poison) m.target.add(d.poison); break;
         case 'lovers': d.lovers.forEach((x) => m.pick.add(x)); break;
         case 'protect': if (d.protect) m.safe.add(d.protect); if (g.lastProtect) m.dim.add(g.lastProtect); break;
         case 'bigkill': if (d.kill) m.target.add(d.kill); if (d.bigkill) m.target.add(d.bigkill); break;
@@ -104,7 +104,8 @@ const seenText = (g, id) => {
   const rid = g.roles[id];
   if (!rid) return null;
   if (g.cfg.rules.seerSees === 'camp') return isWolf(g, id) ? 'Werwolf' : 'Kein Werwolf';
-  return `${roleLabel(g, id)}${isWolf(g, id) ? ' – gehört zu den Wölfen!' : ''}`;
+  const card = g.actorId === id && rid !== 'actor' ? 'Gaukler' : RM[rid].name;
+  return g.turned[id] ? `${card} (Karte; infiziert, die Seherin sieht nur die Karte)` : card;
 };
 
 function taskBox(g, c) {
@@ -149,7 +150,7 @@ function taskBox(g, c) {
       }
       case 'witch': {
         const w = livingHolders(g, 'witch')[0];
-        const victims = [d.kill, d.bigkill].filter(Boolean).map((x) => nm(g, x));
+        const victims = [d.kill, d.bigkill, d.whitekill].filter(Boolean).map((x) => nm(g, x));
         const quiet = g.cfg.rules.noVictimsNight1 && g.night === 1;
         if (g.poisonMode) { prompt = 'Gifttrank: Tippe die Person an, die vergiftet wird.'; cls = 'warn'; }
         else prompt = quiet ? 'Hausregel: In der ersten Nacht stirbt niemand. Die Hexe wacht nur auf.' : `Opfer der Nacht: ${victims.length ? victims.join(' & ') : 'niemand'}${d.heal ? ` · ${nm(g, d.heal)} wird geheilt` : ''}${d.poison ? ` · Gift: ${nm(g, d.poison)}` : ''}`;

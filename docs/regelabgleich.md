@@ -37,3 +37,16 @@ Das Regelheft ruft die Seherin vor den Werwölfen auf. Ist in den Hausregeln „
 * **A** Der Alte und die Hexe: Das Heft sagt nur „gewinnt nur ein einziges Leben“. Vorschlag: Der Wolfsangriff verbraucht das Extraleben des Alten auch dann, wenn die Hexe heilt (kein doppelter Schutz). Die Zweideutigen (Dieb, Magd, Gaukler, Wildes Kind, Wolfshund) verlieren ihre Fähigkeiten nicht, nur das Lager Dorfbewohner.
 * **B** Sündenbock: Wörtlich „wenn er ausscheidet“, also bei jedem Tod. Vorschlag: Wählerauswahl bei jedem Ausscheiden.
 * **C** Weißer Werwolf: Sind alle Dorfbewohner tot, aber Wolfsrudel und Weißer Werwolf leben noch, geht das Spiel weiter, bis der Weiße Werwolf allein übrig ist oder stirbt (dann gewinnen die Wölfe).
+
+## Entscheidungen zu Randfällen (M10)
+
+| Fall | Entscheidung |
+| --- | --- |
+| Urwolf infiziert den Alten | beim ersten Biss möglich, nach dem ersten Biss nicht mehr (Regelheft S. 10) |
+| Ergebene Magd und Jäger | darf die Jägerkarte nicht übernehmen, der Jäger schießt, die Magd bleibt Magd |
+| Heiler und Heiltrank gegen den Weißen Werwolf | wirken, er gilt als Werwolf |
+| Seherin und Infizierte | sieht nur die Karte, bei „Werwolf oder nicht“ gilt der Infizierte als Werwolf |
+| Alter stirbt an Liebeskummer | keine Folgen für die Fähigkeiten des Dorfes (Regelheft nennt nur Abstimmung, Gift, Jäger) |
+| Dieb mit zwei Werwölfen in der Mitte | muss einen nehmen |
+| Jäger verliebt | schießt, wenn der Partner stirbt; sterben alle, gewinnt niemand |
+| Ergebene Magd wird Flötenspieler | erfährt die bisher Verzauberten, ist selbst nicht mehr verzaubert |

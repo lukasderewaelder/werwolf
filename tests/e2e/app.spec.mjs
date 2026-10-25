@@ -487,3 +487,18 @@ test('Hauptmannswahl per Zähler am Handy', async () => {
   assert.deepEqual(problems, []);
   await ctx.close();
 });
+
+test('Seherin sieht bei einem Infizierten nur die Karte, bei „Werwolf oder nicht“ aber Werwolf', async () => {
+  for (const [seerSees, expected] of [['role', /Carla: Dorfbewohner \(Karte; infiziert/], ['camp', /Carla: Werwolf$/]]) {
+    const { page, problems } = await app.openApp();
+    await startGame(page, { names: NAMES.slice(0, 6), counts: { wolf: 1, seer: 1, villager: 4 }, rules: { seerSees }, roles: ['wolf', 'seer', 'villager', 'villager', 'villager', 'villager'] });
+    await page.evaluate(() => { const w = window.__werwolf; w.S.game.turned.p3 = true; w.render(); });
+    if (seerSees === 'camp') await page.click('[data-action=step-next]');
+    assert.match(await page.locator('.rolebox h2').innerText(), /Seherin/);
+    await tapName(page, 'Carla');
+    const text = await page.locator('.task .prompt').innerText();
+    assert.match(text, expected);
+    assert.deepEqual(problems, []);
+    await page.context().close();
+  }
+});
