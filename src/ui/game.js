@@ -81,7 +81,23 @@ function tableHtml(g, c) {
     <div class="pgrid" data-keep="pgrid">${ps.map((p, i) => tokHtml(g, p, i, n, mk, 'grid')).join('')}</div>`;
 }
 
-on('tap', (el) => { buzz(10); dispatch({ t: 'tap', pid: el.dataset.pid }); return false; });
+on('tap', (el) => {
+  if (Date.now() - (ui.longPress ?? 0) < 700) return false;   // dieses Loslassen gehört zum langen Tippen
+  buzz(10); dispatch({ t: 'tap', pid: el.dataset.pid }); return false;
+});
+
+// Langes Tippen (halbe Sekunde) auf einen Spielerstein: Spielerblatt mit Umbenennen, Rolle, Hauptmann, Tod
+let press = null;
+const endPress = () => { if (press) { clearTimeout(press.h); press = null; } };
+document.addEventListener('pointerdown', (e) => {
+  const t = e.target.closest?.('.tok[data-pid]');
+  if (!t || ui.view !== 'game' || ui.modal || !S.game) return;
+  endPress();
+  press = { x: e.clientX, y: e.clientY, pid: t.dataset.pid, h: setTimeout(() => { ui.longPress = Date.now(); ui.modal = { type: 'player', id: press.pid }; press = null; buzz(30); import('./core.js').then((m) => m.render()); }, 550) };
+});
+document.addEventListener('pointermove', (e) => { if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) endPress(); });
+document.addEventListener('pointerup', endPress);
+document.addEventListener('pointercancel', endPress);
 
 /* ---------- Kopfleiste ---------- */
 

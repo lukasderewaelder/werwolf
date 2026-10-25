@@ -8,13 +8,13 @@ export const FORMAT = 'werwolf-sicherung';
 export const defaultSettings = () => ({
   theme: 'auto',          // auto = Nacht dunkel, Tag hell je Spielphase; night/day = fest
   sound: true, music: true, volume: 0.7,
-  haptics: true, wakeLock: true, timer: 180, showRoles: true, bottomPad: 0,
+  haptics: true, wakeLock: true, timer: 180, showRoles: true, bottomPad: 0, lockPin: null,
   mode: 'cards', rules: { ...DEFAULT_RULES },
 });
 
 export const defaultSetup = () => ({ step: 0, groupId: null, off: {}, order: [], counts: null, extra: false });
 
-const fresh = () => ({ v: 1, groups: [], setup: defaultSetup(), settings: defaultSettings(), game: null, lastResult: null, customRoles: [] });
+const fresh = () => ({ v: 1, groups: [], setup: defaultSetup(), settings: defaultSettings(), game: null, saves: [], locked: false, lastResult: null, customRoles: [] });
 
 let mem = null;
 export const uid = (p = 'x') => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -32,6 +32,8 @@ function normalize(s, base) {
   s.settings = { ...base.settings, ...(s.settings || {}), rules: { ...base.settings.rules, ...(s.settings?.rules || {}) } };
   s.setup = { ...base.setup, ...(s.setup || {}) };
   if (!Array.isArray(s.groups)) s.groups = [];
+  if (!Array.isArray(s.saves)) s.saves = [];
+  s.locked = !!s.locked && !!s.settings.lockPin;
   return s;
 }
 
@@ -43,14 +45,15 @@ export function save(state) {
 
 /** Sicherung als Datei: Gruppen, Einstellungen und eigene Rollen (nicht das laufende Spiel). */
 export function exportBackup(state) {
-  return JSON.stringify({ format: FORMAT, version: 1, savedAt: new Date().toISOString(), groups: state.groups, settings: state.settings, customRoles: state.customRoles, game: state.game }, null, 1);
+  const { lockPin, ...settings } = state.settings;   // die PIN gehört nicht in eine Datei
+  return JSON.stringify({ format: FORMAT, version: 1, savedAt: new Date().toISOString(), groups: state.groups, settings, customRoles: state.customRoles, game: state.game, saves: state.saves }, null, 1);
 }
 
 export function importBackup(state, text) {
   const d = JSON.parse(text);
   if (d?.format !== FORMAT) throw new Error('Das ist keine Sicherung dieser App.');
   const base = fresh();
-  const next = normalize({ ...state, groups: Array.isArray(d.groups) ? d.groups : state.groups, settings: d.settings ?? state.settings, customRoles: d.customRoles ?? [], game: d.game ?? null }, base);
+  const next = normalize({ ...state, groups: Array.isArray(d.groups) ? d.groups : state.groups, settings: { ...(d.settings ?? state.settings), lockPin: state.settings.lockPin }, customRoles: d.customRoles ?? [], game: d.game ?? null, saves: Array.isArray(d.saves) ? d.saves : state.saves }, base);
   return next;
 }
 

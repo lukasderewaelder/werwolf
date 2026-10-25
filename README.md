@@ -25,7 +25,7 @@ Nach dem ersten Öffnen mit Netz ist alles auf dem Gerät gespeichert. Danach fu
 4. **Hausregeln**: Seherin sieht Rolle oder nur Seite, keine Opfer in Nacht 1, Hauptmann, Wolfssieg bei Gleichstand u. a.
 5. **Nacht**: Ansage vorlesen, Personen im Kreis antippen, *Weiter*. **Tag**: Tote und Morgenmeldungen, Timer, Hauptmann wählen. Bei der Abstimmung tippst du für jede erhobene Hand die gewählte Person an, die App zählt (Hauptmann doppelt, Rabe +2) und zeigt Mehrheit oder Gleichstand. „Direkt wählen“ geht ohne Zählen.
 
-Das Auge-Symbol blendet Rollen auf den Spielersteinen aus, der Pfeil macht die letzte Aktion rückgängig. Im Menü (drei Punkte) stehen Protokoll, „Wer ist wer“ mit Korrekturen und der Rollen-Spickzettel.
+Das Auge-Symbol blendet Rollen auf den Spielersteinen aus, der Pfeil macht die letzte Aktion rückgängig. Langes Tippen auf einen Stein öffnet das Spielerblatt (umbenennen, Rolle, Hauptmann, Tod). Im Menü kannst du das Spiel pausieren (bis zu 12 Spielstände), den Bildschirm mit einer PIN sperren und das Protokoll teilen oder als Datei speichern. Im Menü (drei Punkte) stehen Protokoll, „Wer ist wer“ mit Korrekturen und der Rollen-Spickzettel.
 
 ## Regeln
 
@@ -57,6 +57,7 @@ Auf localhost ist der Service Worker aus; `?sw=1` an die Adresse hängen, um den
 - [ ] Tag/Nacht-Wechsel färbt die App um, Timer läuft, Bildschirm bleibt an
 - [ ] Töne: nach der ersten Berührung hörbar (iOS spielt vorher nichts ab), Stummschalter beachten
 - [ ] Sicherung speichern und laden (Teilen-Menü erscheint)
+- [ ] Unten abgeschnitten? Optionen, „Unterer Abstand“: Regler schieben, bis der gelbe Streifen ganz unten sichtbar ist
 - [ ] Neue Version: nach einer Änderung erscheint „Neue Version bereit“, Aktualisieren lädt neu
 
 ## Lizenzen und Quellen

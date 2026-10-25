@@ -4,6 +4,7 @@ import { esc, I } from './art.js';
 import { groupById, ensureGroup, selectGroup, addMembers, removeMember, uid, presentPlayers } from '../store.js';
 import { nm, livingIds } from '../engine/game.js';
 import { installButton } from './install.js';
+import { savesList } from './saves.js';
 
 export function emblem(cls = '') {
   return `<svg viewBox="0 0 120 120" class="${cls}" aria-hidden="true">
@@ -32,8 +33,8 @@ views.home = () => {
     <div class="home">
       <div class="home-hero">${emblem('logo')}<h1>Werwolf</h1><p>Der Spielleiter für deine Runde. Offline, für iPad und Handy.</p></div>
       <div class="home-actions">
-        ${resume}${last}
-        <button class="btn primary block" data-action="new-game">${I.moon}<span>${running ? 'Neues Spiel (ersetzt das laufende)' : 'Neues Spiel'}</span></button>
+        ${resume}${last}${savesList()}
+        <button class="btn primary block" data-action="new-game">${I.moon}<span>Neues Spiel</span></button>
         ${installButton()}
         <div class="menu-grid">
           <button class="tile" data-action="go" data-view="groups">${I.people}<b>Gruppen</b><span>Spieler und Runden verwalten</span></button>

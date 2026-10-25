@@ -530,3 +530,187 @@ test('Sichtbare Höhe: App nimmt das kleinste Höhenmaß, der untere Abstand ver
   assert.deepEqual(problems, []);
   await ctx.close();
 });
+
+const centerOf = async (loc) => { const b = await loc.boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };
+const seatNames = (page) => page.locator('.st .nm').allInnerTexts();
+
+test('Sitzordnung: Plätze per Ziehen und per Antippen tauschen, Kreis-Vorschau', async () => {
+  const { page, problems } = await app.openApp();
+  await page.click('[data-action=new-game]');
+  await page.fill('#add-inp', 'Anna, Ben, Carla, David, Eva, Felix'); await page.press('#add-inp', 'Enter');
+  await page.click('[data-action=seat-tab][data-v=order]');
+  await page.waitForSelector('.st');
+  assert.deepEqual(await seatNames(page), ['Anna', 'Ben', 'Carla', 'David', 'Eva', 'Felix']);
+  // Ziehen: Platz 1 auf Platz 3
+  const a = await centerOf(page.locator('.st').nth(0)), c = await centerOf(page.locator('.st').nth(2));
+  await page.mouse.move(a.x, a.y); await page.mouse.down();
+  await page.mouse.move((a.x + c.x) / 2, (a.y + c.y) / 2, { steps: 4 }); await page.mouse.move(c.x, c.y, { steps: 6 });
+  assert.ok(await page.locator('.st.over').count() >= 1, 'Ziel wird hervorgehoben');
+  assert.equal(await page.locator('.st.ghost').count(), 1, 'Geisterbild folgt dem Zeiger');
+  await page.mouse.up();
+  assert.deepEqual(await seatNames(page), ['Carla', 'Ben', 'Anna', 'David', 'Eva', 'Felix']);
+  assert.equal(await page.locator('.st.ghost').count(), 0);
+  // Tippen: Platz 2 und Platz 4 tauschen
+  await page.locator('.st').nth(1).click();
+  assert.ok(await page.locator('.st.sel').count() === 1);
+  await page.locator('.st').nth(3).click();
+  assert.deepEqual(await seatNames(page), ['Carla', 'David', 'Anna', 'Ben', 'Eva', 'Felix']);
+  // Die Reihenfolge gilt im Spiel
+  const order = await page.evaluate(() => window.__werwolf.S.setup.order.map((id) => window.__werwolf.S.groups[0].members.find((m) => m.id === id).name));
+  assert.deepEqual(order.slice(0, 4), ['Carla', 'David', 'Anna', 'Ben']);
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});
+
+test('Sperre: PIN festlegen, sperren, falsche PIN, Neuladen bleibt gesperrt, entsperren', async () => {
+  const { page, problems } = await app.openApp();
+  const pin = async (digits) => { for (const d of digits) await page.click(`.pin-pad [data-d="${d}"]`); };
+  await page.click('[data-action=go][data-view=settings]');
+  await page.click('[data-action=pin-set]');
+  await pin('1234'); await pin('1234');
+  assert.equal(await page.evaluate(() => window.__werwolf.S.settings.lockPin), '1234');
+  await page.click('[data-action=go]', { force: true }).catch(() => {});
+  await startGame(page, { names: NAMES.slice(0, 6), counts: { wolf: 1, seer: 1, villager: 4 }, roles: ['wolf', 'seer', 'villager', 'villager', 'villager', 'villager'] });
+  await page.click('[data-action=open-menu]');
+  await page.click('[data-action=lock-now]');
+  await page.waitForSelector('.lock');
+  const shown = await page.locator('#app').innerText();
+  assert.ok(!/Anna|Ben|Seherin|Werwolf/.test(shown), 'gesperrt zeigt keine Namen oder Rollen');
+  await pin('0000');
+  assert.match(await page.locator('.pin-msg').innerText(), /Falsche PIN/);
+  assert.equal(await page.locator('.lock').count(), 1);
+  await page.reload();
+  await page.waitForSelector('.lock');
+  await pin('1234');
+  await page.waitForSelector('.game, .home');
+  assert.equal(await page.locator('.lock').count(), 0);
+  assert.equal(await page.evaluate(() => window.__werwolf.S.locked), false);
+  // PIN entfernen
+  await page.evaluate(() => { window.__werwolf.ui.view = 'settings'; window.__werwolf.render(); });
+  await page.click('[data-action=pin-remove]');
+  assert.equal(await page.evaluate(() => window.__werwolf.S.settings.lockPin), null);
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});
+
+test('Sperre: zu viele Fehlversuche sperren kurz, PIN vergessen braucht Wartezeit', async () => {
+  const { page, problems } = await app.openApp();
+  await page.evaluate(() => { const w = window.__werwolf; w.S.settings.lockPin = '4321'; w.S.locked = true; w.render(); });
+  const pin = async (digits) => { for (const d of digits) await page.click(`.pin-pad [data-d="${d}"]`); };
+  for (let i = 0; i < 5; i++) await pin('0000');
+  assert.match(await page.locator('.pin-msg').innerText(), /Zu viele Versuche/);
+  await pin('4321');
+  assert.equal(await page.evaluate(() => window.__werwolf.S.locked), true, 'während der Sperrzeit wirkt auch die richtige PIN nicht');
+  await page.click('[data-action=pin-forgot]');
+  assert.ok(await page.locator('[data-action=pin-forgot-do]').isDisabled());
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});
+
+test('Spielstände: pausieren, fortsetzen, löschen, neues Spiel mit laufendem Spiel', async () => {
+  const { page, problems } = await app.openApp();
+  await startGame(page, { names: NAMES.slice(0, 6), counts: { wolf: 1, seer: 1, villager: 4 }, roles: ['wolf', 'seer', 'villager', 'villager', 'villager', 'villager'] });
+  await tapName(page, 'Carla');
+  await page.click('[data-action=open-menu]');
+  await page.click('[data-action=pause-game]');
+  await page.waitForSelector('.save');
+  assert.equal(await page.evaluate(() => window.__werwolf.S.game), null);
+  assert.equal(await page.locator('.save').count(), 1);
+  assert.match(await page.locator('.save').innerText(), /Nacht 1/);
+  await page.click('[data-action=save-resume]');
+  await page.waitForSelector('.game');
+  assert.equal(await page.locator('.save').count(), 0);
+  assert.equal(await page.evaluate(() => window.__werwolf.S.game.cfg.players.length), 6);
+  // Neues Spiel, während eins läuft: Auswahl, pausieren
+  await page.click('[data-action=back-home]');
+  await page.click('[data-action=new-game]');
+  assert.match(await page.locator('.modal').innerText(), /Es läuft noch ein Spiel/);
+  await page.click('[data-action=new-pause]');
+  await page.waitForSelector('.steps');
+  assert.equal(await page.evaluate(() => window.__werwolf.S.saves.length), 1);
+  // Zurück zur Startseite und löschen
+  await page.click('[data-action=back-home]');
+  await page.click('[data-action=save-delete]');
+  await page.click('[data-action=confirm-yes]');
+  assert.equal(await page.evaluate(() => window.__werwolf.S.saves.length), 0);
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});
+
+test('Spielerblatt: langes Tippen öffnet es, ohne den Stein zu wählen', async () => {
+  const { page, problems } = await app.openApp();
+  await startGame(page, { names: NAMES.slice(0, 6), counts: { wolf: 1, seer: 1, villager: 4 }, roles: ['wolf', 'seer', 'villager', 'villager', 'villager', 'villager'] });
+  const c = await centerOf(page.locator('.table .tok:visible[aria-label="Carla"]').first());
+  await page.mouse.move(c.x, c.y); await page.mouse.down();
+  await page.waitForTimeout(800);
+  await page.mouse.up();
+  await page.waitForSelector('.modal h2');
+  assert.equal(await page.locator('.modal h2').first().innerText(), 'Carla');
+  assert.equal(await page.evaluate(() => window.__werwolf.S.game.draft.check), null, 'nichts wurde angetippt');
+  await page.waitForTimeout(800);
+  assert.equal(await page.locator('.modal').count(), 1, 'Blatt bleibt nach dem Loslassen offen');
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});
+
+test('Protokoll: als Datei speichern enthält Spieler, Rollen und Verlauf', async () => {
+  const { page, problems } = await app.openApp();
+  await startGame(page, { names: NAMES.slice(0, 6), counts: { wolf: 1, seer: 1, villager: 4 }, roles: ['wolf', 'seer', 'villager', 'villager', 'villager', 'villager'] });
+  await page.click('[data-action=open-menu]');
+  await page.click('[data-action=show-log-menu]');
+  const [download] = await Promise.all([page.waitForEvent('download'), page.click('[data-action=log-file]')]);
+  assert.match(download.suggestedFilename(), /^Werwolf-Protokoll-\d{4}-\d{2}-\d{2}\.txt$/);
+  const { readFile } = await import('node:fs/promises');
+  const text = await readFile(await download.path(), 'utf8');
+  assert.match(text, /Werwolf-Protokoll/);
+  assert.match(text, / 1\. Anna – Werwolf – lebt/);
+  assert.match(text, /Spiel läuft noch \(Nacht 1\)/);
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});
+
+test('Android-Fenster: Sperrtastatur, Dialoge und Sitzplan passen ins Fenster', async () => {
+  for (const [label, viewport] of [['klein 360×640', { width: 360, height: 640 }], ['quer 727×393', { width: 727, height: 393 }]]) {
+    const ctx = await app.newContext({ viewport, hasTouch: true, isMobile: true });
+    const { page, problems } = await app.openApp({ context: ctx });
+    await page.evaluate(() => { const w = window.__werwolf; w.S.settings.lockPin = '1234'; w.S.locked = true; w.render(); });
+    await page.waitForTimeout(450);
+    for (const d of ['1', '5', '9', '0']) await reachable(page, `.pin-pad [data-d="${d}"]`, `${label} Taste ${d}`);
+    await reachable(page, '[data-action=pin-forgot]', `${label} PIN vergessen`);
+    await page.evaluate(() => { const w = window.__werwolf; w.S.locked = false; w.S.settings.lockPin = null; w.ui.view = 'home'; w.render(); });
+    await startGame(page, { names: NAMES.slice(0, 6), counts: { wolf: 1, seer: 1, villager: 4 }, roles: ['wolf', 'seer', 'villager', 'villager', 'villager', 'villager'] });
+    await page.evaluate(() => { const w = window.__werwolf; w.ui.view = 'home'; w.render(); });
+    await page.click('[data-action=new-game]');
+    await page.waitForTimeout(300);
+    await reachable(page, '[data-action=new-pause]', `${label} Pausieren`);
+    await reachable(page, '[data-action=new-replace]', `${label} Verwerfen`);
+    await reachable(page, '.modal [data-action=close-modal]', `${label} Abbrechen`);
+    await page.click('[data-action=new-replace]');
+    await page.fill('#add-inp', 'Anna, Ben, Carla, David, Eva, Felix'); await page.press('#add-inp', 'Enter');
+    await page.click('[data-action=seat-tab][data-v=order]');
+    await page.waitForTimeout(400);
+    await inside(page, '.seatprev, .seatprev *', `${label} Sitzplan`);
+    assert.deepEqual(problems, [], label);
+    await ctx.close();
+  }
+});
+
+test('Startseite mit Spielständen: nichts ragt aus dem Fenster, Weiter ist erreichbar', async () => {
+  for (const [label, viewport] of [['Handy 393×760', { width: 393, height: 760 }], ['klein 360×640', { width: 360, height: 640 }], ['iPad 1180×820', { width: 1180, height: 820 }]]) {
+    const ctx = await app.newContext({ viewport, hasTouch: true });
+    const { page, problems } = await app.openApp({ context: ctx });
+    await page.evaluate(async () => {
+      const { createGame } = await import('/src/engine/game.js'); const w = window.__werwolf;
+      const players = ['Anna', 'Ben', 'Carla', 'David', 'Eva', 'Felix', 'Greta', 'Hans'].map((n, i) => ({ id: 'p' + (i + 1), name: n }));
+      const g = createGame({ players, counts: { wolf: 2, villager: 6 }, mode: 'digital' }); g.dealIdx = 8;
+      w.S.saves = [{ id: 's1', at: Date.now() - 600000, game: g }, { id: 's2', at: Date.now() - 86400000, game: g }];
+      w.render();
+    });
+    await page.waitForTimeout(450);
+    await noOverflow(page, `${label} Startseite`);
+    await inside(page, '.home-actions, .home-actions *', `${label} Startseite`);
+    await reachable(page, '.save [data-action=save-resume]', `${label} Weiter`);
+    assert.deepEqual(problems, [], label);
+    await ctx.close();
+  }
+});

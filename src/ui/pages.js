@@ -8,6 +8,7 @@ import { exportBackup, importBackup, defaultSettings } from '../store.js';
 import { installButton, isStandalone } from './install.js';
 import { setVolume } from '../audio.js';
 import { fitViewport } from '../viewport.js';
+import { lockCard } from './lock.js';
 
 on('lib-set', (el) => { ui.libSet = el.dataset.set; ui.query = ''; });
 on('input:lib-q', (el) => { ui.query = el.value; });
@@ -100,6 +101,8 @@ views.settings = () => {
         <input id="pad-range" type="range" min="0" max="120" step="2" value="${S.settings.bottomPad}" aria-label="Unterer Abstand" style="width:100%;height:36px;accent-color:var(--accent)">
         <span class="muted" style="font-size:13px">Sind unten Knöpfe abgeschnitten, schiebe den Regler, bis der gelbe Streifen ganz unten auf dieser Seite zu sehen ist.</span>
         <button class="btn sm" data-action="pad-reset" style="align-self:flex-start">Zurücksetzen</button></div>
+      <div class="eyebrow" style="margin-top:6px">Schutz</div>
+      ${lockCard()}
       <div class="eyebrow" style="margin-top:6px">Hilfe</div>
       <button class="opt" data-action="open-diagnose"><span class="t"><b>Diagnose</b><span>Prüft Offlinebetrieb, Speicher und Ton auf diesem Gerät</span></span>${I.right}</button>
       <div class="eyebrow" style="margin-top:6px">Quellen</div>

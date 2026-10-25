@@ -43,7 +43,7 @@ Nachbesserungen aus deiner Abnahme von M8: Wolfsheulen beim Erwachen aller Wölf
 
 Abnahme: Eine Abstimmung mit 10 Spielern läuft ohne Kopfrechnen, der Gleichstand wird erkannt.
 
-## M10 Regel-Randfälle (umgesetzt, wartet auf deine Abnahme)
+## M10 Regel-Randfälle (umgesetzt, wird beim Spielen geprüft)
 Mit Tests je Fall, Quelle ist das Regelheft:
 - Urwolf und Alter, Ergebene Magd mit Amor und Flötenspieler, Heiler gegen den Weißen Werwolf, Jäger bei Liebeskummer, Wildes Kind und Wolfshund als Hauptmann, Dieb mit zwei Wölfen in der Mitte.
 - Ich nenne dir vorher jede Stelle, an der das Regelheft nicht eindeutig ist, und du entscheidest.
@@ -57,12 +57,20 @@ Festgelegt ohne Rückfrage (ändere es, wenn es dich stört): Stirbt der Alte an
 
 Abnahme: Du spielst die Fälle durch, die dich interessieren, und bestätigst das Verhalten.
 
-## M11 Bedienung
+## M11 Bedienung (umgesetzt, wartet auf deine Abnahme)
 - Sitzordnung per Ziehen und Vorschau des Kreises schon beim Einrichten.
 - Spielerblatt per langem Tippen auf den Stein.
 - Sperrbildschirm („Display nach unten“) mit kurzem Code.
 - Spiel pausieren, mehrere Spielstände, Spielstand löschen.
 - Protokoll teilen oder als Datei speichern.
+
+Umgesetzt:
+- Sitzordnung: Kreis-Vorschau, Plätze per Ziehen oder durch Antippen zweier Personen tauschen (Liste mit Pfeilen bleibt).
+- Spielerblatt per langem Tippen (eine halbe Sekunde) auf den Stein.
+- Sperrbildschirm mit vierstelliger PIN: im Spielmenü „Bildschirm sperren“, PIN in den Optionen festlegen oder ändern. Bleibt nach dem Neuladen gesperrt, zeigt keine Namen oder Rollen. Nach fünf Fehlversuchen 30 Sekunden Pause. „PIN vergessen“ löscht sie erst nach 30 Sekunden Wartezeit. Die PIN steht nie in der Sicherungsdatei.
+- Pausieren: Spielmenü „Pausieren und später weiterspielen“, bis zu 12 Spielstände auf der Startseite mit Weiter und Löschen. Läuft ein Spiel, wenn du ein neues startest, fragt die App: pausieren oder verwerfen.
+- Protokoll: Teilen, als Textdatei speichern oder kopieren.
+- Zusätzlich behoben: Android: Fußleiste unten abgeschnitten (App nimmt das kleinste Höhenmaß des Browsers, Optionen: einstellbarer unterer Abstand mit gelbem Streifen als Lineal).
 
 Abnahme: Eine Partie mit 20 Personen lässt sich ohne Umwege einrichten und leiten.
 

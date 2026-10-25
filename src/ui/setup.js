@@ -1,6 +1,6 @@
 // Assistent für ein neues Spiel: Spieler, Modus, Rollen, Hausregeln.
 import { S, ui, views, on, go, clearUndo, toast, render } from './core.js';
-import { esc, art, I } from './art.js';
+import { esc, art, I, circlePos, tokenSize } from './art.js';
 import { topBar, rosterHtml, groupChips } from './home.js';
 import { ensureGroup, presentPlayers, currentCounts } from '../store.js';
 import { ROLES, RM, SETS, CAMP_LABEL, recommendCounts, requiredCards, fillVillagers, registerRoles } from '../engine/roles.js';
@@ -31,13 +31,19 @@ export function rulesHtml(rules) {
 on('rule-toggle', (el) => { const r = S.settings.rules; r[el.dataset.key] = !r[el.dataset.key]; });
 on('rule-set', (el) => { S.settings.rules[el.dataset.key] = el.dataset.v; });
 
-on('new-game', () => {
+function startWizard() {
   ensureGroup(S);
   S.setup.step = 0; S.setup.counts = null;
   if (!S.groups.some((g) => g.members.length) || S.setup.order.length === 0) S.setup.order = ensureGroup(S).members.map((m) => m.id);
   go('setup');
+}
+on('new-game', () => {
+  if (S.game && S.game.phase !== 'ended') { ui.modal = { type: 'new-over' }; return; }
+  startWizard();
   return false;
 });
+on('new-replace', () => { S.game = null; clearUndo(); startWizard(); return false; });
+on('new-pause', async () => { const { pauseCurrent } = await import('./saves.js'); pauseCurrent(false); startWizard(); const { render: r } = await import('./core.js'); r(); return false; });
 on('wiz-back', () => { if (S.setup.step > 0) S.setup.step--; else go('home'); });
 on('wiz-next', () => {
   const st = S.setup.step, n = presentPlayers(S).length;
@@ -52,6 +58,57 @@ on('seat-tab', (el) => { ui.seatTab = el.dataset.v; });
 on('set-mode', (el) => { S.settings.mode = el.dataset.mode; });
 
 /* ---------- Sitzordnung ---------- */
+function seatPreview(present) {
+  const n = present.length;
+  if (n < 2) return '';
+  const { tw, nf } = tokenSize(n);
+  const toks = present.map((p, i) => { const { x, y } = circlePos(i, n); return `<button class="st ${ui.seatSel === p.id ? 'sel' : ''}" data-seat="${p.id}" style="left:${x}%;top:${y}%;--tw:${tw + 2};--nf:${nf + 1}px" aria-label="Platz ${i + 1}: ${esc(p.name)}"><span class="no">${i + 1}</span><span class="nm">${esc(p.name)}</span></button>`; }).join('');
+  return `<div class="seatprev" data-keep="seat"><div class="ring"></div><div class="mid">Tisch<br>Uhrzeigersinn</div>${toks}</div>`;
+}
+
+function swapSeats(a, b) {
+  const o = S.setup.order, i = o.indexOf(a), j = o.indexOf(b);
+  if (i < 0 || j < 0) return;
+  [o[i], o[j]] = [o[j], o[i]];
+}
+
+// Ziehen und Tippen auf den Plätzen (Zeiger-Ereignisse: Maus, Finger und Stift)
+let drag = null;
+document.addEventListener('pointerdown', (e) => {
+  const t = e.target.closest?.('.st[data-seat]');
+  if (!t) return;
+  drag = { id: t.dataset.seat, el: t, x: e.clientX, y: e.clientY, moved: false, ghost: null, pid: e.pointerId };
+  try { t.setPointerCapture(e.pointerId); } catch { /* egal */ }
+});
+document.addEventListener('pointermove', (e) => {
+  if (!drag || e.pointerId !== drag.pid) return;
+  if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 8) {
+    drag.moved = true;
+    drag.ghost = drag.el.cloneNode(true); drag.ghost.classList.add('ghost'); drag.ghost.style.cssText += `;width:${drag.el.getBoundingClientRect().width}px`;
+    document.body.appendChild(drag.ghost); drag.el.classList.add('drag-src');
+  }
+  if (!drag.moved) return;
+  drag.ghost.style.left = `${e.clientX}px`; drag.ghost.style.top = `${e.clientY}px`;
+  document.querySelectorAll('.st.over').forEach((x) => x.classList.remove('over'));
+  const over = document.elementFromPoint(e.clientX, e.clientY)?.closest('.st[data-seat]');
+  if (over && over !== drag.el) over.classList.add('over');
+});
+const endDrag = (e) => {
+  if (!drag || (e.pointerId !== undefined && e.pointerId !== drag.pid)) return;
+  const d = drag; drag = null;
+  d.ghost?.remove();
+  document.querySelectorAll('.st.over').forEach((x) => x.classList.remove('over'));
+  if (e.type === 'pointercancel') { d.el.classList.remove('drag-src'); return; }
+  if (d.moved) {
+    const over = document.elementFromPoint(e.clientX, e.clientY)?.closest('.st[data-seat]');
+    if (over && over.dataset.seat !== d.id) swapSeats(d.id, over.dataset.seat);
+    ui.seatSel = null;
+  } else if (ui.seatSel && ui.seatSel !== d.id) { swapSeats(ui.seatSel, d.id); ui.seatSel = null; }
+  else ui.seatSel = ui.seatSel === d.id ? null : d.id;
+  render();
+};
+document.addEventListener('pointerup', endDrag);
+document.addEventListener('pointercancel', endDrag);
 on('seat-up', (el) => moveSeat(el.dataset.id, -1));
 on('seat-down', (el) => moveSeat(el.dataset.id, 1));
 function moveSeat(id, d) {
@@ -129,7 +186,8 @@ function whoStep() {
       <button class="mini" data-action="seat-up" data-id="${p.id}" aria-label="Nach oben" ${i === 0 ? 'disabled' : ''}>${I.up}</button>
       <button class="mini" data-action="seat-down" data-id="${p.id}" aria-label="Nach unten" ${i === present.length - 1 ? 'disabled' : ''}>${I.down}</button></div>`).join('');
   return `${groupChips()}${seg}
-    <div class="hint">${I.eye}<span>Die Reihenfolge ist die Sitzordnung im Uhrzeigersinn. Sie bestimmt Nachbarn für Fuchs, Bärenführer und Ritter.</span></div>
+    <div class="hint">${I.eye}<span>Die Reihenfolge ist die Sitzordnung im Uhrzeigersinn. Sie bestimmt Nachbarn für Fuchs, Bärenführer und Ritter. Ziehe eine Person auf eine andere, um beide zu tauschen, oder tippe nacheinander zwei Personen an.</span></div>
+    ${seatPreview(present)}
     <div class="row wrap"><button class="btn sm" data-action="seat-shuffle">${I.dice}Mischen</button><button class="btn sm" data-action="seat-reverse">${I.undo}Umkehren</button></div>
     <div class="member-list scroll" data-keep="roster">${rows}</div>`;
 }

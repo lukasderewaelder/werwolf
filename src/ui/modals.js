@@ -6,12 +6,17 @@ import { RM, ROLES, roleName, SETS } from '../engine/roles.js';
 import { nm, alive, roleLabel, CAUSE } from '../engine/game.js';
 import { groupById, defaultSettings, defaultSetup } from '../store.js';
 import { stopMusic } from '../audio.js';
+import { keypad, forgotWait } from './lock.js';
 import { isIOS, isAndroid } from './install.js';
 
 const sheet = (inner, { wide = false } = {}) => `<div class="backdrop" data-action="close-modal"><div class="modal ${wide ? 'wide' : ''}" data-stop role="dialog" aria-modal="true">${inner}</div></div>`;
 const closeBtn = (label = 'Schließen') => `<div class="mfoot"><button class="btn" data-action="close-modal">${label}</button></div>`;
 
-on('close-modal', (el, e) => { if (e.target.closest('[data-stop]') && !el.classList.contains('btn')) return false; ui.modal = null; });
+on('close-modal', (el, e) => {
+  if (Date.now() - (ui.longPress ?? 0) < 700) return false;   // loslassen nach langem Tippen schließt das Spielerblatt nicht
+  if (e.target.closest('[data-stop]') && !el.classList.contains('btn')) return false;
+  ui.modal = null;
+});
 on('modal-back', () => { ui.modal = ui.modal?.from ?? null; });
 on('show-who', () => { ui.modal = { type: 'who' }; });
 on('show-roles', () => { ui.modal = { type: 'roles' }; });
@@ -20,8 +25,9 @@ on('player-open', (el) => { ui.modal = { type: 'player', id: el.dataset.id }; })
 on('end-game', () => { ui.modal = { type: 'confirm', what: 'end-game', title: 'Spiel beenden?', text: 'Das laufende Spiel wird abgebrochen.' }; });
 
 on('confirm-yes', () => {
-  const what = ui.modal?.what;
+  const what = ui.modal?.what, id = ui.modal?.id;
   ui.modal = null;
+  if (what === 'save-delete') { S.saves = S.saves.filter((x) => x.id !== id); toast('Spielstand gelöscht.'); }
   if (what === 'end-game') { S.game = null; clearUndo(); stopMusic(); go('home'); }
   if (what === 'group-delete') { S.groups = S.groups.filter((g) => g.id !== S.setup.groupId); S.setup.groupId = null; }
   if (what === 'reset-all') { S.groups = []; S.settings = defaultSettings(); S.setup = defaultSetup(); S.game = null; S.lastResult = null; clearUndo(); }
@@ -44,13 +50,18 @@ views.modal = () => {
     case 'menu': return sheet(`<h2>Menü</h2>
       ${soundCard()}
       <div class="col">
+        <button class="opt" data-action="pause-game"><span class="t"><b>Pausieren und später weiterspielen</b><span>Speichert das Spiel und geht zur Startseite</span></span>${I.pause}</button>
+        <button class="opt" data-action="lock-now"><span class="t"><b>Bildschirm sperren</b><span>Mit PIN, falls das Gerät offen liegt</span></span>${I.lock}</button>
         <button class="opt" data-action="show-who"><span class="t"><b>Wer ist wer</b><span>Rollen, Status und Korrekturen pro Spieler</span></span>${I.right}</button>
         <button class="opt" data-action="show-roles"><span class="t"><b>Rollen im Spiel</b><span>Spickzettel mit allen Karten dieser Runde</span></span>${I.right}</button>
         <button class="opt" data-action="show-log-menu"><span class="t"><b>Protokoll</b><span>Was bisher passiert ist</span></span>${I.right}</button>
         ${g?.cfg.counts.greis ? `<button class="opt" data-action="greis-open"><span class="t"><b>Gruppen des Greises</b><span>Dorf in zwei Gruppen teilen</span></span>${I.right}</button>` : ''}
         <button class="opt" data-action="end-game"><span class="t"><b style="color:var(--danger)">Spiel beenden</b><span>Abbrechen und zur Startseite</span></span></button>
       </div>${closeBtn()}`);
-    case 'log': return sheet(`<h2>Protokoll</h2><div class="log">${(g?.log ?? []).slice().reverse().map((l) => `<div><b>${esc(l.p)}</b>${esc(l.t)}</div>`).join('') || '<p class="muted">Noch nichts.</p>'}</div>${closeBtn()}`);
+    case 'log': return sheet(`<h2>Protokoll</h2><div class="row wrap"><button class="btn sm" data-action="log-share">${I.share}Teilen</button><button class="btn sm" data-action="log-file">${I.download}Als Datei</button><button class="btn sm" data-action="log-copy">Kopieren</button></div><div class="log">${(g?.log ?? []).slice().reverse().map((l) => `<div><b>${esc(l.p)}</b>${esc(l.t)}</div>`).join('') || '<p class="muted">Noch nichts.</p>'}</div>${closeBtn()}`);
+    case 'pin': return sheet(`${keypad(ui.pin?.mode === 'set2' ? 'PIN wiederholen' : 'PIN festlegen', ui.pin?.mode === 'set2' ? 'Noch einmal dieselbe PIN' : 'Vier Ziffern')}${closeBtn('Abbrechen')}`);
+    case 'pin-forgot': { const w = forgotWait(m); return sheet(`<h2>PIN vergessen</h2><p>Die PIN lässt sich löschen. Damit nicht jemand anderes die App einfach entsperrt, gibt es eine Wartezeit.</p><div class="mfoot"><button class="btn danger" data-action="pin-forgot-do" ${w ? 'disabled' : ''}>${w ? `PIN löschen in ${w} s` : 'PIN löschen und entsperren'}</button><button class="btn" data-action="close-modal">Zurück</button></div>`); }
+    case 'new-over': return sheet(`<h2>Es läuft noch ein Spiel</h2><p>Was soll damit geschehen?</p><div class="mfoot"><button class="btn primary" data-action="new-pause">${I.pause}<span>Pausieren und neues Spiel</span></button><button class="btn danger" data-action="new-replace">Verwerfen und neues Spiel</button><button class="btn" data-action="close-modal">Abbrechen</button></div>`);
     case 'role': return sheet(`${roleDetailHtml(m.id)}${m.from ? `<button class="btn" data-action="modal-back">Zurück</button>` : closeBtn()}`);
     case 'roles': {
       const items = ROLES.filter((r) => g.cfg.counts[r.id]).map((r) => `<button class="ov" data-action="role-info" data-role="${r.id}">${art(r.id)}<b>${esc(r.name)}${g.cfg.counts[r.id] > 1 ? ` × ${g.cfg.counts[r.id]}` : ''}</b><small>${esc(r.sub)}</small></button>`).join('');

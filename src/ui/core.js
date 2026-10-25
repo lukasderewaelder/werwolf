@@ -60,6 +60,7 @@ export function go(view, extra = {}) {
 /* ---------- Theme: Nacht dunkel, Tag hell ---------- */
 
 export function themeFor() {
+  if (S.locked) return 'night';
   const t = S.settings.theme;
   if (t === 'night' || t === 'day') return t;
   const g = S.game;
@@ -82,11 +83,12 @@ export function render() {
   rendering = true;
   try {
     const app = document.getElementById('app');
-    const fn = views[ui.view] ?? views.home;
+    const locked = !!(S.locked && S.settings.lockPin);
+    const fn = locked ? views.lock : (views[ui.view] ?? views.home);
     const active = document.activeElement;
     const focus = active && active.id && app.contains(active) ? { id: active.id, s: active.selectionStart, e: active.selectionEnd } : null;
     const scrolls = [...app.querySelectorAll('[data-keep]')].map((el) => [el.dataset.keep, el.scrollTop, el.scrollLeft]);
-    app.innerHTML = fn() + (ui.modal ? (views.modal?.() ?? '') : '');
+    app.innerHTML = fn() + (ui.modal && (!locked || ui.modal.type === 'pin-forgot') ? (views.modal?.() ?? '') : '');
     for (const [k, t, l] of scrolls) { const el = app.querySelector(`[data-keep="${k}"]`); if (el) { el.scrollTop = t; el.scrollLeft = l; } }
     if (focus) { const el = document.getElementById(focus.id); if (el) { el.focus(); try { el.setSelectionRange(focus.s, focus.e); } catch { /* kein Textfeld */ } } }
     applyTheme();
