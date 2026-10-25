@@ -42,7 +42,7 @@ node tools/precache.mjs   # nach jeder Dateiänderung in src/ oder assets/ ausf�
 node tools/icons.mjs      # PNG-Icons aus assets/icons/icon.svg neu erzeugen
 ```
 
-Musik: Zwei CC0-Stücke für die Nacht (Quellen in [docs/QUELLEN.md](docs/QUELLEN.md)). Weitere Pläne in [docs/ROADMAP.md](docs/ROADMAP.md).
+Musik: Zwei CC0-Stücke für die Nacht (Quellen in [docs/QUELLEN.md](docs/QUELLEN.md)). Meilensteine ab M7 in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 Aufbau: `index.html`, `src/engine/` (Spiellogik ohne Oberfläche, vollständig getestet), `src/ui/` (Ansichten), `src/store.js` (Speicher), `src/audio.js` (Töne), `sw.js` (Service Worker mit Precache), `assets/` (CSS, Rollenporträts, Icons), `docs/` (Plan, Regelabgleich, Originale der alten App).
 
