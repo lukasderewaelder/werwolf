@@ -11,6 +11,7 @@ import { bind } from './store-ref.js';
 import { setMusic, stopMusic, unlockAudio, musicState, debugSeekNearEnd, sfxLog } from './audio.js';
 import { buildScene } from './ui/scene.js';
 import { registerRoles } from './engine/roles.js';
+import { watchViewport } from './viewport.js';
 
 bind(() => S);
 registerRoles(S.customRoles);
@@ -55,6 +56,7 @@ function syncMusic() {
 document.addEventListener('pointerdown', () => { if (!touched) { touched = true; unlockAudio(); syncMusic(); } }, { once: false });
 import('./ui/core.js').then((m) => m.afterRender.push(syncMusic));
 
+watchViewport(() => S.settings.bottomPad);   // sichtbare Höhe messen, bevor etwas gezeichnet wird
 navigator.storage?.persist?.().catch(() => {});   // Gerät soll Spielstand und Gruppen nicht aufräumen
 buildScene();
 setupServiceWorker();

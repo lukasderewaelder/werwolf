@@ -8,7 +8,7 @@ export const FORMAT = 'werwolf-sicherung';
 export const defaultSettings = () => ({
   theme: 'auto',          // auto = Nacht dunkel, Tag hell je Spielphase; night/day = fest
   sound: true, music: true, volume: 0.7,
-  haptics: true, wakeLock: true, timer: 180, showRoles: true,
+  haptics: true, wakeLock: true, timer: 180, showRoles: true, bottomPad: 0,
   mode: 'cards', rules: { ...DEFAULT_RULES },
 });
 

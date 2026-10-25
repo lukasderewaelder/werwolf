@@ -45,7 +45,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .star{animation:twinkle 4s ease-in-out infinite}
 .cloud{animation:drift 140s linear infinite}
 
-#app{position:relative;z-index:1;height:100vh;height:100dvh;display:flex;flex-direction:column;padding:var(--safe-t) var(--safe-r) 0 var(--safe-l)}
+#app{position:relative;z-index:1;height:100vh;height:100dvh;height:calc(var(--app-h, 100dvh) - var(--extra-b, 0px));display:flex;flex-direction:column;padding:var(--safe-t) var(--safe-r) 0 var(--safe-l)}
 .view{flex:1;min-height:0;display:flex;flex-direction:column;animation:rise .25s ease}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
@@ -380,3 +380,5 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
 
 .bar small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .side-actions .task{box-shadow:none}
+
+.ruler{flex:none;height:16px;background:var(--accent);color:var(--accent-ink);font-size:11px;font-weight:800;line-height:16px;text-align:center;letter-spacing:.08em;text-transform:uppercase}

@@ -64,7 +64,7 @@ views.diagnose = () => {
     const inset = (side) => { probe.style.height = `env(safe-area-inset-${side}, 0px)`; return Math.round(probe.getBoundingClientRect().height); };
     const app = document.getElementById('app')?.getBoundingClientRect();
     rows.push(row('info', 'Anzeige', `${innerWidth} × ${innerHeight} Punkte, ${innerWidth > innerHeight ? 'quer' : 'hoch'}, Faktor ${devicePixelRatio}`,
-      `Sichtbar (visualViewport) ${vv ? Math.round(vv.width) + ' × ' + Math.round(vv.height) : '?'} · Bildschirm ${screen.width} × ${screen.height}, nutzbar ${screen.availWidth} × ${screen.availHeight} · Einheiten: ${units} · Sicherheitsabstand oben ${inset('top')}, unten ${inset('bottom')}, links ${inset('left')}, rechts ${inset('right')} · App-Fläche ${app ? Math.round(app.width) + ' × ' + Math.round(app.height) : '?'}`));
+      `Sichtbar (visualViewport) ${vv ? Math.round(vv.width) + ' × ' + Math.round(vv.height) : '?'} · Bildschirm ${screen.width} × ${screen.height}, nutzbar ${screen.availWidth} × ${screen.availHeight} · Einheiten: ${units} · Sicherheitsabstand oben ${inset('top')}, unten ${inset('bottom')}, links ${inset('left')}, rechts ${inset('right')} · App-Fläche ${app ? Math.round(app.width) + ' × ' + Math.round(app.height) : '?'} · gesetzte Höhe ${getComputedStyle(document.documentElement).getPropertyValue('--app-h').trim() || '?'} (clientHeight ${document.documentElement.clientHeight}) · unterer Abstand ${S.settings.bottomPad}`));
     probe.style.height = '0';
     rows.push(row('info', 'Gerät', `${isIOS() ? 'iPad/iPhone' : isAndroid() ? 'Android' : 'Computer'} · ${navigator.onLine ? 'online' : 'offline'}`, (navigator.userAgent || '').slice(0, 120)));
   }

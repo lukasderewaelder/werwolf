@@ -502,3 +502,31 @@ test('Seherin sieht bei einem Infizierten nur die Karte, bei „Werwolf oder nic
     await page.context().close();
   }
 });
+
+test('Sichtbare Höhe: App nimmt das kleinste Höhenmaß, der untere Abstand verkleinert sie und der Streifen bleibt sichtbar', async () => {
+  const ctx = await app.newContext({ viewport: { width: 393, height: 727 }, hasTouch: true });
+  const { page, problems } = await app.openApp({ context: ctx });
+  const h = () => page.evaluate(() => Math.round(document.getElementById('app').getBoundingClientRect().height));
+  assert.equal(await h(), 727);
+  // Der Browser meldet 100dvh größer als die wirklich sichtbare Höhe: die App folgt dem kleineren Maß
+  await page.evaluate(async () => {
+    Object.defineProperty(window, 'innerHeight', { get: () => 650, configurable: true });
+    const { fitViewport } = await import('/src/viewport.js');
+    fitViewport(0);
+  });
+  assert.equal(await h(), 650);
+  await page.evaluate(async () => { Object.defineProperty(window, 'innerHeight', { get: () => 727, configurable: true }); const { fitViewport } = await import('/src/viewport.js'); fitViewport(0); });
+  // Optionen: Regler schiebt die Unterkante nach oben, Streifen bleibt sichtbar
+  await page.click('[data-action=go][data-view=settings]');
+  await page.waitForTimeout(450);   // Einblend-Animation abwarten
+  await reachable(page, '.ruler', 'Streifen');
+  await page.evaluate(() => { const r = document.getElementById('pad-range'); r.value = '40'; r.dispatchEvent(new Event('input', { bubbles: true })); });
+  assert.equal(await h(), 687);
+  assert.equal(await page.evaluate(() => window.__werwolf.S.settings.bottomPad), 40);
+  await page.waitForTimeout(100);
+  await reachable(page, '.ruler', 'Streifen mit Abstand');
+  await page.reload();
+  assert.equal(await h(), 687, 'Abstand bleibt nach dem Neuladen');
+  assert.deepEqual(problems, []);
+  await ctx.close();
+});
