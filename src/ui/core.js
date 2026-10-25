@@ -113,5 +113,5 @@ document.addEventListener('submit', (e) => {
 
 document.addEventListener('input', (e) => {
   const fn = handlers.get('input:' + e.target.id);
-  if (fn) { fn(e.target, e); render(); }
+  if (fn && fn(e.target, e) !== false) render();
 });

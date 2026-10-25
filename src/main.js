@@ -6,6 +6,7 @@ import './ui/pages.js';
 import './ui/game.js';
 import './ui/modals.js';
 import './ui/install.js';
+import './ui/diagnose.js';
 import { bind } from './store-ref.js';
 import { startMusic, stopMusic, musicState } from './audio.js';
 import { buildScene } from './ui/scene.js';
@@ -53,6 +54,7 @@ function syncMusic() {
 document.addEventListener('pointerdown', () => { if (!touched) { touched = true; syncMusic(); } }, { once: false });
 import('./ui/core.js').then((m) => m.afterRender.push(syncMusic));
 
+navigator.storage?.persist?.().catch(() => {});   // Gerät soll Spielstand und Gruppen nicht aufräumen
 buildScene();
 setupServiceWorker();
 render();

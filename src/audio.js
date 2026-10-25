@@ -17,6 +17,19 @@ function audioCtx() {
 
 const findFile = async (name) => AUDIO[name] ?? false;
 
+/** Lautstärke sofort übernehmen (Regler). */
+export function setVolume() { if (master) master.gain.value = S().settings.volume ?? 0.7; }
+
+/** Testton, auch wenn Töne ausgeschaltet sind (Diagnoseseite). */
+export function playTest() { const c = audioCtx(); if (c) synth('bell'); }
+
+// Im Hintergrund still: iOS und Android sollen nicht weiterspielen, wenn die App nicht sichtbar ist.
+document.addEventListener('visibilitychange', () => {
+  if (!ctx) return;
+  if (document.visibilityState === 'hidden') ctx.suspend().catch(() => {});
+  else ctx.resume().catch(() => {});
+});
+
 const on = () => S().settings.sound;
 
 export async function sfx(name) {

@@ -236,3 +236,52 @@ test('Musik: läuft in der Nacht nach der ersten Berührung, endet am Tag', asyn
   assert.deepEqual(problems, []);
   await page.context().close();
 });
+
+test('Diagnose: Entwicklungsmodus ohne Service Worker, Speichern funktioniert', async () => {
+  const { page, problems } = await app.openApp();
+  await page.click('[data-action=go][data-view=settings]');
+  await page.click('[data-action=open-diagnose]');
+  await page.waitForSelector('.diag.ok');
+  const text = await page.locator('.diag').allInnerTexts();
+  assert.ok(text.some((t) => /Entwicklungsmodus/.test(t)));
+  assert.ok(text.some((t) => /Speichern/.test(t) && /gespeichert werden/.test(t)));
+  assert.equal(await page.locator('.diag.bad').count(), 0);
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});
+
+test('Diagnose: nach dem ersten Besuch ist die App bereit für Offline', async () => {
+  const context = await app.newContext();
+  const { page } = await app.openApp({ url: `${app.base}?sw=1`, context });
+  await page.evaluate(async () => { await navigator.serviceWorker.ready; });
+  await page.reload();
+  await page.waitForFunction(() => navigator.serviceWorker.controller !== null, null, { timeout: 15000 });
+  await page.click('[data-action=go][data-view=settings]');
+  await page.click('[data-action=open-diagnose]');
+  await page.waitForSelector('text=Bereit:');
+  const t = (await page.locator('.diag').allInnerTexts()).join(' | ');
+  const m = t.match(/Bereit: (\d+) von (\d+) Dateien/);
+  assert.ok(m && m[1] === m[2], t);
+  assert.match(t, /Version\s+\w{10}/);
+  await context.close();
+});
+
+test('Ton: Lautstärkeregler ändert den Wert ohne neu zu zeichnen, Musikknopf schaltet um', async () => {
+  const { page, problems } = await app.openApp();
+  await page.click('[data-action=go][data-view=settings]');
+  await page.evaluate(() => { document.getElementById('vol-range').__mark = 1; });
+  await page.evaluate(() => { const r = document.getElementById('vol-range'); r.value = '30'; r.dispatchEvent(new Event('input', { bubbles: true })); });
+  assert.equal(await page.evaluate(() => document.getElementById('vol-range').__mark), 1, 'Regler bleibt dasselbe Element');
+  assert.equal(await page.locator('#vol-out').innerText(), '30 %');
+  assert.equal(await page.evaluate(() => window.__werwolf.S.settings.volume), 0.3);
+  await startGame(page, { names: NAMES.slice(0, 5), counts: { wolf: 1, seer: 1, villager: 3 }, roles: ['wolf', 'seer', 'villager', 'villager', 'villager'] });
+  assert.equal(await page.evaluate(() => window.__werwolf.S.settings.music), true);
+  await page.click('[data-action=toggle-music]');
+  assert.equal(await page.evaluate(() => window.__werwolf.S.settings.music), false);
+  await page.click('[data-action=open-menu]');
+  assert.ok(await page.locator('#vol-range').isVisible(), 'Regler im Spielmenü');
+  const big = await page.evaluate(() => [...document.querySelectorAll('.modal svg')].filter((s) => s.getBoundingClientRect().width > 40).length);
+  assert.equal(big, 0, 'Symbole im Menü haben Normalgröße');
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});

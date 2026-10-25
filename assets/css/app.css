@@ -307,3 +307,12 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
 .page > .member-list{flex:1;min-height:0;align-content:start}
 .col.scroll .member-list,.col.scroll .role-grid{overflow:visible}
 .col.scroll > *{flex-shrink:0}
+
+.diag{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:var(--r);background:var(--surface);border:1px solid var(--line)}
+.diag .dot{flex:none;width:14px;height:14px;border-radius:50%;margin-top:4px;background:var(--faint)}
+.diag.ok .dot{background:var(--good)}.diag.warn .dot{background:var(--warn)}.diag.bad .dot{background:var(--danger)}
+.diag .t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.diag .t span{word-break:break-word}
+.diag .t small{color:var(--muted);font-size:13px}
+.diag.bad{border-color:var(--danger)}.diag.warn{border-color:var(--warn)}
+.opt > svg{width:20px;height:20px;flex:none;color:var(--muted)}

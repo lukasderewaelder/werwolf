@@ -1,7 +1,7 @@
 // Dialoge: Menü, Protokoll, Rollen, Spielerblatt, Bestätigungen.
 import { S, ui, views, on, go, dispatch, persist, toast, clearUndo } from './core.js';
 import { esc, art, I, initials } from './art.js';
-import { roleDetailHtml } from './pages.js';
+import { roleDetailHtml, soundCard } from './pages.js';
 import { RM, ROLES, roleName, SETS } from '../engine/roles.js';
 import { nm, alive, roleLabel, CAUSE } from '../engine/game.js';
 import { groupById, defaultSettings, defaultSetup } from '../store.js';
@@ -42,6 +42,7 @@ views.modal = () => {
   const m = ui.modal, g = S.game;
   switch (m.type) {
     case 'menu': return sheet(`<h2>Menü</h2>
+      ${soundCard()}
       <div class="col">
         <button class="opt" data-action="show-who"><span class="t"><b>Wer ist wer</b><span>Rollen, Status und Korrekturen pro Spieler</span></span>${I.right}</button>
         <button class="opt" data-action="show-roles"><span class="t"><b>Rollen im Spiel</b><span>Spickzettel mit allen Karten dieser Runde</span></span>${I.right}</button>

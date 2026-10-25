@@ -78,11 +78,13 @@ function header(g, title, sub) {
   return `<header class="bar"><button class="ibtn" data-action="back-home" aria-label="Startseite">${I.home}</button>
     <div class="grow"><h1>${esc(title)}</h1><small>${esc(sub)}</small></div>
     <button class="ibtn" data-action="undo" aria-label="Rückgängig" ${canUndo() ? '' : 'disabled'}>${I.undo}</button>
+    <button class="ibtn ${S.settings.music && S.settings.sound ? 'on' : ''}" data-action="toggle-music" aria-label="Musik an oder aus">${I.note}</button>
     <button class="ibtn ${showRoles() ? 'on' : ''}" data-action="toggle-roles" aria-label="Rollen zeigen">${I.eye}</button>
     <button class="ibtn" data-action="open-menu" aria-label="Menü">${I.menu}</button></header>`;
 }
 on('undo', () => { undo(); return false; });
 on('toggle-roles', () => { S.settings.showRoles = !S.settings.showRoles; });
+on('toggle-music', () => { const on = S.settings.music && S.settings.sound; S.settings.sound = true; S.settings.music = !on; toast(on ? 'Musik aus' : 'Musik an'); });
 on('open-menu', () => { ui.modal = { type: 'menu' }; });
 
 /* ---------- Nacht ---------- */
@@ -381,4 +383,4 @@ async function applyWakeLock() {
   } catch { wl = null; }
 }
 afterRender.push(applyWakeLock);
-document.addEventListener('visibilitychange', applyWakeLock);
+document.addEventListener('visibilitychange', () => { applyWakeLock(); if (document.visibilityState === 'visible' && ui.timer.running) tick(); });

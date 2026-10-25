@@ -8,7 +8,7 @@ Bis M6 ist alles erledigt und live (Engine, Oberfläche, PWA, Nachtmusik, Instal
 
 Stand der Umsetzung steht hinter jeder Überschrift.
 
-## M7 Gerätetest-Paket (zuerst)
+## M7 Gerätetest-Paket (umgesetzt, wartet auf deine Abnahme)
 Ziel: Du kannst die App auf iPad, iPhone und Android prüfen und siehst bei Problemen sofort, woran es liegt.
 - Diagnoseseite in den Optionen: Version, Service Worker, Offline-Bereitschaft (Dateien im Speicher), installiert ja/nein, Speicher dauerhaft, Ton und Musik, Bildschirmgröße, Testton.
 - Lautstärkeregler, Töne- und Musikschalter direkt im Spiel (Menü), Musikknopf in der Kopfleiste.

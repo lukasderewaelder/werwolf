@@ -6,6 +6,7 @@ import { rulesHtml } from './setup.js';
 import { ROLES, RM, SETS, CAMP_LABEL, findRoles } from '../engine/roles.js';
 import { exportBackup, importBackup, defaultSettings } from '../store.js';
 import { installButton, isStandalone } from './install.js';
+import { setVolume } from '../audio.js';
 
 on('lib-set', (el) => { ui.libSet = el.dataset.set; ui.query = ''; });
 on('input:lib-q', (el) => { ui.query = el.value; });
@@ -49,6 +50,18 @@ views.guide = () => {
 
 const optRow = (k, t, s) => `<button class="opt" data-action="opt" data-key="${k}"><span class="t"><b>${t}</b>${s ? `<span>${s}</span>` : ''}</span><span class="toggle ${S.settings[k] ? 'on' : ''}"><i></i></span></button>`;
 on('opt', (el) => { const k = el.dataset.key; S.settings[k] = !S.settings[k]; });
+on('input:vol-range', (el) => {
+  S.settings.volume = Math.max(0, Math.min(1, +el.value / 100));
+  setVolume();
+  const out = document.getElementById('vol-out'); if (out) out.textContent = Math.round(S.settings.volume * 100) + ' %';
+  persist();
+  return false;
+});
+
+/** Lautstärkeregler mit Schaltern für Töne und Musik (Optionen und Spielmenü). */
+export const soundCard = () => `<div class="card flat col"><div class="row between"><b>Lautstärke</b><span id="vol-out" class="muted" style="font-weight:700">${Math.round((S.settings.volume ?? 0.7) * 100)} %</span></div>
+  <input id="vol-range" type="range" min="0" max="100" value="${Math.round((S.settings.volume ?? 0.7) * 100)}" aria-label="Lautstärke" style="width:100%;height:36px;accent-color:var(--accent)">
+  <div class="row wrap"><button class="btn sm ${S.settings.sound ? 'on' : ''}" data-action="opt" data-key="sound">${I.note}Töne</button><button class="btn sm ${S.settings.music ? 'on' : ''}" data-action="opt" data-key="music">${I.moon}Musik</button></div></div>`;
 on('set-theme', (el) => { S.settings.theme = el.dataset.v; });
 on('set-timer', (el) => { S.settings.timer = +el.dataset.v; ui.timer.left = +el.dataset.v; });
 
@@ -60,8 +73,7 @@ views.settings = () => {
       <div class="card flat col"><b>Aussehen</b>
         <div class="seg"><button class="${s.theme === 'auto' ? 'on' : ''}" data-action="set-theme" data-v="auto">${I.moon}${I.sun}Automatisch</button><button class="${s.theme === 'night' ? 'on' : ''}" data-action="set-theme" data-v="night">${I.moon}Immer Nacht</button><button class="${s.theme === 'day' ? 'on' : ''}" data-action="set-theme" data-v="day">${I.sun}Immer Tag</button></div>
         <span class="muted" style="font-size:13px">Automatisch: dunkel in der Nacht, hell am Tag.</span></div>
-      ${optRow('sound', 'Töne', 'Gong, Hahn, Heulen und Glocke')}
-      ${optRow('music', 'Hintergrundmusik', 'Leise Nachtmusik während der Nacht')}
+      ${soundCard()}
       ${optRow('haptics', 'Vibration', 'Kurzes Feedback bei Aktionen')}
       ${optRow('wakeLock', 'Bildschirm anlassen', 'Das Display geht im Spiel nicht aus')}
       ${optRow('showRoles', 'Rollen auf den Spielersteinen zeigen', 'Ausschalten, wenn Mitspieler aufs Display schauen könnten')}
@@ -73,6 +85,8 @@ views.settings = () => {
       <div class="card flat col"><span class="muted" style="font-size:14px">Gruppen und Einstellungen liegen nur auf diesem Gerät. Die installierte App auf dem iPad hat einen eigenen Speicher, getrennt von Safari. Mit einer Sicherungsdatei ziehst du um.</span>
         <div class="row wrap"><button class="btn" data-action="backup-export">${I.download}Sicherung speichern</button><label class="btn" for="backup-file" style="cursor:pointer">Sicherung laden</label><input type="file" id="backup-file" accept="application/json,.json" hidden></div>
         <button class="btn danger" data-action="reset-all">${I.reset}Alles zurücksetzen</button></div>
+      <div class="eyebrow" style="margin-top:6px">Hilfe</div>
+      <button class="opt" data-action="open-diagnose"><span class="t"><b>Diagnose</b><span>Prüft Offlinebetrieb, Speicher und Ton auf diesem Gerät</span></span>${I.right}</button>
       <div class="eyebrow" style="margin-top:6px">Quellen</div>
       <div class="card flat col"><span class="muted" style="font-size:13px">Nachtmusik: „Cathedral in the forest“ von congusbongus und „Dark Place“ von SkyleTheFrench (beide CC0, OpenGameArt). Rollenbilder aus der bisherigen App.</span></div>
     </div></div></div>`;
