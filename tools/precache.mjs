@@ -11,7 +11,7 @@ const swPath = join(root, 'sw.js');
 
 // Was zur laufenden App gehört (alles andere – Tests, Doku, Werkzeuge – nicht).
 const ENTRY_FILES = ['index.html', 'manifest.webmanifest'];
-const ENTRY_DIRS = ['assets', 'src', 'vendor'];
+const ENTRY_DIRS = ['assets', 'src'];
 const SKIP_NAME = /^(LICENSE.*|README.*|\.DS_Store|Thumbs\.db)$/i;
 const TEXT_EXT = /\.(html|css|js|mjs|json|webmanifest|svg|txt|md)$/i;
 

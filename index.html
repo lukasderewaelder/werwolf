@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#0e1424">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Werwolf">
+<meta name="color-scheme" content="dark light">
+<title>Werwolf Spielleiter</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="assets/icons/icon.svg">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body class="theme-night">
+<div id="scene" aria-hidden="true"></div>
+<div id="app"></div>
+<div id="update" hidden><span>Neue Version bereit.</span> <button id="btn-update" type="button">Aktualisieren</button></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<noscript>Bitte JavaScript aktivieren.</noscript>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

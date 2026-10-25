@@ -1,0 +1,126 @@
+// Service Worker: speichert die ganze App beim ersten Besuch, danach läuft sie ohne Netz.
+// Der Block zwischen den Marken wird von tools/precache.mjs erzeugt (node tools/precache.mjs).
+
+// >>> precache
+const VERSION = 'e718c62d9a';
+const ASSETS = [
+  './',
+  './assets/css/app.css',
+  './assets/icons/apple-touch-icon.png',
+  './assets/icons/icon-192.png',
+  './assets/icons/icon-512.png',
+  './assets/icons/icon-maskable-512.png',
+  './assets/icons/icon.svg',
+  './assets/portraits/actor.svg',
+  './assets/portraits/angel.webp',
+  './assets/portraits/bear.webp',
+  './assets/portraits/bigwolf.webp',
+  './assets/portraits/brothers.webp',
+  './assets/portraits/captain.webp',
+  './assets/portraits/cupid.webp',
+  './assets/portraits/elder.webp',
+  './assets/portraits/fox.webp',
+  './assets/portraits/girl.webp',
+  './assets/portraits/greis.webp',
+  './assets/portraits/guard.webp',
+  './assets/portraits/hunter.webp',
+  './assets/portraits/idiot.webp',
+  './assets/portraits/judge.svg',
+  './assets/portraits/knight.webp',
+  './assets/portraits/maid.webp',
+  './assets/portraits/medium.svg',
+  './assets/portraits/piper.webp',
+  './assets/portraits/puresoul.webp',
+  './assets/portraits/raven.webp',
+  './assets/portraits/scapegoat.webp',
+  './assets/portraits/seer.webp',
+  './assets/portraits/sisters.webp',
+  './assets/portraits/thief.webp',
+  './assets/portraits/urwolf.webp',
+  './assets/portraits/villager.webp',
+  './assets/portraits/whitewolf.webp',
+  './assets/portraits/wildchild.webp',
+  './assets/portraits/witch.webp',
+  './assets/portraits/wolf.webp',
+  './assets/portraits/wolfdog.webp',
+  './index.html',
+  './manifest.webmanifest',
+  './src/audio-files.js',
+  './src/audio.js',
+  './src/engine/game.js',
+  './src/engine/roles.js',
+  './src/main.js',
+  './src/store-ref.js',
+  './src/store.js',
+  './src/ui/art.js',
+  './src/ui/core.js',
+  './src/ui/game.js',
+  './src/ui/home.js',
+  './src/ui/icons.js',
+  './src/ui/modals.js',
+  './src/ui/pages.js',
+  './src/ui/scene.js',
+  './src/ui/setup.js',
+];
+// <<< precache
+
+const CACHE_PREFIX = 'werwolf-';
+const CACHE = `${CACHE_PREFIX}${VERSION}`;
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    (async () => {
+      const cache = await caches.open(CACHE);
+      await cache.addAll(ASSETS.map((url) => new Request(url, { cache: 'reload' })));
+    })(),
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    (async () => {
+      for (const key of await caches.keys()) {
+        if (key.startsWith(CACHE_PREFIX) && key !== CACHE) await caches.delete(key);
+      }
+      await self.clients.claim();
+    })(),
+  );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') {
+    self.skipWaiting();
+  } else if (event.data === 'STATUS' && event.ports[0]) {
+    event.waitUntil(
+      (async () => {
+        const cache = await caches.open(CACHE);
+        const cached = (await cache.keys()).length;
+        event.ports[0].postMessage({ version: VERSION, expected: ASSETS.length, cached });
+      })(),
+    );
+  }
+});
+
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  if (request.method !== 'GET') return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
+  event.respondWith(
+    (async () => {
+      const cache = await caches.open(CACHE);
+      const hit = await cache.match(request, { ignoreSearch: true });
+      if (hit) return hit;
+      try {
+        return await fetch(request);
+      } catch (err) {
+        if (request.mode === 'navigate') {
+          const shell = await cache.match('./index.html');
+          if (shell) return shell;
+        }
+        throw err;
+      }
+    })(),
+  );
+});

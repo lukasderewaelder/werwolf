@@ -18,7 +18,7 @@ const INPUT_ACTS = new Set(['kill', 'check', 'witch', 'lovers', 'swap', 'protect
 export const CAUSE = {
   wolves: 'Werwölfe', bigwolf: 'Großer böser Wolf', whitewolf: 'Weißer Werwolf', poison: 'Gifttrank der Hexe',
   hunter: 'Schuss des Jägers', vote: 'Dorfgericht', tie: 'Sündenbock (Gleichstand)', heartbreak: 'Liebeskummer',
-  knight: 'Rostiges Schwert des Ritters', girl: 'Von den Wölfen beim Spionieren erwischt',
+  knight: 'Rostiges Schwert des Ritters', manual: 'Vom Spielleiter entfernt', girl: 'Von den Wölfen beim Spionieren erwischt',
 };
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -619,6 +619,8 @@ export function apply(g0, a, toast) {
     case 'skip-to-night': endDay(g); break;
     case 'set-captain': g.captain = a.pid; g.dayMode = 'vote'; log(g, `Hauptmann: ${nm(g, a.pid)}`); break;
     case 'skip-captain': g.dayMode = 'vote'; break;
+    case 'manual-kill': if (g.phase === 'day' && alive(g, a.pid)) { kill(g, a.pid, 'manual'); afterDeaths(g, 'day'); } break;
+    case 'rename': { const p = g.cfg.players.find((x) => x.id === a.pid); if (p && a.name) p.name = a.name; break; }
     case 'deal-next': g.dealIdx++; g.dealShown = false; break;
     case 'deal-show': g.dealShown = !g.dealShown; break;
     default: throw new Error(`Unbekannte Aktion: ${a.t}`);
