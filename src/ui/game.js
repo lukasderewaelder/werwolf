@@ -187,7 +187,7 @@ function taskBox(g, c) {
         } else prompt = 'Der Fuchs zeigt auf die Mitte einer Dreiergruppe. Person antippen.';
         break;
       case 'mark': prompt = d.mark ? `Belastet: ${nm(g, d.mark)} (zwei Stimmen mehr)` : 'Wen belastet der Rabe? (optional)'; break;
-      case 'enchant': prompt = `Tippe 2 Personen zum Verzaubern an (${d.enchant.length}/2).`; cls = d.enchant.length === 2 ? 'ok' : ''; break;
+      case 'enchant': prompt = `Tippe 2 Personen zum Verzaubern an (${d.enchant.length}/2).${Object.keys(g.enchanted).length ? ` Schon verzaubert: ${Object.keys(g.enchanted).map((x) => nm(g, x)).join(', ')}.` : ''}`; cls = d.enchant.length === 2 ? 'ok' : ''; break;
       default: break;
     }
   }

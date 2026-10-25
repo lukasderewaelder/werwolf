@@ -463,3 +463,79 @@ test('Ältere Spielstände ohne Zähler laufen weiter', () => {
   g = taps(g, 'p3');
   assert.deepEqual(tally(g).leaders, ['p3']);
 });
+
+test('Jäger ist verliebt: stirbt der Partner, schießt er noch; sterben dadurch alle, gewinnt niemand', () => {
+  let g = mk(['wolf', 'hunter', 'villager']);
+  g.lovers = ['p2', 'p3'];
+  g = goKey(g, 'wolf'); g = tap(g, 'p3');
+  g = finishNight(g);
+  assert.equal(alive(g, 'p2'), false, 'Jäger stirbt aus Kummer');
+  assert.equal(g.phase, 'interrupt');
+  assert.equal(g.interrupts[0].type, 'hunter');
+  g = tap(g, 'p1');
+  assert.equal(g.phase, 'ended');
+  assert.match(g.winner, /alle sind tot/);
+});
+
+test('Dieb: liegen zwei Werwölfe in der Mitte, muss er einen nehmen; Abwählen stellt die Karten wieder her', () => {
+  const players = Array.from({ length: 4 }, (_, i) => ({ id: `p${i + 1}`, name: `P${i + 1}` }));
+  let g = createGame({ players, counts: { thief: 1, wolf: 2, seer: 1, villager: 2 }, mode: 'digital' });
+  g.roles = { p1: 'thief', p2: 'seer', p3: 'villager', p4: 'villager' }; g.middle = ['wolf', 'wolf']; g.middle0 = ['wolf', 'wolf'];
+  g = goKey(g, 'thief');
+  g = apply(g, { t: 'thief-role', role: 'seer' });
+  assert.equal(g.roles.p1, 'thief', 'Seherin darf er nicht wählen');
+  g = apply(g, { t: 'thief-role', role: 'wolf' });
+  assert.equal(g.roles.p1, 'wolf');
+  assert.deepEqual([...g.middle].sort(), ['thief', 'wolf']);
+  g = apply(g, { t: 'thief-role', role: 'wolf' });
+  assert.equal(g.roles.p1, 'thief');
+  assert.deepEqual(g.middle, ['wolf', 'wolf']);
+});
+
+test('Dieb: liegen keine zwei Werwölfe in der Mitte, darf er frei wählen oder behalten', () => {
+  const players = Array.from({ length: 4 }, (_, i) => ({ id: `p${i + 1}`, name: `P${i + 1}` }));
+  let g = createGame({ players, counts: { thief: 1, wolf: 1, seer: 1, villager: 3 }, mode: 'digital' });
+  g.roles = { p1: 'thief', p2: 'wolf', p3: 'villager', p4: 'villager' }; g.middle = ['seer', 'villager']; g.middle0 = ['seer', 'villager'];
+  g = goKey(g, 'thief');
+  g = apply(g, { t: 'thief-role', role: 'seer' });
+  assert.equal(g.roles.p1, 'seer');
+  assert.ok(nightSteps(g).some((s) => s.key === 'seer'), 'er wird in derselben Nacht als Seherin aufgerufen');
+});
+
+test('Ergebene Magd im Kartenmodus: unbekannte Karte, die Rolle kommt beim Aufdecken', () => {
+  const players = Array.from({ length: 6 }, (_, i) => ({ id: `p${i + 1}`, name: `P${i + 1}` }));
+  let g = createGame({ players, counts: { wolf: 1, maid: 1, seer: 1, villager: 3 }, mode: 'cards' });
+  g.roles = { p1: 'wolf', p2: 'maid' };
+  g = { ...g, phase: 'day', clock: 'day', day: 1, dayMode: 'vote' };
+  g = apply(taps(g, 'p3'), { t: 'day-execute' });
+  assert.equal(g.interrupts[0].type, 'maid');
+  g = apply(g, { t: 'maid-take' });
+  assert.equal(g.interrupts[0].type, 'reveal');
+  g = apply(g, { t: 'reveal', role: 'seer' });
+  assert.equal(g.roles.p2, 'seer', 'die Magd spielt jetzt die Seherin');
+  assert.equal(g.roles.p3, 'seer');
+  assert.equal(alive(g, 'p3'), false);
+  assert.equal(g.phase, 'night');
+  assert.equal(g.pendingMaid, null);
+});
+
+test('Ergebene Magd wird Flötenspieler: bisherige Verzauberte bleiben, sie selbst ist nicht mehr verzaubert', () => {
+  let g = dayGame({}, ['wolf', 'maid', 'piper', 'villager', 'villager', 'villager']);
+  g.enchanted = { p4: true, p2: true };
+  g = apply(taps(g, 'p3'), { t: 'day-execute' });
+  g = apply(g, { t: 'maid-take' });
+  assert.equal(g.roles.p2, 'piper');
+  assert.equal(g.enchanted.p2, undefined);
+  assert.equal(g.enchanted.p4, true);
+  assert.ok(g.log.some((l) => /Neuer Flötenspieler: bisher verzaubert sind P4/.test(l.t)));
+});
+
+test('Ergebene Magd bleibt infiziert und verliert Hauptmannsamt und Verzauberung', () => {
+  let g = dayGame({}, ['wolf', 'maid', 'seer', 'villager', 'villager', 'villager']);
+  g.turned.p2 = true; g.captain = 'p2'; g.enchanted.p2 = true;
+  g = apply(taps(g, 'p3'), { t: 'day-execute' });
+  g = apply(g, { t: 'maid-take' });
+  assert.equal(g.turned.p2, true);
+  assert.equal(g.captain, null);
+  assert.equal(g.enchanted.p2, undefined);
+});

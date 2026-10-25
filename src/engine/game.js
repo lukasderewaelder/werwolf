@@ -81,7 +81,7 @@ function dealRoles(g, rnd) {
   const bag = shuffle(Object.entries(g.cfg.counts).flatMap(([id, n]) => Array(n || 0).fill(id)), rnd);
   const n = g.cfg.players.length;
   g.roles = Object.fromEntries(g.cfg.players.map((p, i) => [p.id, bag[i] || 'villager']));
-  g.middle = bag.slice(n);
+  g.middle = bag.slice(n); g.middle0 = [...g.middle];
   log(g, 'Rollen ausgelost' + (g.middle.length ? ` (Mitte: ${g.middle.map(roleName).join(', ')})` : ''));
 }
 
@@ -463,21 +463,29 @@ function executeVote(g) {
   endDay(g);
 }
 
+/** Die Magd spielt ab jetzt die Rolle des Hingerichteten, als wäre es die erste Nacht. Verliebt, Hauptmann, Verzauberung bleiben nicht erhalten, eine Infektion schon. */
+function applyMaidRole(g, maidId, victimId, role) {
+  g.roles[maidId] = role;
+  log(g, `Ergebene Magd ${nm(g, maidId)} übernimmt die Rolle ${roleName(role)} von ${nm(g, victimId)}`);
+  if (role === 'witch') g.potions = { heal: false, poison: false };
+  if (['wildchild', 'wolfdog', 'judge'].includes(role)) g.fresh[role] = true;
+  if (role === 'judge') g.judgeUsed = false;
+  if (g.captain === maidId) { g.captain = null; log(g, 'Die Magd war Hauptmann: das Amt ist frei'); }
+  delete g.enchanted[maidId];
+  if (role === 'actor') g.actorId = maidId;
+  if (role === 'piper') {
+    const names = Object.keys(g.enchanted).filter((id) => id !== maidId).map((id) => nm(g, id));
+    log(g, `Neuer Flötenspieler: bisher verzaubert sind ${names.join(', ') || 'noch niemand'}`);
+  }
+}
+
 function maidTakes(g, take) {
   const it = g.interrupts.shift();
   const v = it.victim;
   if (take) {
     const role = g.roles[v];
-    if (role) {
-      g.roles[it.id] = role;
-      log(g, `Ergebene Magd ${nm(g, it.id)} übernimmt die Rolle ${roleName(role)} von ${nm(g, v)}`);
-      if (role === 'witch') g.potions = { heal: false, poison: false };
-      if (['wildchild', 'wolfdog', 'judge'].includes(role)) g.fresh[role] = true;
-      if (role === 'judge') g.judgeUsed = false;
-      if (g.captain === it.id) g.captain = null;
-      delete g.enchanted[it.id];
-      if (role === 'actor') g.actorId = it.id;
-    } else log(g, `Ergebene Magd ${nm(g, it.id)} übernimmt die Karte von ${nm(g, v)} (Rolle noch unbekannt)`);
+    if (role) applyMaidRole(g, it.id, v, role);
+    else { g.pendingMaid = { id: it.id, victim: v }; log(g, `Ergebene Magd ${nm(g, it.id)} übernimmt die Karte von ${nm(g, v)} (Rolle wird gleich aufgedeckt)`); }
   }
   kill(g, v, 'vote');
   endDay(g);
@@ -613,13 +621,18 @@ export function apply(g0, a, toast) {
     }
     case 'witch-poison': g.poisonMode = !g.poisonMode; if (g.poisonMode) d.poison = null; break;
     case 'thief-role': {
-      const thief = holders(g, 'thief')[0];
-      d.thiefRole = d.thiefRole === a.role ? null : a.role;
-      if (thief) {
-        // Tausch sofort ausführen, damit der Dieb in derselben Nacht in seiner neuen Rolle aufgerufen wird
-        if (d.thiefRole) { g.thiefId = thief.id; g.roles[thief.id] = d.thiefRole; if (g.cfg.mode === 'digital') { const i = g.middle.indexOf(d.thiefRole); if (i >= 0) g.middle.splice(i, 1, 'thief'); } }
-        else if (g.thiefId) { g.roles[g.thiefId] = 'thief'; g.thiefId = null; }
-      }
+      const thiefId = g.thiefId ?? holders(g, 'thief')[0]?.id;
+      if (!thiefId) break;
+      const digital = g.cfg.mode === 'digital';
+      const mid0 = g.middle0 ?? g.middle;
+      const restore = () => { if (g.thiefId) { g.roles[g.thiefId] = 'thief'; g.thiefId = null; } if (digital) g.middle = [...mid0]; };
+      if (d.thiefRole === a.role) { restore(); d.thiefRole = null; break; }
+      if (digital && mid0.length === 2 && mid0.every(isWolfRole) && !isWolfRole(a.role)) { toast?.('Beide Karten in der Mitte sind Werwölfe: Der Dieb muss einen nehmen.'); break; }
+      restore();
+      d.thiefRole = a.role;
+      // Tausch sofort ausführen, damit der Dieb in derselben Nacht in seiner neuen Rolle aufgerufen wird
+      g.thiefId = thiefId; g.roles[thiefId] = a.role;
+      if (digital) { const i = g.middle.indexOf(a.role); if (i >= 0) g.middle.splice(i, 1, 'thief'); }
       break;
     }
     case 'actor-role': {
@@ -635,7 +648,10 @@ export function apply(g0, a, toast) {
     case 'assign-direct': g.roles[a.pid] = a.role; break;
     case 'reveal': {
       const it = g.interrupts.find((i) => i.type === 'reveal');
-      if (it) { g.roles[it.id] = a.role; g.interrupts.splice(g.interrupts.indexOf(it), 1); log(g, `${nm(g, it.id)} hatte die Karte: ${roleName(a.role)}`); }
+      if (it) {
+        g.roles[it.id] = a.role; g.interrupts.splice(g.interrupts.indexOf(it), 1); log(g, `${nm(g, it.id)} hatte die Karte: ${roleName(a.role)}`);
+        if (g.pendingMaid?.victim === it.id) { applyMaidRole(g, g.pendingMaid.id, it.id, a.role); g.pendingMaid = null; }
+      }
       resumeAfter(g);
       break;
     }
