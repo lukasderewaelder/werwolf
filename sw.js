@@ -2,7 +2,7 @@
 // Der Block zwischen den Marken wird von tools/precache.mjs erzeugt (node tools/precache.mjs).
 
 // >>> precache
-const VERSION = 'fc8bc3e0d7';
+const VERSION = '29387705a9';
 const ASSETS = [
   './',
   './assets/audio/glocke.mp3',

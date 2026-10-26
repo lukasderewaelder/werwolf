@@ -74,8 +74,13 @@ Umgesetzt:
 
 Abnahme: Eine Partie mit 20 Personen lässt sich ohne Umwege einrichten und leiten.
 
+## M11b Handy-Layout (abgenommen, Zyklus 1 und 2)
+- Zyklus 1: Rollenreihe und Karte werden nicht mehr gequetscht (es scrollt nur der Bereich dazwischen), 5 Spieler passen am Handy in eine Reihe, Höhen richten sich nach der gemessenen App-Höhe, nutzbarer Bildschirm als zusätzliche Obergrenze, gelber Streifen und Regler „Unterer Abstand“ entfernt, Diagnose zeigt Höhen und Unterkanten der Spielansicht.
+- Zyklus 2: Abstände und Größen am Handy feiner abgestimmt, Rollenbeschriftungen unter den Spielern werden gekürzt statt zu überlappen.
+
 ## M12 Neumond: Ereigniskarten
-- 36 Ereigniskarten mit Zigeunerin, Büttel und den neun Varianten. Die Kartentexte formuliere ich selbst nach dem Regelheft.
+- Entscheidung: zuerst das Gerüst (Ziehen am Morgen, Wirkdauer sofort / zeitlich begrenzt / dauerhaft, Büttel, Zigeunerin mit Spiritualismus-Karten, Karteneditor, ein paar Beispielkarten). Die 36 Originaltexte stehen nicht im Regelheft, die Karten folgen später.
+- Varianten als wählbare Spielregel: Neumond (Ereigniskarten), Lykanthropische Betörung, Erntefest, Schwarzer Tod, „Er ist es ganz sicher nicht“ (Bürgen-Abstimmung), Doppel-Ich. Mondschein, Gemeinschaft der Dörfer und Sprechende Mauer nur als Hinweistext.
 - Auswahl der aktiven Karten beim Einrichten, Ziehen am Morgen.
 
 Abnahme: Eine Partie mit Ereigniskarten läuft durch, die Karten wirken wie im Regelheft.
