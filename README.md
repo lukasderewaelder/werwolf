@@ -29,7 +29,7 @@ Das Auge-Symbol blendet Rollen auf den Spielersteinen aus, der Pfeil macht die l
 
 ## Regeln
 
-Maßgeblich ist das Regelheft „Die Werwölfe von Düsterwald – Der Pakt“ (Asmodee 2014). Der Abgleich mit der früheren App und alle Entscheidungen stehen in [docs/regelabgleich.md](docs/regelabgleich.md). Nicht umgesetzt sind die Ereigniskarten von Neumond (außer der Geisterbeschwörung als Hinweis) und die Gebäude und Berufe aus „Die Gemeinde“.
+Maßgeblich ist das Regelheft „Die Werwölfe von Düsterwald – Der Pakt“ (Asmodee 2014). Der Abgleich mit der früheren App und alle Entscheidungen stehen in [docs/regelabgleich.md](docs/regelabgleich.md). Von Neumond sind Ereigniskarten (Gerüst mit Beispielkarten und eigenen Karten), Büttel, Wahrsagerin mit Spiritismus-Karten sowie die Varianten Lykanthropische Betörung, Erntefest und „Er ist es ganz sicher nicht“ umgesetzt. Nicht umgesetzt sind Doppel-Ich und die Gebäude und Berufe aus „Die Gemeinde“; Mondschein, Gemeinschaft der Dörfer, Sprechende Mauer und Schwarzer Tod stehen als Hinweistexte in den Regeln.
 
 ## Entwicklung
 

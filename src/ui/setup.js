@@ -6,6 +6,7 @@ import { ensureGroup, presentPlayers, currentCounts } from '../store.js';
 import { ROLES, RM, SETS, CAMP_LABEL, recommendCounts, requiredCards, fillVillagers, registerRoles } from '../engine/roles.js';
 import { uid } from '../store.js';
 import { createGame, setupProblems, DEFAULT_RULES } from '../engine/game.js';
+import { activeCards } from './cards.js';
 
 const STEPS = ['Wer spielt mit?', 'Wie spielt ihr?', 'Welche Rollen?', 'Regeln und Start'];
 
@@ -20,16 +21,32 @@ export function ruleRows() {
   ];
 }
 
+/** Neumond und Varianten (jede einzeln schaltbar). */
+export function variantRows() {
+  return [
+    ['events', 'Ereigniskarten (Neumond)', 'Ab dem zweiten Morgen liest der zuletzt Ausgeschiedene eine Karte vor. Dazu Büttel und Wahrsagerin mit Spiritismus-Fragen.'],
+    ['charm', 'Lykanthropische Betörung', 'Wolfsopfer sterben nicht, sondern verlieren heimlich alle Fähigkeiten. Wird ein Betörter hingerichtet, scheiden alle Betörten aus. Die Wölfe gewinnen mit dem vorletzten betörten Dorfbewohner.'],
+    ['harvest', 'Erntefest in Düsterwald', 'Fähigkeiten sind gestört: Wölfe reißen nur Nachbarn von Wölfen, Jäger und Heiler wirken nur auf Nachbarn, der Flötenspieler verzaubert nur eine Person, die Seherin sieht die Rollen ihrer Nachbarn mit. Hexe, Hauptmann, Sündenbock und Amor führst du nach dem Regelheft selbst.'],
+    ['voucher', '„Er ist es ganz sicher nicht“', 'Neue Art der Abstimmung: Reihum bürgt jeder für eine Person, die sich setzt. Wer als Einziger steht, ist das Opfer.'],
+  ];
+}
+
 export function rulesHtml(rules) {
-  const rows = ruleRows().map(([k, t, s]) => `<button class="opt" data-action="rule-toggle" data-key="${k}"><span class="t"><b>${t}</b><span>${s}</span></span><span class="toggle ${rules[k] ? 'on' : ''}"><i></i></span></button>`).join('');
+  const row = ([k, t, s]) => `<button class="opt" data-action="rule-toggle" data-key="${k}"><span class="t"><b>${t}</b><span>${s}</span></span><span class="toggle ${rules[k] ? 'on' : ''}"><i></i></span></button>`;
+  const cards = rules.events ? `<div class="card flat col"><b>Ereigniskarten</b>
+      <div class="seg">${[1, 2, 3].map((n) => `<button class="${(+rules.eventEvery || 1) === n ? 'on' : ''}" data-action="rule-set" data-key="eventEvery" data-v="${n}">${n === 1 ? 'Jeden Morgen' : `Jeden ${n}. Morgen`}</button>`).join('')}</div>
+      <span class="muted" style="font-size:13px">Für Runden, die Neumond noch nicht kennen: lieber seltener ziehen. ${activeCards().length} Karten im Stapel.</span>
+      <div class="row wrap"><button class="btn sm" data-action="cards-open">${I.list}Karten und Büttel</button></div></div>` : '';
   return `<div class="col"><div class="card flat col">
       <b>Die Seherin sieht</b>
       <div class="seg"><button class="${rules.seerSees !== 'camp' ? 'on' : ''}" data-action="rule-set" data-key="seerSees" data-v="role">Die ganze Rolle</button><button class="${rules.seerSees === 'camp' ? 'on' : ''}" data-action="rule-set" data-key="seerSees" data-v="camp">Nur: Werwolf oder nicht</button></div>
-    </div>${rows}</div>`;
+    </div>${ruleRows().map(row).join('')}
+    <div class="eyebrow" style="margin-top:6px">Neumond und Varianten</div>${variantRows().map(row).join('')}${cards}
+    <button class="btn sm" data-action="variants-open" style="align-self:flex-start">Weitere Varianten zum Nachlesen</button></div>`;
 }
 
 on('rule-toggle', (el) => { const r = S.settings.rules; r[el.dataset.key] = !r[el.dataset.key]; });
-on('rule-set', (el) => { S.settings.rules[el.dataset.key] = el.dataset.v; });
+on('rule-set', (el) => { S.settings.rules[el.dataset.key] = el.dataset.key === 'eventEvery' ? +el.dataset.v : el.dataset.v; });
 
 function startWizard() {
   ensureGroup(S);
@@ -226,7 +243,11 @@ on('start-game', () => {
   const pr = setupProblems({ players, counts });
   if (pr.length) { toast(pr[0]); S.setup.step = 2; return; }
   const custom = S.customRoles.filter((r) => counts[r.id]);
-  S.game = createGame({ players, counts, custom, mode: S.settings.mode, rules: { ...DEFAULT_RULES, ...S.settings.rules } });
+  const rules = { ...DEFAULT_RULES, ...S.settings.rules };
+  const eventCards = rules.events ? activeCards() : [];
+  if (rules.events && !eventCards.length) { toast('Keine Ereigniskarten ausgewählt: Karten und Büttel öffnen.'); return; }
+  const beadleIds = (S.settings.beadleIds ?? []).filter((id) => eventCards.some((c) => c.id === id));
+  S.game = createGame({ players, counts, custom, mode: S.settings.mode, rules, eventCards, beadleIds });
   clearUndo();
   ui.timer.left = S.settings.timer; ui.timer.running = false;
   go('game');

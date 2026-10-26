@@ -742,3 +742,115 @@ test('Startseite mit Spielständen: nichts ragt aus dem Fenster, Weiter ist erre
     await ctx.close();
   }
 });
+
+/* ---------- Neumond ---------- */
+
+const PHONE_CTX = { viewport: { width: 393, height: 727 }, hasTouch: true, isMobile: true, userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36' };
+/** Nacht ohne Oberfläche durchklicken (Weiter bis der Tag beginnt). */
+const nightToDay = (page) => page.evaluate(() => { const w = window.__werwolf; for (let i = 0; i < 40 && w.S.game.phase === 'night'; i++) w.dispatch({ t: 'next' }); });
+const gotoStep = async (page, key) => {
+  const idx = await page.evaluate(async (key) => { const { nightSteps } = await import('/src/engine/game.js'); return nightSteps(window.__werwolf.S.game).findIndex((s) => s.key === key); }, key);
+  assert.ok(idx >= 0, `Schritt ${key} fehlt`);
+  await page.evaluate((i) => window.__werwolf.dispatch({ t: 'goto', idx: i }), idx);
+  await page.waitForTimeout(350);
+};
+
+test('Neumond: Karten auswählen und eigene Karte anlegen, Morgen zeigt die Karte, Büttel verkündet', async () => {
+  const ctx = await app.newContext(PHONE_CTX);
+  const { page, problems } = await app.openApp({ context: ctx });
+  // Optionen: Ereigniskarten einschalten, Karten verwalten
+  await page.click('[data-action=go][data-view=settings]');
+  await page.waitForTimeout(400);
+  await page.click('[data-action=rule-toggle][data-key=events]');
+  assert.ok(await page.locator('[data-action=cards-open]').isVisible());
+  await page.click('[data-action=cards-open]');
+  await reachable(page, '.modal .mfoot .btn', 'Karten schließen');
+  assert.match(await page.locator('.modal').innerText(), /Nebel über Düsterwald/);
+  await page.click('[data-action=card-toggle][data-id=ev-nebel]');
+  assert.equal(await page.evaluate(() => !!window.__werwolf.S.settings.eventOff['ev-nebel']), true);
+  await page.click('[data-action=card-beadle][data-id=ev-brunnen]');
+  await page.click('[data-action=card-new]');
+  await page.fill('#card-form input[name=title]', 'Eigener Test');
+  await page.fill('#card-form textarea[name=text]', 'Alle klatschen einmal.');
+  await page.selectOption('#card-form select[name=kind]', 'dauer');
+  await page.click('#card-form button[type=submit]');
+  assert.match(await page.locator('.modal').innerText(), /Eigener Test/);
+  assert.equal(await page.evaluate(() => window.__werwolf.S.customCards.length), 1);
+  await page.click('.modal .mfoot .btn');
+  // Spiel mit diesen Karten
+  const cards = await page.evaluate(async () => (await import('/src/ui/cards.js')).activeCards());
+  assert.ok(!cards.some((c) => c.id === 'ev-nebel') && cards.length === 9);
+  await startGame(page, { names: NAMES, counts: COUNTS8, roles: ROLES8, rules: { events: true }, eventCards: cards, beadleIds: ['ev-brunnen'] });
+  await nightToDay(page);
+  await page.evaluate(() => { const w = window.__werwolf; w.dispatch({ t: 'skip-captain' }); w.dispatch({ t: 'day-none' }); });
+  await nightToDay(page);
+  await page.waitForTimeout(350);
+  assert.equal(await page.locator('.evcard').count(), 1, 'eine Karte am zweiten Morgen');
+  assert.match(await page.locator('.evcard').innerText(), /ereigniskarte/i);
+  // Büttel: ernennen und verkünden
+  await page.click('[data-action=ev-open]');
+  await reachable(page, '.modal .mfoot .btn', 'Ereignisse schließen');
+  await page.click('[data-action=beadle-set][data-pid=p4]');
+  assert.match(await page.locator('.modal').innerText(), /Büttel: David/);
+  await page.click('[data-action=beadle-announce][data-id=ev-brunnen]');
+  await page.click('.modal .mfoot .btn');
+  assert.equal(await page.locator('.evcard').count(), 2, 'Karte des Büttels ist verkündet');
+  assert.match(await page.locator('.evcard').nth(1).innerText(), /verfluchte Brunnen/);
+  assert.deepEqual(problems, []);
+  await ctx.close();
+});
+
+test('Neumond: Wahrsagerin wählt Spiritismus-Karte, Frage und Medium', async () => {
+  const ctx = await app.newContext(PHONE_CTX);
+  const { page, problems } = await app.openApp({ context: ctx });
+  await startGame(page, { names: NAMES, counts: { wolf: 1, seer: 1, medium: 1, villager: 5 }, roles: ['wolf', 'seer', 'medium', 'villager', 'villager', 'villager', 'villager', 'villager'] });
+  await nightToDay(page);
+  await page.evaluate(() => { const w = window.__werwolf; w.dispatch({ t: 'skip-captain' }); w.dispatch({ t: 'day-none' }); });
+  await gotoStep(page, 'medium');
+  await page.click('[data-action=seance][data-v="1"]');
+  assert.match(await page.locator('.task').innerText(), /Welche Spiritismus-Karte/);
+  await page.click('[data-action=seance-card][data-id=sp1]');
+  assert.match(await page.locator('.task').innerText(), /vier Fragen/);
+  await reachable(page, '[data-action=step-next]', 'Wahrsagerin Weiter');
+  await page.click('[data-action=seance-q][data-i="0"]');
+  assert.match(await page.locator('.task').innerText(), /Wer wird morgen das Medium/);
+  await tapName(page, 'Eva');
+  assert.match(await page.locator('.task').innerText(), /Medium: Eva/);
+  await reachable(page, '[data-action=step-next]', 'Wahrsagerin Weiter nach Wahl');
+  assert.deepEqual(problems, []);
+  await ctx.close();
+});
+
+test('Neumond: Bürgen-Abstimmung am Handy bis zum Opfer', async () => {
+  const ctx = await app.newContext(PHONE_CTX);
+  const { page, problems } = await app.openApp({ context: ctx });
+  await startGame(page, { names: NAMES.slice(0, 5), counts: { wolf: 1, seer: 1, villager: 3 }, roles: ['wolf', 'seer', 'villager', 'villager', 'villager'], rules: { voucher: true } });
+  await nightToDay(page);
+  await page.evaluate(() => window.__werwolf.dispatch({ t: 'skip-captain' }));
+  await page.waitForTimeout(350);
+  await page.click('[data-action=vote-mode][data-mode=voucher]');
+  for (const n of ['Ben', 'Carla', 'David']) await tapName(page, n);
+  assert.match(await page.locator('.vres').innerText(), /3 von 4 sitzen/);
+  await tapName(page, 'Eva');
+  assert.match(await page.locator('.vres').innerText(), /Als Einziger steht Anna/);
+  await reachable(page, '[data-action=day-execute]', 'Hinrichten (Bürgen)');
+  await page.click('[data-action=day-execute]');
+  assert.equal(await page.evaluate(() => window.__werwolf.S.game.winner), 'Das Dorf');
+  assert.deepEqual(problems, []);
+  await ctx.close();
+});
+
+test('Neumond: Betörte tragen ein Zeichen, der Morgen meldet sie nur dem Spielleiter', async () => {
+  const ctx = await app.newContext(PHONE_CTX);
+  const { page, problems } = await app.openApp({ context: ctx });
+  await startGame(page, { names: NAMES, counts: { wolf: 1, seer: 1, villager: 6 }, roles: ['wolf', 'seer', 'villager', 'villager', 'villager', 'villager', 'villager', 'villager'], rules: { charm: true } });
+  await gotoStep(page, 'wolf');
+  await tapName(page, 'David');
+  await nightToDay(page);
+  await page.waitForTimeout(350);
+  assert.match(await page.locator('.notes').innerText(), /Berühre unauffällig am Kopf: David/);
+  assert.equal(await page.locator('.tok:visible[aria-label="David"] .bdg[title="Betört"]').count(), 1);
+  assert.equal(await page.evaluate(() => window.__werwolf.S.game.lastDeaths.length), 0);
+  assert.deepEqual(problems, []);
+  await ctx.close();
+});

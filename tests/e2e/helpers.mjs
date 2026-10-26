@@ -34,14 +34,14 @@ export function useApp() {
 }
 
 /** Spiel direkt im Browser anlegen (ohne den Assistenten), danach zur Spielansicht wechseln. */
-export async function startGame(page, { names, counts, mode = 'digital', rules = {}, roles }) {
-  await page.evaluate(async ({ names, counts, mode, rules, roles }) => {
+export async function startGame(page, { names, counts, mode = 'digital', rules = {}, roles, eventCards = [], beadleIds = [] }) {
+  await page.evaluate(async ({ names, counts, mode, rules, roles, eventCards, beadleIds }) => {
     const { createGame } = await import('/src/engine/game.js');
     const w = window.__werwolf;
     const players = names.map((n, i) => ({ id: `p${i + 1}`, name: n }));
-    const g = createGame({ players, counts, mode, rules });
+    const g = createGame({ players, counts, mode, rules, eventCards, beadleIds });
     if (roles) { g.roles = Object.fromEntries(players.map((p, i) => [p.id, roles[i]])); g.middle = []; }
     g.dealIdx = players.length;
     w.S.game = g; w.ui.view = 'game'; w.render();
-  }, { names, counts, mode, rules, roles });
+  }, { names, counts, mode, rules, roles, eventCards, beadleIds });
 }

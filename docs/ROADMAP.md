@@ -78,12 +78,22 @@ Abnahme: Eine Partie mit 20 Personen lässt sich ohne Umwege einrichten und leit
 - Zyklus 1: Rollenreihe und Karte werden nicht mehr gequetscht (es scrollt nur der Bereich dazwischen), 5 Spieler passen am Handy in eine Reihe, Höhen richten sich nach der gemessenen App-Höhe, nutzbarer Bildschirm als zusätzliche Obergrenze, gelber Streifen und Regler „Unterer Abstand“ entfernt, Diagnose zeigt Höhen und Unterkanten der Spielansicht.
 - Zyklus 2: Abstände und Größen am Handy feiner abgestimmt, Rollenbeschriftungen unter den Spielern werden gekürzt statt zu überlappen.
 
-## M12 Neumond: Ereigniskarten
+## M12 Neumond: Ereigniskarten (umgesetzt, wartet auf deine Abnahme)
 - Entscheidung: zuerst das Gerüst (Ziehen am Morgen, Wirkdauer sofort / zeitlich begrenzt / dauerhaft, Büttel, Zigeunerin mit Spiritualismus-Karten, Karteneditor, ein paar Beispielkarten). Die 36 Originaltexte stehen nicht im Regelheft, die Karten folgen später.
 - Varianten als wählbare Spielregel: Neumond (Ereigniskarten), Lykanthropische Betörung, Erntefest, Schwarzer Tod, „Er ist es ganz sicher nicht“ (Bürgen-Abstimmung), Doppel-Ich. Mondschein, Gemeinschaft der Dörfer und Sprechende Mauer nur als Hinweistext.
 - Auswahl der aktiven Karten beim Einrichten, Ziehen am Morgen.
 
-Abnahme: Eine Partie mit Ereigniskarten läuft durch, die Karten wirken wie im Regelheft.
+Umgesetzt (alles in Regeln und Start oder Optionen unter „Neumond und Varianten“ einzeln schaltbar):
+- Ereigniskarten: ab dem zweiten Morgen zieht die App eine Karte, der zuletzt Ausgeschiedene liest sie vor. Wirkdauer sofort, zeitlich begrenzt (endet am Abend) oder dauerhaft (bis „Beenden“). Anfängermodus: jeden 2. oder 3. Morgen. Neun Beispielkarten mit eigenen Texten, eigene Karten anlegen und bearbeiten, Karten abwählen (Dialog „Karten und Büttel“). Menü im Spiel: „Ereigniskarten“ (Stapel, was wirkt, Karte außer der Reihe ziehen).
+- Büttel: Karten für den Büttel (höchstens 5) liegen nicht im Stapel, der Hauptmann ernennt ihn, er verkündet am Tag eine Karte. Hauptmann und Büttel sind nie dieselbe Person, stirbt der Büttel, ist das Amt frei.
+- Wahrsagerin (Zigeunerin): fünf Spiritismus-Karten mit je vier Ja/Nein-Fragen (eigene Texte). In der Nacht wählst du Karte, Frage und Medium; der Morgen nennt Medium, Frage und den zuerst Ausgeschiedenen, der antwortet. Wo möglich, errechnet die App die richtige Antwort.
+- Lykanthropische Betörung: Wolfsopfer sind betört (Zeichen am Stein, Meldung nur für dich), verlieren ihre Fähigkeiten, Hinrichtung eines Betörten lässt alle Betörten ausscheiden, die Wölfe gewinnen beim vorletzten unbetörten Dorfbewohner.
+- Erntefest: Wölfe reißen nur Nachbarn von Wölfen, Jäger und Heiler wirken nur auf Nachbarn, der Flötenspieler verzaubert eine Person, die Seherin sieht die Rollen ihrer Nachbarn ungeordnet. Hexe, Hauptmann, Sündenbock und Amor führst du selbst.
+- „Er ist es ganz sicher nicht“: dritte Abstimmungsart „Bürgen“, die App merkt die Reihenfolge der Sitzenden und nennt das Opfer.
+- Mondschein, Gemeinschaft der Dörfer, Sprechende Mauer und Schwarzer Tod nur als Hinweistexte (die App rechnet dort nichts).
+Offen: Doppel-Ich (zwei Karten pro Spieler) ist noch nicht umgesetzt. Die 36 Originalkarten stehen nicht im Regelheft; du kannst sie als eigene Karten eintragen.
+
+Abnahme: Eine Partie mit Ereigniskarten läuft durch (Karte am zweiten Morgen, Büttel, Wahrsagerin), eine kurze Partie mit Betörung und eine mit „Bürgen“ funktionieren wie im Regelheft.
 
 ## M13 Die Gemeinde
 - Gebäude und Berufe, Brandstifter, Rabe mit anonymem Brief nach Originalregel, Vogt, Wirt, Bäcker, Barbier u. a.

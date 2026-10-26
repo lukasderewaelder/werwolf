@@ -8,6 +8,7 @@ import { groupById, defaultSettings, defaultSetup } from '../store.js';
 import { stopMusic } from '../audio.js';
 import { keypad, forgotWait } from './lock.js';
 import { isIOS, isAndroid } from './install.js';
+import { cardsModal, cardEditModal, variantsModal, evModal } from './cards.js';
 
 const sheet = (inner, { wide = false } = {}) => `<div class="backdrop" data-action="close-modal"><div class="modal ${wide ? 'wide' : ''}" data-stop role="dialog" aria-modal="true">${inner}</div></div>`;
 const closeBtn = (label = 'Schließen') => `<div class="mfoot"><button class="btn" data-action="close-modal">${label}</button></div>`;
@@ -55,6 +56,7 @@ views.modal = () => {
         <button class="opt" data-action="show-who"><span class="t"><b>Wer ist wer</b><span>Rollen, Status und Korrekturen pro Spieler</span></span>${I.right}</button>
         <button class="opt" data-action="show-roles"><span class="t"><b>Rollen im Spiel</b><span>Spickzettel mit allen Karten dieser Runde</span></span>${I.right}</button>
         <button class="opt" data-action="show-log-menu"><span class="t"><b>Protokoll</b><span>Was bisher passiert ist</span></span>${I.right}</button>
+        ${g?.ev && g.cfg.rules.events ? `<button class="opt" data-action="ev-open"><span class="t"><b>Ereigniskarten</b><span>Stapel, wirkende Karten und Büttel</span></span>${I.right}</button>` : ''}
         ${g?.cfg.counts.greis ? `<button class="opt" data-action="greis-open"><span class="t"><b>Gruppen des Greises</b><span>Dorf in zwei Gruppen teilen</span></span>${I.right}</button>` : ''}
         <button class="opt" data-action="end-game"><span class="t"><b style="color:var(--danger)">Spiel beenden</b><span>Abbrechen und zur Startseite</span></span></button>
       </div>${closeBtn()}`);
@@ -108,6 +110,10 @@ views.modal = () => {
         </form>
         ${m.id ? `<button class="btn danger" data-action="custom-delete">${I.close}Rolle löschen</button>` : ''}${closeBtn('Abbrechen')}`);
     }
+    case 'cards': return cardsModal();
+    case 'card-edit': return cardEditModal(m);
+    case 'variants': return variantsModal();
+    case 'ev': return evModal(g);
     case 'greis': {
       const rows = g.cfg.players.map((p) => `<div class="member"><b>${esc(p.name)}</b><div class="seg" style="min-width:130px"><button class="${g.groups[p.id] === 'A' ? 'on' : ''}" data-action="greis-set" data-id="${p.id}" data-v="A">1</button><button class="${g.groups[p.id] === 'B' ? 'on' : ''}" data-action="greis-set" data-id="${p.id}" data-v="B">2</button></div></div>`).join('');
       return sheet(`<h2>Gruppen des Verbitterten Greises</h2><p class="muted">Teile das Dorf nach einem sichtbaren Merkmal (Brille, Größe, Haarfarbe …) und sage es laut an. Hier ordnest du jede Person der Gruppe 1 oder 2 zu.</p>

@@ -4,7 +4,10 @@ import { esc, art, I, initials, circlePos, tokenSize, roleShort } from './art.js
 import { RM, CAMP_LABEL, roleName } from '../engine/roles.js';
 import {
   alive, nm, isWolf, roleLabel, holders, livingHolders, seatNeighbors, stepContext, nightSteps, unknownPool, livingIds, CAUSE, groupNames, powerOn, tally,
+  eligibleVoters, voucherVictim, voucherStart,
 } from '../engine/game.js';
+import { SPIRIT_CARDS } from '../engine/events.js';
+import { eventBlock } from './cards.js';
 import { sfx } from '../audio.js';
 
 const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -30,6 +33,7 @@ function marks(g, c) {
         case 'model': if (d.model) m.pick.add(d.model); break;
         case 'fox': if (d.fox) [d.fox, ...seatNeighbors(g, d.fox)].forEach((x) => m.pick.add(x)); break;
         case 'mark': if (d.mark) m.pick.add(d.mark); break;
+        case 'seance': if (d.medium) m.pick.add(d.medium); break;
         case 'enchant': d.enchant.forEach((x) => m.pick.add(x)); Object.keys(g.enchanted).forEach((x) => m.dim.add(x)); break;
         default: break;
       }
@@ -37,6 +41,7 @@ function marks(g, c) {
   } else if (g.phase === 'day' || g.phase === 'interrupt') {
     if (g.phase === 'day') {
       if (d.voteMode === 'direct') { if (d.vote) m.target.add(d.vote); }
+      else if (d.voteMode === 'voucher') { d.sit.forEach((x) => m.dim.add(x)); if (d.vote) m.target.add(d.vote); }
       else { const t = tally(g); t.rows.forEach((r) => { m.count[r.pid] = r.total; }); t.leaders.forEach((x) => m.target.add(x)); }
     }
     if (g.captain) m.role.add(g.captain);
@@ -57,6 +62,7 @@ function tokHtml(g, p, i, n, mk, mode) {
   if (g.captain === p.id) b.push(`<span class="bdg gold" title="Hauptmann">${I.crown}</span>`);
   if (g.lovers.includes(p.id)) b.push(`<span class="bdg red" title="Verliebt">${I.heart}</span>`);
   if (g.enchanted[p.id]) b.push(`<span class="bdg blue" title="Verzaubert">${I.flute}</span>`);
+  if (g.charmed?.[p.id] && !dead && showRoles()) b.push(`<span class="bdg blue" title="Betört">${I.moon}</span>`);
   if (known && !dead && isWolf(g, p.id) && n <= 20) b.push(`<span class="bdg red" title="Werwolf">${I.wolf}</span>`);
   if (g.idiotRevealed && rid === 'idiot') b.push(`<span class="bdg gold" title="Ohne Stimmrecht">${I.minus}</span>`);
   if (g.groups[p.id] && showRoles() && n <= 24) b.push(`<span class="bdg">${g.groups[p.id] === 'A' ? '1' : '2'}</span>`);
@@ -116,6 +122,15 @@ on('open-menu', () => { ui.modal = { type: 'menu' }; });
 
 /* ---------- Nacht ---------- */
 
+/** Erntefest: Die Seherin erfährt die Rollen der Person und ihrer beiden Nachbarn, aber nicht, wer welche hat. */
+const harvestSeen = (g, id) => {
+  const ids = [id, ...seatNeighbors(g, id)];
+  if (ids.some((x) => !g.roles[x])) return null;
+  const camp = g.cfg.rules.seerSees === 'camp';
+  const names = ids.map((x) => (camp ? (isWolf(g, x) ? 'Werwolf' : 'Kein Werwolf') : RM[g.roles[x]].name)).sort();
+  return `${ids.map((x) => nm(g, x)).join(', ')}: ${names.join(', ')} (Erntefest: nicht zuordnen)`;
+};
+
 const seenText = (g, id) => {
   const rid = g.roles[id];
   if (!rid) return null;
@@ -153,13 +168,20 @@ function taskBox(g, c) {
         cls = d.actorRole ? 'ok' : '';
         extra = acts(g.actorPool.map((x) => abtn('actor-role', esc(roleName(x)), { on: d.actorRole === x, attrs: `data-role="${x}"` })).join(''));
         break;
-      case 'seance':
-        prompt = d.seance === true ? 'Morgen findet eine Geisterbeschwörung statt.' : d.seance === false ? 'Keine Beschwörung morgen.' : 'Soll morgen eine Geisterbeschwörung stattfinden?';
-        cls = d.seance == null ? '' : 'ok';
-        extra = acts(abtn('seance', 'Ja', { on: d.seance === true, attrs: 'data-v="1"' }) + abtn('seance', 'Nein', { on: d.seance === false, attrs: 'data-v="0"' }));
+      case 'seance': {
+        const left = (g.ev?.spirit ?? []).map((id) => SPIRIT_CARDS.find((c) => c.id === id)).filter(Boolean);
+        const card = d.spCard && SPIRIT_CARDS.find((c) => c.id === d.spCard), q = card?.qs[d.spQ];
+        const yn = acts(abtn('seance', 'Ja', { on: d.seance === true, attrs: 'data-v="1"' }) + abtn('seance', 'Nein', { on: d.seance === false, attrs: 'data-v="0"' }));
+        if (d.seance !== true) { prompt = d.seance === false ? 'Keine Beschwörung morgen.' : 'Soll morgen eine Geisterbeschwörung stattfinden?'; cls = d.seance == null ? '' : 'ok'; extra = yn; }
+        else if (!left.length) { prompt = 'Morgen findet eine Geisterbeschwörung statt. Keine Spiritismus-Karten mehr: Die Frage stellst du frei.'; cls = 'ok'; extra = yn; }
+        else if (!card) { prompt = `Welche Spiritismus-Karte liest du vor? (${left.length} übrig)`; extra = yn + acts(left.map((c) => abtn('seance-card', `Karte ${SPIRIT_CARDS.indexOf(c) + 1}`, { attrs: `data-id="${c.id}"` })).join('')); }
+        else if (!q) { prompt = 'Lies die vier Fragen vor. Die Wahrsagerin zeigt eine davon: Welche?'; extra = acts(card.qs.map((x, i) => abtn('seance-q', `${i + 1}. ${esc(x.t)}`, { attrs: `data-i="${i}"` })).join('') + abtn('seance-card', 'Andere Karte', { attrs: `data-id="${card.id}"` })); }
+        else { prompt = d.medium ? `Frage „${q.t}“ · Medium: ${nm(g, d.medium)}` : `Frage „${q.t}“. Wer wird morgen das Medium? Person im Kreis antippen.`; cls = d.medium ? 'ok' : ''; extra = acts(abtn('seance-q', 'Andere Frage', { attrs: `data-i="${d.spQ}"` }) + yn); }
         break;
+      }
       case 'check': {
         if (!d.check) prompt = 'Wen prüft die Seherin? Person antippen.';
+        else if (g.cfg.rules.harvest) prompt = harvestSeen(g, d.check) ?? `${nm(g, d.check)}: Rollen der Nachbarn noch nicht erfasst. Zeig der Seherin die Karten.`;
         else prompt = seenText(g, d.check) ? `${nm(g, d.check)}: ${seenText(g, d.check)}` : `${nm(g, d.check)}: Rolle noch nicht erfasst. Zeig der Seherin die Karte.`;
         cls = d.check ? 'ok' : '';
         break;
@@ -210,7 +232,7 @@ function taskBox(g, c) {
   }
   const seg = (g.cfg.mode === 'cards' && g.night === 1 && step.act && r) ? `<div class="seg"><button class="${mode === 'assign' ? 'on' : ''}" data-action="assign-mode" data-mode="assign">1 · Wer? (${c.have}/${c.need})</button><button class="${mode === 'action' ? 'on' : ''}" data-action="assign-mode" data-mode="action" ${c.have === 0 ? 'disabled' : ''}>2 · Aktion</button></div>` : '';
   const task = `<div class="task ${cls}">${seg}<div class="prompt">${cls === 'ok' ? I.check : I.right}<span>${esc(prompt)}</span></div>${extra}</div>`;
-  const pin = mode === 'action' && ['witch', 'kill', 'infect', 'side', 'seance'].includes(step.act);
+  const pin = mode === 'action' && ['witch', 'kill', 'infect', 'side'].includes(step.act);
   return { html: pin ? '' : task, pin: pin ? task : '' };
 }
 
@@ -219,6 +241,8 @@ on('girl-caught', () => { dispatch({ t: 'girl-caught' }); return false; });
 on('actor-role', (el) => { dispatch({ t: 'actor-role', role: el.dataset.role }); return false; });
 on('thief-role', (el) => { dispatch({ t: 'thief-role', role: el.dataset.role }); return false; });
 on('seance', (el) => { dispatch({ t: 'seance', v: el.dataset.v === '1' }); return false; });
+on('seance-card', (el) => { dispatch({ t: 'seance-card', id: el.dataset.id }); return false; });
+on('seance-q', (el) => { dispatch({ t: 'seance-q', i: +el.dataset.i }); return false; });
 on('witch-heal', () => { dispatch({ t: 'witch-heal' }); return false; });
 on('witch-poison', () => { dispatch({ t: 'witch-poison' }); return false; });
 on('infect', () => { dispatch({ t: 'infect' }); return false; });
@@ -284,13 +308,19 @@ function timerCard() {
 }
 
 function voteCard(g) {
-  const d = g.draft, t = tally(g), count = d.voteMode !== 'direct', captainMode = g.dayMode === 'captain';
+  const d = g.draft, t = tally(g), mode = d.voteMode ?? 'count', count = mode === 'count', captainMode = g.dayMode === 'captain';
   const names = (ids) => ids.map((x) => nm(g, x)).join(' und ');
   const rows = t.rows.map((r) => `<div class="vrow ${t.leaders.includes(r.pid) ? 'lead' : ''}"><b>${esc(nm(g, r.pid))}</b><span class="vnote">${[r.cap ? 'Hauptmann doppelt' : '', r.bonus ? 'Rabe +2' : ''].filter(Boolean).join(' · ')}</span><span class="vnum">${r.total}</span></div>`).join('');
   const result = !t.rows.length ? 'Noch keine Stimmen gezählt.' : t.tie ? `Gleichstand: ${names(t.leaders)} mit je ${t.max}.` : `Vorn: ${nm(g, t.leaders[0])} mit ${t.max} ${t.max === 1 ? 'Stimme' : 'Stimmen'}.`;
   const cap = !captainMode && g.captain && alive(g, g.captain);
-  const seg = `<div class="seg"><button class="${count ? 'on' : ''}" data-action="vote-mode" data-mode="count">Stimmen zählen</button><button class="${!count ? 'on' : ''}" data-action="vote-mode" data-mode="direct">Direkt wählen</button></div>`;
-  const body = count ? `
+  const voucherOn = g.cfg.rules.voucher && !captainMode;
+  const seg = `<div class="seg"><button class="${count ? 'on' : ''}" data-action="vote-mode" data-mode="count">Stimmen zählen</button><button class="${mode === 'direct' ? 'on' : ''}" data-action="vote-mode" data-mode="direct">Direkt wählen</button>${voucherOn ? `<button class="${mode === 'voucher' ? 'on' : ''}" data-action="vote-mode" data-mode="voucher">Bürgen</button>` : ''}</div>`;
+  const victim = mode === 'voucher' ? voucherVictim(g) : null, starter = mode === 'voucher' ? voucherStart(g) : null, seats = eligibleVoters(g).length;
+  const voucherBody = `<p class="muted vhint">${starter ? `Beginn: ${esc(nm(g, starter))} (links vom zuletzt Ausgeschiedenen). ` : ''}Reihum bürgt jeder für eine andere Person, die sich setzt: Tippe sie an. Die Wölfe sollten als Letzte bürgen.</p>
+      <div class="vlist">${d.sit.map((id, i) => `<div class="vrow"><b>${i + 1}. ${esc(nm(g, id))}</b><span class="vnote">sitzt</span></div>`).join('')}</div>
+      <div class="vres ${victim ? 'warn' : ''}">${victim ? `Als Einziger steht ${esc(nm(g, victim))}: Opfer des Dorfes.` : `${d.sit.length} von ${Math.max(0, seats - 1)} sitzen.`}</div>
+      <div class="acts"><button class="btn sm" data-action="vote-reset" ${d.sit.length ? '' : 'disabled'}>${I.reset}<span>Neu beginnen</span></button></div>`;
+  const body = mode === 'voucher' ? voucherBody : count ? `
       <p class="muted vhint">Tippe im Kreis für jede erhobene Hand die gewählte Person an.</p>
       <div class="vlist">${rows}</div>
       <div class="vres ${t.tie ? 'warn' : ''}">${esc(result)}</div>
@@ -307,11 +337,12 @@ function dayPanel(g) {
   const d = g.draft;
   const judge = livingHolders(g, 'judge')[0];
   const sg = livingHolders(g, 'scapegoat')[0];
-  const t = tally(g), count = d.voteMode !== 'direct';
+  const t = tally(g), count = (d.voteMode ?? 'count') === 'count';
   const chosen = count ? (t.leaders.length === 1 ? t.leaders[0] : null) : d.vote;
   let body = '', foot = '';
   if (g.day === 0) body += `<div class="card col"><div class="eyebrow">Tag 0</div><p>Der Engel ist im Spiel: Die Partie beginnt mit einer Abstimmung, noch vor der ersten Nacht. Erinnere die Runde ruhig an die mögliche Anwesenheit des Engels.</p></div>`;
   else if (!ui.hideMorning) body += morningCard(g);
+  if (g.day > 0) body += eventBlock(g);
   if (g.dayMode === 'captain') {
     body += `<div class="task"><div class="prompt">${I.crown}<span>Hauptmann wählen. Seine Stimme zählt später doppelt.</span></div></div>${voteCard(g)}`;
     foot = `<button class="btn" data-action="skip-captain">Ohne Hauptmann</button><button class="btn primary" data-action="captain-confirm" ${chosen ? '' : 'disabled'}>${I.crown}<span>Hauptmann ernennen</span></button>`;
