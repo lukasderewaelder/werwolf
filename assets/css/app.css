@@ -1,5 +1,5 @@
 /* Werwolf Spielleiter – Design: Nacht dunkel (Mondlicht, Laternengelb), Tag hell (Pergament, Terrakotta) */
-:root{
+:root{--vh:var(--app-h,100dvh);
   --serif: ui-serif, "New York", "Iowan Old Style", Georgia, "Times New Roman", serif;
   --sans: system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --r: 16px; --r-sm: 11px;
@@ -45,7 +45,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .star{animation:twinkle 4s ease-in-out infinite}
 .cloud{animation:drift 140s linear infinite}
 
-#app{position:relative;z-index:1;height:100vh;height:100dvh;height:calc(var(--app-h, 100dvh) - var(--extra-b, 0px));display:flex;flex-direction:column;padding:var(--safe-t) var(--safe-r) 0 var(--safe-l)}
+#app{position:relative;z-index:1;height:100vh;height:100dvh;height:var(--app-h, 100dvh);display:flex;flex-direction:column;padding:var(--safe-t) var(--safe-r) 0 var(--safe-l)}
 .view{flex:1;min-height:0;display:flex;flex-direction:column;animation:rise .25s ease}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
@@ -133,8 +133,8 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
 /* ---------- Seiten mit Rand ---------- */
 .page{flex:1;min-height:0;display:flex;flex-direction:column;gap:14px;padding:6px 20px max(20px,var(--safe-b));width:100%;max-width:880px;margin:0 auto}
 .page.wide{max-width:1180px}
-.foot{flex:none;display:flex;gap:10px;padding-top:6px}
-.foot .btn{flex:1}.foot .btn.primary{flex:1.6}
+.foot{flex:none;display:flex;flex-wrap:wrap;gap:10px;padding-top:6px}
+.foot .btn{flex:1 1 auto;min-width:0}.foot .btn.primary{flex:1.6 1 auto}
 
 /* ---------- Assistent ---------- */
 .steps{display:flex;gap:6px;padding:0 20px;max-width:880px;width:100%;margin:0 auto}
@@ -212,6 +212,7 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
 
 .side{min-height:0;min-width:0;display:flex;flex-direction:column;gap:12px}
 .side-scroll{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:2px 2px 4px}
+.side-scroll>*{flex-shrink:0}
 .side-foot{flex:none;display:flex;gap:10px}
 .side-foot .btn.primary{flex:1}
 .stepstrip{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0}
@@ -249,7 +250,7 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
 /* ---------- Dialoge ---------- */
 .backdrop{position:fixed;inset:0;z-index:30;background:rgba(5,8,18,.66);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:grid;place-items:center;padding:16px}
 .backdrop.sheet{place-items:end center;padding:0}
-.modal{width:min(100%,560px);max-height:88dvh;overflow:auto;background:var(--bg2);border:1px solid var(--line);border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 30px 70px rgba(0,0,0,.55);animation:rise .2s ease}
+.modal{width:min(100%,560px);max-height:calc(var(--vh)*.88);overflow:auto;background:var(--bg2);border:1px solid var(--line);border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 30px 70px rgba(0,0,0,.55);animation:rise .2s ease}
 .modal.wide{width:min(100%,860px)}
 .modal h2{font-family:var(--serif);font-size:24px}
 .modal.sheet{border-radius:22px 22px 0 0;padding-bottom:max(18px,var(--safe-b))}
@@ -267,7 +268,7 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
 
 /* Karten zeigen (ohne Karten-Modus) */
 .deal{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px}
-.dealcard{width:min(86vw,380px);aspect-ratio:3/4.4;max-height:70dvh;border-radius:26px;border:3px solid var(--line);box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;text-align:center;position:relative;overflow:hidden;animation:rise .3s ease}
+.dealcard{width:min(86vw,380px);aspect-ratio:3/4.4;max-height:calc(var(--vh)*.7);border-radius:26px;border:3px solid var(--line);box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;text-align:center;position:relative;overflow:hidden;animation:rise .3s ease}
 .dealcard.back{background:repeating-linear-gradient(45deg,rgba(255,255,255,.05) 0 8px,transparent 8px 18px),linear-gradient(160deg,var(--raise),var(--surface))}
 .dealcard.face{background:linear-gradient(180deg,rgba(0,0,0,.2),rgba(0,0,0,.7)),var(--rc)}
 .dealcard .rbg{width:min(46vw,190px);aspect-ratio:1;border-radius:20px;border:3px solid rgba(255,255,255,.6)}
@@ -281,10 +282,13 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
   .home-hero .logo{width:96px}
   .game{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:10px}
   .table-box{display:none}.pgrid{display:grid;flex:1;min-height:0;overflow-y:auto}
-  .table-wrap{min-height:0;max-height:38dvh}
+  .table-wrap{min-height:0;max-height:calc(var(--vh)*.34);overflow:hidden}
   .side{min-width:0}
   .mode-grid{grid-template-columns:1fr}
   .rolebox .rbg{width:64px;height:76px}
+}
+@media (max-width:430px){
+  .pgrid{grid-template-columns:repeat(auto-fill,minmax(64px,1fr))}
 }
 @media (max-width:520px){
   .bar{padding:8px 12px}.bar h1{font-size:19px}
@@ -332,13 +336,13 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
   .ibtn{width:40px;height:40px}
   .btn{min-height:46px}.btn.primary{min-height:50px;font-size:17px}
   .game{gap:8px}
-  .table-wrap{max-height:30dvh}
+  .table-wrap{max-height:calc(var(--vh)*.3)}
   .rolebox .rbg{width:52px;height:62px}.rolebox h2{font-size:21px;margin:0}
   .say{font-size:16px;padding:8px 12px}
   .card{padding:10px 12px}.task{padding:10px 12px}
   .pgrid .tok .ava{width:50px}.pgrid{gap:8px 6px;grid-template-columns:repeat(auto-fill,minmax(66px,1fr))}
   .timer .t{font-size:30px}
-  .modal{max-height:92dvh}
+  .modal{max-height:calc(var(--vh)*.92)}
 }
 @media (orientation:landscape) and (max-height:520px){
   .game{grid-template-columns:minmax(0,1fr) minmax(300px,1fr);grid-template-rows:minmax(0,1fr)}
@@ -381,7 +385,6 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
 .bar small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .side-actions .task{box-shadow:none}
 
-.ruler{flex:none;height:16px;background:var(--accent);color:var(--accent-ink);font-size:11px;font-weight:800;line-height:16px;text-align:center;letter-spacing:.08em;text-transform:uppercase}
 
 /* ---------- Sperre, Spielstände, Sitz-Vorschau ---------- */
 .lock{align-items:center;justify-content:center;padding:var(--safe-t) 16px max(16px,var(--safe-b))}
@@ -394,7 +397,7 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
 .pin-dots i.on{background:var(--accent);border-color:var(--accent)}
 .pin-msg{min-height:22px;font-size:14px;color:var(--muted);text-align:center}.pin-msg.bad{color:var(--danger);font-weight:700}
 .pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:min(100%,300px)}
-.pin-pad button{height:clamp(52px,9dvh,68px);border-radius:18px;background:var(--surface);border:1px solid var(--line);font-size:26px;font-weight:700;display:grid;place-items:center}
+.pin-pad button{height:clamp(52px,calc(var(--vh)*.09),68px);border-radius:18px;background:var(--surface);border:1px solid var(--line);font-size:26px;font-weight:700;display:grid;place-items:center}
 .pin-pad button svg{width:26px;height:26px}
 .pin-pad button:active{background:var(--raise)}
 .saves{display:flex;flex-direction:column;gap:8px}

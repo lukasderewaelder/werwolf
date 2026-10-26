@@ -503,7 +503,7 @@ test('Seherin sieht bei einem Infizierten nur die Karte, bei „Werwolf oder nic
   }
 });
 
-test('Sichtbare Höhe: App nimmt das kleinste Höhenmaß, der untere Abstand verkleinert sie und der Streifen bleibt sichtbar', async () => {
+test('Sichtbare Höhe: App nimmt das kleinste Höhenmaß, Optionen ohne Abstandsregler', async () => {
   const ctx = await app.newContext({ viewport: { width: 393, height: 727 }, hasTouch: true });
   const { page, problems } = await app.openApp({ context: ctx });
   const h = () => page.evaluate(() => Math.round(document.getElementById('app').getBoundingClientRect().height));
@@ -512,23 +512,51 @@ test('Sichtbare Höhe: App nimmt das kleinste Höhenmaß, der untere Abstand ver
   await page.evaluate(async () => {
     Object.defineProperty(window, 'innerHeight', { get: () => 650, configurable: true });
     const { fitViewport } = await import('/src/viewport.js');
-    fitViewport(0);
+    fitViewport();
   });
   assert.equal(await h(), 650);
-  await page.evaluate(async () => { Object.defineProperty(window, 'innerHeight', { get: () => 727, configurable: true }); const { fitViewport } = await import('/src/viewport.js'); fitViewport(0); });
-  // Optionen: Regler schiebt die Unterkante nach oben, Streifen bleibt sichtbar
+  await page.evaluate(async () => { Object.defineProperty(window, 'innerHeight', { get: () => 727, configurable: true }); const { fitViewport } = await import('/src/viewport.js'); fitViewport(); });
   await page.click('[data-action=go][data-view=settings]');
   await page.waitForTimeout(450);   // Einblend-Animation abwarten
-  await reachable(page, '.ruler', 'Streifen');
-  await page.evaluate(() => { const r = document.getElementById('pad-range'); r.value = '40'; r.dispatchEvent(new Event('input', { bubbles: true })); });
-  assert.equal(await h(), 687);
-  assert.equal(await page.evaluate(() => window.__werwolf.S.settings.bottomPad), 40);
-  await page.waitForTimeout(100);
-  await reachable(page, '.ruler', 'Streifen mit Abstand');
-  await page.reload();
-  assert.equal(await h(), 687, 'Abstand bleibt nach dem Neuladen');
+  assert.equal(await page.locator('.ruler, #pad-range').count(), 0, 'kein gelber Streifen, kein Abstandsregler');
   assert.deepEqual(problems, []);
   await ctx.close();
+});
+
+test('Handy hochkant: Nachtansicht mit 5, 12 und 20 Spielern ist vollständig sichtbar, Rollenreihe wird nicht gequetscht', async () => {
+  const sizes = [['384×777', { width: 384, height: 777 }], ['412×890', { width: 412, height: 890 }], ['360×800', { width: 360, height: 800 }], ['393×727', { width: 393, height: 727 }]];
+  for (const [label, viewport] of sizes) {
+    const ctx = await app.newContext({ viewport, hasTouch: true, isMobile: true, userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36' });
+    const { page, problems } = await app.openApp({ context: ctx });
+    for (const n of [5, 12, 20]) {
+      const wolves = n >= 12 ? 3 : 1;
+      const roles = ['wolf', 'seer', ...(n >= 12 ? ['wolf', 'wolf', 'witch', 'hunter'] : [])];
+      const rest = n - roles.length;
+      const all = [...roles, ...Array(rest).fill('villager')];
+      const counts = {}; for (const r of all) counts[r] = (counts[r] ?? 0) + 1;
+      await startGame(page, { names: Array.from({ length: n }, (_, i) => 'Spieler' + (i + 1)), counts, roles: all });
+      for (const idx of [0, 1]) {
+        await page.evaluate((i) => { const w = window.__werwolf; w.S.game.stepIdx = i; w.render(); }, idx);
+        await page.waitForTimeout(350);   // Einblend-Animation abwarten
+        const tag = `${label} ${n} Spieler Schritt ${idx} (${wolves} Wölfe)`;
+        await reachable(page, '.stepstrip .sdot.cur', tag + ' Rollenreihe');
+        await reachable(page, '.rolebox', tag + ' Rollenkarte');
+        await reachable(page, '[data-action=step-next]', tag + ' Weiter');
+        const hs = await page.evaluate(() => ({ chip: Math.round(document.querySelector('.sdot').getBoundingClientRect().height), strip: Math.round(document.querySelector('.stepstrip').getBoundingClientRect().height) }));
+        assert.ok(hs.chip >= 30 && hs.strip >= 30, `${tag}: Rollenreihe gequetscht ${JSON.stringify(hs)}`);
+      }
+      if (n === 12 && label === '384×777') {
+        // Anzeige meldet mehr Höhe als sichtbar: App folgt dem kleineren Maß, alles bleibt im Fenster
+        await page.evaluate(async () => { Object.defineProperty(window, 'innerHeight', { get: () => 700, configurable: true }); const { fitViewport } = await import('/src/viewport.js'); fitViewport(); });
+        await page.waitForTimeout(100);
+        await reachable(page, '[data-action=step-next]', label + ' bei 700 Höhe Weiter');
+        await reachable(page, '.stepstrip .sdot.cur', label + ' bei 700 Höhe Rollenreihe');
+        await page.evaluate(async () => { Object.defineProperty(window, 'innerHeight', { get: () => 777, configurable: true }); const { fitViewport } = await import('/src/viewport.js'); fitViewport(); });
+      }
+    }
+    assert.deepEqual(problems, [], label);
+    await ctx.close();
+  }
 });
 
 const centerOf = async (loc) => { const b = await loc.boundingBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; };

@@ -1,5 +1,5 @@
 // Diagnoseseite: zeigt, ob Offlinebetrieb, Speicher und Ton auf diesem Gerät bereit sind.
-import { S, ui, views, on, go, toast, render } from './core.js';
+import { S, ui, views, on, go, toast, render, layoutSnap } from './core.js';
 import { esc, I } from './art.js';
 import { topBar } from './home.js';
 import { isStandalone, isIOS, isAndroid } from './install.js';
@@ -64,8 +64,9 @@ views.diagnose = () => {
     const inset = (side) => { probe.style.height = `env(safe-area-inset-${side}, 0px)`; return Math.round(probe.getBoundingClientRect().height); };
     const app = document.getElementById('app')?.getBoundingClientRect();
     rows.push(row('info', 'Anzeige', `${innerWidth} × ${innerHeight} Punkte, ${innerWidth > innerHeight ? 'quer' : 'hoch'}, Faktor ${devicePixelRatio}`,
-      `Sichtbar (visualViewport) ${vv ? Math.round(vv.width) + ' × ' + Math.round(vv.height) : '?'} · Bildschirm ${screen.width} × ${screen.height}, nutzbar ${screen.availWidth} × ${screen.availHeight} · Einheiten: ${units} · Sicherheitsabstand oben ${inset('top')}, unten ${inset('bottom')}, links ${inset('left')}, rechts ${inset('right')} · App-Fläche ${app ? Math.round(app.width) + ' × ' + Math.round(app.height) : '?'} · gesetzte Höhe ${getComputedStyle(document.documentElement).getPropertyValue('--app-h').trim() || '?'} (clientHeight ${document.documentElement.clientHeight}) · unterer Abstand ${S.settings.bottomPad}`));
+      `Sichtbar (visualViewport) ${vv ? Math.round(vv.width) + ' × ' + Math.round(vv.height) : '?'} · Bildschirm ${screen.width} × ${screen.height}, nutzbar ${screen.availWidth} × ${screen.availHeight} · Einheiten: ${units} · Sicherheitsabstand oben ${inset('top')}, unten ${inset('bottom')}, links ${inset('left')}, rechts ${inset('right')} · App-Fläche ${app ? Math.round(app.width) + ' × ' + Math.round(app.height) : '?'} · gesetzte Höhe ${getComputedStyle(document.documentElement).getPropertyValue('--app-h').trim() || '?'} (clientHeight ${document.documentElement.clientHeight})`));
     probe.style.height = '0';
+    rows.push(row('info', 'Layout im Spiel (Höhe, Unterkante)', `Fenster ${innerHeight}, außen ${outerHeight}`, layoutSnap.parts.length ? layoutSnap.parts.join(' · ') : 'Noch kein Spiel gesehen. Erst ein Spiel öffnen, dann hierher.'));
     rows.push(row('info', 'Gerät', `${isIOS() ? 'iPad/iPhone' : isAndroid() ? 'Android' : 'Computer'} · ${navigator.onLine ? 'online' : 'offline'}`, (navigator.userAgent || '').slice(0, 120)));
   }
   return `<div class="view">${topBar('Diagnose', 'Ist das Gerät bereit?', { back: 'go-settings' })}

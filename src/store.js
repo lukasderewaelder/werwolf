@@ -8,7 +8,7 @@ export const FORMAT = 'werwolf-sicherung';
 export const defaultSettings = () => ({
   theme: 'auto',          // auto = Nacht dunkel, Tag hell je Spielphase; night/day = fest
   sound: true, music: true, volume: 0.7,
-  haptics: true, wakeLock: true, timer: 180, showRoles: true, bottomPad: 0, lockPin: null,
+  haptics: true, wakeLock: true, timer: 180, showRoles: true, lockPin: null,
   mode: 'cards', rules: { ...DEFAULT_RULES },
 });
 
@@ -30,6 +30,7 @@ export function load() {
 
 function normalize(s, base) {
   s.settings = { ...base.settings, ...(s.settings || {}), rules: { ...base.settings.rules, ...(s.settings?.rules || {}) } };
+  delete s.settings.bottomPad;   // alter Regler „Unterer Abstand“, gibt es nicht mehr
   s.setup = { ...base.setup, ...(s.setup || {}) };
   if (!Array.isArray(s.groups)) s.groups = [];
   if (!Array.isArray(s.saves)) s.saves = [];

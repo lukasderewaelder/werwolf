@@ -77,6 +77,15 @@ function applyTheme() {
 
 /* ---------- Rendern ---------- */
 
+/** Maße der Spielansicht (Höhe, Unterkante) zuletzt gesehen, für die Diagnose: zeigt, welches Element über den Rand ragt. */
+export const layoutSnap = { at: 0, parts: [] };
+const LAYOUT_PARTS = [['App', '#app'], ['Spielfeld', '.game'], ['Spieler', '.table-wrap'], ['Seitenfeld', '.side'], ['Scrollbereich', '.side-scroll'], ['Fußleiste', '.side-foot']];
+function snapLayout(app) {
+  if (!app.querySelector('.side-foot')) return;
+  layoutSnap.at = Date.now();
+  layoutSnap.parts = LAYOUT_PARTS.map(([n, s]) => { const e = document.querySelector(s); if (!e) return null; const r = e.getBoundingClientRect(); return `${n} ${Math.round(r.height)} (bis ${Math.round(r.bottom)})`; }).filter(Boolean);
+}
+
 let rendering = false;
 export function render() {
   if (rendering) return;
@@ -87,6 +96,7 @@ export function render() {
     const fn = locked ? views.lock : (views[ui.view] ?? views.home);
     const active = document.activeElement;
     const focus = active && active.id && app.contains(active) ? { id: active.id, s: active.selectionStart, e: active.selectionEnd } : null;
+    snapLayout(app);
     const scrolls = [...app.querySelectorAll('[data-keep]')].map((el) => [el.dataset.keep, el.scrollTop, el.scrollLeft]);
     app.innerHTML = fn() + (ui.modal && (!locked || ui.modal.type === 'pin-forgot') ? (views.modal?.() ?? '') : '');
     for (const [k, t, l] of scrolls) { const el = app.querySelector(`[data-keep="${k}"]`); if (el) { el.scrollTop = t; el.scrollLeft = l; } }

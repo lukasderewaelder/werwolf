@@ -59,7 +59,7 @@ function syncMusic() {
 document.addEventListener('pointerdown', () => { if (!touched) { touched = true; unlockAudio(); syncMusic(); } }, { once: false });
 import('./ui/core.js').then((m) => m.afterRender.push(syncMusic));
 
-watchViewport(() => S.settings.bottomPad);   // sichtbare Höhe messen, bevor etwas gezeichnet wird
+watchViewport();   // sichtbare Höhe messen, bevor etwas gezeichnet wird
 navigator.storage?.persist?.().catch(() => {});   // Gerät soll Spielstand und Gruppen nicht aufräumen
 buildScene();
 setupServiceWorker();

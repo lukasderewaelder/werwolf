@@ -7,7 +7,6 @@ import { ROLES, RM, SETS, CAMP_LABEL, findRoles } from '../engine/roles.js';
 import { exportBackup, importBackup, defaultSettings } from '../store.js';
 import { installButton, isStandalone } from './install.js';
 import { setVolume } from '../audio.js';
-import { fitViewport } from '../viewport.js';
 import { lockCard } from './lock.js';
 
 on('lib-set', (el) => { ui.libSet = el.dataset.set; ui.query = ''; });
@@ -60,15 +59,6 @@ on('input:vol-range', (el) => {
   return false;
 });
 
-on('input:pad-range', (el) => {
-  S.settings.bottomPad = Math.max(0, Math.min(160, +el.value));
-  fitViewport(S.settings.bottomPad);
-  const out = document.getElementById('pad-out'); if (out) out.textContent = S.settings.bottomPad + ' Punkte';
-  persist();
-  return false;
-});
-on('pad-reset', () => { S.settings.bottomPad = 0; fitViewport(0); });
-
 /** Lautstärkeregler mit Schaltern für Töne und Musik (Optionen und Spielmenü). */
 export const soundCard = () => `<div class="card flat col"><div class="row between"><b>Lautstärke</b><span id="vol-out" class="muted" style="font-weight:700">${Math.round((S.settings.volume ?? 0.7) * 100)} %</span></div>
   <input id="vol-range" type="range" min="0" max="100" value="${Math.round((S.settings.volume ?? 0.7) * 100)}" aria-label="Lautstärke" style="width:100%;height:36px;accent-color:var(--accent)">
@@ -96,18 +86,13 @@ views.settings = () => {
       <div class="card flat col"><span class="muted" style="font-size:14px">Gruppen und Einstellungen liegen nur auf diesem Gerät. Die installierte App auf dem iPad hat einen eigenen Speicher, getrennt von Safari. Mit einer Sicherungsdatei ziehst du um.</span>
         <div class="row wrap"><button class="btn" data-action="backup-export">${I.download}Sicherung speichern</button><label class="btn" for="backup-file" style="cursor:pointer">Sicherung laden</label><input type="file" id="backup-file" accept="application/json,.json" hidden></div>
         <button class="btn danger" data-action="reset-all">${I.reset}Alles zurücksetzen</button></div>
-      <div class="eyebrow" style="margin-top:6px">Anzeige</div>
-      <div class="card flat col"><div class="row between"><b>Unterer Abstand</b><span id="pad-out" class="muted" style="font-weight:700">${S.settings.bottomPad} Punkte</span></div>
-        <input id="pad-range" type="range" min="0" max="120" step="2" value="${S.settings.bottomPad}" aria-label="Unterer Abstand" style="width:100%;height:36px;accent-color:var(--accent)">
-        <span class="muted" style="font-size:13px">Sind unten Knöpfe abgeschnitten, schiebe den Regler, bis der gelbe Streifen ganz unten auf dieser Seite zu sehen ist.</span>
-        <button class="btn sm" data-action="pad-reset" style="align-self:flex-start">Zurücksetzen</button></div>
       <div class="eyebrow" style="margin-top:6px">Schutz</div>
       ${lockCard()}
       <div class="eyebrow" style="margin-top:6px">Hilfe</div>
       <button class="opt" data-action="open-diagnose"><span class="t"><b>Diagnose</b><span>Prüft Offlinebetrieb, Speicher und Ton auf diesem Gerät</span></span>${I.right}</button>
       <div class="eyebrow" style="margin-top:6px">Quellen</div>
       <div class="card flat col"><span class="muted" style="font-size:13px">Musik: congusbongus, SubspaceAudio (Juhani Junkala), RandomMind. Töne: NaturesTemper, BenjaminNelan, BOSS MUSIC, Audeption, Aeonemi, cynicmusic. Alles CC0 von OpenGameArt und Freesound, Details in docs/QUELLEN.md. Rollenbilder aus der bisherigen App.</span></div>
-    </div></div><div class="ruler" aria-hidden="true">Unterkante</div></div>`;
+    </div></div></div>`;
 };
 
 on('backup-export', async () => {
