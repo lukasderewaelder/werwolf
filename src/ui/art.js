@@ -4,7 +4,7 @@ import { I } from './icons.js';
 
 export const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const SVG_PORTRAITS = new Set(['judge', 'actor', 'medium']);
+const SVG_PORTRAITS = new Set(['judge']);
 export const portraitUrl = (id) => `assets/portraits/${id}.${SVG_PORTRAITS.has(id) ? 'svg' : 'webp'}`;
 export const roleColor = (id) => RM[id]?.color ?? '#3a4466';
 
