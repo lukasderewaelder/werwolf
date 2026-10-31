@@ -264,7 +264,7 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
 .rd p{color:var(--muted);margin-top:6px}
 .ov-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
 .ov{display:flex;flex-direction:column;gap:6px;text-align:left}
-.ov .rbg{width:100%;aspect-ratio:1;border-radius:14px}
+.ov .rbg{width:100%;aspect-ratio:8/9;border-radius:14px}
 .ov b{font-size:14px}.ov small{font-size:12px;color:var(--muted);line-height:1.2}
 #toast{position:fixed;left:50%;bottom:calc(90px + var(--safe-b));transform:translate(-50%,20px);z-index:60;opacity:0;max-width:min(90vw,520px);padding:12px 18px;border-radius:14px;background:var(--surface2);border:1px solid var(--accent);box-shadow:var(--shadow);font-weight:700;text-align:center;transition:opacity .2s,transform .2s;pointer-events:none}
 #toast.show{opacity:1;transform:translate(-50%,0)}
@@ -274,7 +274,7 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
 .dealcard{width:min(86vw,380px);aspect-ratio:3/4.4;max-height:calc(var(--vh)*.7);border-radius:26px;border:3px solid var(--line);box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;text-align:center;position:relative;overflow:hidden;animation:rise .3s ease}
 .dealcard.back{background:repeating-linear-gradient(45deg,rgba(255,255,255,.05) 0 8px,transparent 8px 18px),linear-gradient(160deg,var(--raise),var(--surface))}
 .dealcard.face{background:linear-gradient(180deg,rgba(0,0,0,.2),rgba(0,0,0,.7)),var(--rc)}
-.dealcard .rbg{width:min(46vw,190px);aspect-ratio:1;border-radius:20px;border:3px solid rgba(255,255,255,.6)}
+.dealcard .rbg{width:min(46vw,190px);aspect-ratio:8/9;border-radius:20px;border:3px solid rgba(255,255,255,.6)}
 .dealcard h2{font-family:var(--serif);font-size:34px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.6)}
 .dealcard p{color:#fff;opacity:.9;font-size:14px;max-width:28ch}
 .dealcard .who{font-weight:800;letter-spacing:.08em;text-transform:uppercase;font-size:14px;color:#fff;opacity:.9}
