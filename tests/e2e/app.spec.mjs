@@ -141,6 +141,9 @@ test('Eigene Rolle: anlegen, einplanen, in der Nacht aufgerufen', async () => {
   await page.click('[data-action=custom-new]');
   await page.fill('#custom-form input[name=name]', 'Nachtwächter');
   await page.selectOption('#custom-form select[name=wake]', 'every');
+  await page.selectOption('#custom-form select[name=cact]', 'protect');
+  await page.selectOption('#custom-form select[name=win]', 'survive');
+  await page.click('#custom-form label.chip:has(input[value="🛡️"])');
   await page.fill('#custom-form input[name=say]', 'Der Nachtwächter erwacht.');
   await page.click('#custom-form button[type=submit]');
   await page.click('[data-action=role-inc]');
@@ -149,6 +152,8 @@ test('Eigene Rolle: anlegen, einplanen, in der Nacht aufgerufen', async () => {
   await page.click('[data-action=start-game]');
   await page.waitForSelector('.game');
   assert.ok((await page.locator('.sdot').allInnerTexts()).some((t) => /Nachtwächter/.test(t)));
+  const cr = await page.evaluate(() => window.__werwolf.S.customRoles[0]);
+  assert.deepEqual([cr.cact, cr.win, cr.icon], ['protect', 'survive', '🛡️']);
   // überlebt das Neuladen (Rolle ist im Spielstand gespeichert)
   await page.reload();
   await page.click('[data-action=resume]');
@@ -910,6 +915,20 @@ test('Gemeinde: Lehrerin und Wirt im Abstimmungsfeld, Bäcker in der Nacht', asy
   await tapName(page, 'Greta');
   assert.equal(await page.evaluate(() => window.__werwolf.S.game.draft.innVote), 'p7');
   await reachable(page, '[data-action=day-execute]', 'Hinrichten (Gemeinde)');
+  assert.deepEqual(problems, []);
+  await ctx.close();
+});
+
+test('Mittelkarten von Dieb und Gaukler sind im Menü sichtbar, auch ohne Karten', async () => {
+  const ctx = await app.newContext(PHONE_CTX);
+  const { page, problems } = await app.openApp({ context: ctx });
+  await startGame(page, { names: NAMES, counts: { wolf: 1, thief: 1, actor: 1, seer: 1, villager: 5 }, roles: ['wolf', 'thief', 'actor', 'seer', 'villager', 'villager', 'villager', 'villager'] });
+  await page.click('[data-action=open-menu]');
+  await page.click('[data-action=middle-open]');
+  const txt = await page.locator('.modal').innerText();
+  assert.match(txt, /Mittelkarten des Diebs/i);
+  assert.match(txt, /Gaukler/i);
+  await reachable(page, '.modal .mfoot .btn', 'Mitte schließen');
   assert.deepEqual(problems, []);
   await ctx.close();
 });

@@ -2,7 +2,7 @@
 import { S, ui, views, on, go, dispatch, persist, toast, clearUndo } from './core.js';
 import { esc, art, I, initials } from './art.js';
 import { roleDetailHtml, soundCard } from './pages.js';
-import { RM, ROLES, roleName, SETS } from '../engine/roles.js';
+import { RM, ROLES, roleName, SETS, CUSTOM_ACTS, CUSTOM_WIN } from '../engine/roles.js';
 import { nm, alive, roleLabel, CAUSE } from '../engine/game.js';
 import { groupById, defaultSettings, defaultSetup } from '../store.js';
 import { stopMusic } from '../audio.js';
@@ -11,6 +11,8 @@ import { isIOS, isAndroid } from './install.js';
 import { cardsModal, cardEditModal, variantsModal, evModal } from './cards.js';
 import { townModal, townAssignModal } from './town.js';
 import { BUILDINGS } from '../engine/town.js';
+
+const CUSTOM_ICONS = ['🔮', '🗡️', '🛡️', '👁️', '🔥', '🌙', '⭐', '🍀', '🕯️', '🗝️', '🎭', '🧪', '📜', '🐺', '🦉', '🐍', '⚖️', '🏹', '🪓', '🎲', '🧿', '🌹', '💀', '🔔'];
 
 const sheet = (inner, { wide = false } = {}) => `<div class="backdrop" data-action="close-modal"><div class="modal ${wide ? 'wide' : ''}" data-stop role="dialog" aria-modal="true">${inner}</div></div>`;
 const closeBtn = (label = 'Schließen') => `<div class="mfoot"><button class="btn" data-action="close-modal">${label}</button></div>`;
@@ -23,6 +25,7 @@ on('close-modal', (el, e) => {
 on('modal-back', () => { ui.modal = ui.modal?.from ?? null; });
 on('show-who', () => { ui.modal = { type: 'who' }; });
 on('show-roles', () => { ui.modal = { type: 'roles' }; });
+on('middle-open', () => { ui.modal = { type: 'middle' }; });
 on('show-log-menu', () => { ui.modal = { type: 'log' }; });
 on('player-open', (el) => { ui.modal = { type: 'player', id: el.dataset.id }; });
 on('end-game', () => { ui.modal = { type: 'confirm', what: 'end-game', title: 'Spiel beenden?', text: 'Das laufende Spiel wird abgebrochen.' }; });
@@ -58,6 +61,7 @@ views.modal = () => {
         <button class="opt" data-action="show-who"><span class="t"><b>Wer ist wer</b><span>Rollen, Status und Korrekturen pro Spieler</span></span>${I.right}</button>
         <button class="opt" data-action="show-roles"><span class="t"><b>Rollen im Spiel</b><span>Spickzettel mit allen Karten dieser Runde</span></span>${I.right}</button>
         <button class="opt" data-action="show-log-menu"><span class="t"><b>Protokoll</b><span>Was bisher passiert ist</span></span>${I.right}</button>
+        ${g && (g.cfg.counts.thief || g.cfg.counts.actor) ? `<button class="opt" data-action="middle-open"><span class="t"><b>Karten in der Mitte</b><span>Mittelkarten von Dieb und Gaukler</span></span>${I.right}</button>` : ''}
         ${g?.town ? `<button class="opt" data-action="town-open"><span class="t"><b>Die Gemeinde</b><span>Gebäude, Berufe und einmalige Fähigkeiten</span></span>${I.right}</button>` : ''}
         ${g?.ev && g.cfg.rules.events ? `<button class="opt" data-action="ev-open"><span class="t"><b>Ereigniskarten</b><span>Stapel, wirkende Karten und Büttel</span></span>${I.right}</button>` : ''}
         ${g?.cfg.counts.greis ? `<button class="opt" data-action="greis-open"><span class="t"><b>Gruppen des Greises</b><span>Dorf in zwei Gruppen teilen</span></span>${I.right}</button>` : ''}
@@ -106,12 +110,22 @@ views.modal = () => {
           <label class="col" style="gap:4px"><span class="eyebrow">Lager</span><select class="inp" name="camp"><option value="village" ${d.camp !== 'wolf' ? 'selected' : ''}>Dorfbewohner</option><option value="wolf" ${d.camp === 'wolf' ? 'selected' : ''}>Werwölfe (zählt als Wolf)</option></select></label>
           <label class="col" style="gap:4px"><span class="eyebrow">Kurzbeschreibung</span><input class="inp" name="sub" value="${esc(d.sub)}" maxlength="60" placeholder="z. B. Sieht, wer nachts wach ist"></label>
           <label class="col" style="gap:4px"><span class="eyebrow">Beschreibung</span><textarea class="inp" name="desc" maxlength="600" placeholder="Was kann die Rolle? Die Regeln führst du selbst durch.">${esc(d.desc)}</textarea></label>
-          <label class="col" style="gap:4px"><span class="eyebrow">Wann wird sie nachts aufgerufen?</span><select class="inp" name="wake"><option value="none" ${d.wake === 'none' ? 'selected' : ''}>Gar nicht</option><option value="first" ${d.wake === 'first' ? 'selected' : ''}>Nur in der ersten Nacht</option><option value="every" ${d.wake === 'every' ? 'selected' : ''}>Jede Nacht</option></select></label>
+          <div class="col" style="gap:4px"><span class="eyebrow">Symbol</span><div class="chips" style="flex-wrap:wrap;overflow:visible">${['', ...CUSTOM_ICONS].map((ic) => `<label class="chip" style="min-width:42px;justify-content:center"><input type="radio" name="icon" value="${ic}" ${(d.icon || '') === ic ? 'checked' : ''} style="position:absolute;opacity:0;pointer-events:none">${ic || 'Buchstabe'}</label>`).join('')}</div></div>
+          <label class="col" style="gap:4px"><span class="eyebrow">Nächtliche Aktion (Zielperson im Kreis antippen)</span><select class="inp" name="cact">${Object.entries(CUSTOM_ACTS).map(([k, t]) => `<option value="${k}" ${(d.cact || 'none') === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+          <label class="row" style="gap:8px;align-items:center"><input type="checkbox" name="cself" ${d.cself ? 'checked' : ''}><span>Darf sich selbst wählen</span></label>
+          <label class="col" style="gap:4px"><span class="eyebrow">Wann wird sie nachts aufgerufen?</span><select class="inp" name="wake"><option value="none" ${d.wake === 'none' ? 'selected' : ''}>Gar nicht (bei Aktion: jede Nacht)</option><option value="first" ${d.wake === 'first' ? 'selected' : ''}>Nur in der ersten Nacht</option><option value="every" ${d.wake === 'every' ? 'selected' : ''}>Jede Nacht</option><option value="even" ${d.wake === 'even' ? 'selected' : ''}>Jede zweite Nacht</option><option value="once" ${d.wake === 'once' ? 'selected' : ''}>Aktion nur einmal im Spiel</option></select></label>
+          <label class="col" style="gap:4px"><span class="eyebrow">Siegbedingung</span><select class="inp" name="win">${Object.entries(CUSTOM_WIN).map(([k, t]) => `<option value="${k}" ${(d.win || 'camp') === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
           <label class="col" style="gap:4px"><span class="eyebrow">Reihenfolge</span><select class="inp" name="after"><option value="before" ${!d.after ? 'selected' : ''}>Vor den Werwölfen</option><option value="after" ${d.after ? 'selected' : ''}>Nach den Werwölfen, vor der Hexe</option></select></label>
           <label class="col" style="gap:4px"><span class="eyebrow">Ansage zum Vorlesen</span><input class="inp" name="say" value="${esc(d.say)}" maxlength="300" placeholder="Der Nachtwächter erwacht."></label>
           <button class="btn primary" type="submit">Speichern</button>
         </form>
         ${m.id ? `<button class="btn danger" data-action="custom-delete">${I.close}Rolle löschen</button>` : ''}${closeBtn('Abbrechen')}`);
+    }
+    case 'middle': {
+      const c = (id) => `<span class="chip on">${esc(roleName(id))}</span>`;
+      const th = g.cfg.counts.thief ? `<div class="eyebrow">Mittelkarten des Diebs${g.thiefId ? ' (getauscht)' : ''}</div><div class="chips" style="flex-wrap:wrap;overflow:visible">${g.middle.map(c).join('') || '<span class="muted">leer</span>'}</div>` : '';
+      const ac = g.cfg.counts.actor ? `<div class="eyebrow">Rollen in der Mitte (Gaukler)</div><div class="chips" style="flex-wrap:wrap;overflow:visible">${g.actorPool.map(c).join('') || '<span class="muted">alle gewählt</span>'}</div>` : '';
+      return sheet(`<h2>Karten in der Mitte</h2><p class="muted">Nur für den Spielleiter. Die Rollen liegen offen oder verdeckt auf dem Tisch; hier siehst du sie auch im Spiel ohne Karten.</p>${th}${ac}${closeBtn()}`);
     }
     case 'town': return townModal(g);
     case 'town-assign': return townAssignModal(g);

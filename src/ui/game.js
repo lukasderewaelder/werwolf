@@ -37,6 +37,7 @@ function marks(g, c) {
         case 'mark': if (d.mark) m.pick.add(d.mark); break;
         case 'fire': if (d.fire) m.target.add(d.fire); break;
         case 'seance': if (d.medium) m.pick.add(d.medium); break;
+        case 'cust': { const t = d.cust[step.role]; if (t) (r.cact === 'protect' ? m.safe : r.cact === 'kill' ? m.target : m.pick).add(t); break; }
         case 'enchant': d.enchant.forEach((x) => m.pick.add(x)); Object.keys(g.enchanted).forEach((x) => m.dim.add(x)); break;
         default: break;
       }
@@ -231,6 +232,14 @@ function taskBox(g, c) {
         } else prompt = 'Der Fuchs zeigt auf die Mitte einer Dreiergruppe. Person antippen.';
         break;
       case 'fire': prompt = d.fire ? `Das Gebäude von ${nm(g, d.fire)} brennt (${BUILDINGS[g.town.b[d.fire]]?.name ?? ''}).` : 'Welches Gebäude setzt der Brandstifter in Brand? Einmal im Spiel, Person im Kreis antippen oder Weiter.'; cls = d.fire ? 'ok' : ''; break;
+      case 'cust': {
+        const t = d.cust[r.id], verb = { mark: 'markiert', kill: 'tötet', protect: 'beschützt', peek: 'prüft' }[r.cact] ?? 'wählt', once = r.night?.once ? ' (nur einmal im Spiel, sonst Weiter)' : ' (optional)';
+        if (!t) prompt = `Wen ${verb} ${r.name}? Person im Kreis antippen${once}.`;
+        else if (r.cact === 'peek') prompt = !g.roles[t] ? `${nm(g, t)}: Rolle noch nicht erfasst.` : `${nm(g, t)}: ${isWolf(g, t) ? 'Werwolf (nicken)' : 'Kein Werwolf (Kopf schütteln)'}`;
+        else prompt = `${r.name} ${verb}: ${nm(g, t)}`;
+        cls = t ? 'ok' : '';
+        break;
+      }
       case 'mark': prompt = d.mark ? `Belastet: ${nm(g, d.mark)} (zwei Stimmen mehr)` : 'Wen belastet der Rabe? (optional)'; break;
       case 'enchant': prompt = `Tippe 2 Personen zum Verzaubern an (${d.enchant.length}/2).${Object.keys(g.enchanted).length ? ` Schon verzaubert: ${Object.keys(g.enchanted).map((x) => nm(g, x)).join(', ')}.` : ''}`; cls = d.enchant.length === 2 ? 'ok' : ''; break;
       default: break;

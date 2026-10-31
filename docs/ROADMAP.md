@@ -110,7 +110,8 @@ Bekannt: Schlossherr-Knopf nur im Modus „Stimmen zählen“; Wirt-Immunität u
 
 Abnahme: Eine Partie mit Gebäuden läuft durch (Verteilen, Wirt, Lehrerin, Barbier, Brandstifter).
 
-## M14 Eigene Rollen mit Aktion
+## M14 Eigene Rollen mit Aktion (umgesetzt, wartet auf deine Abnahme)
+Umgesetzt: Eigene Rollen haben eine frei wählbare Nachtaktion (Person markieren, töten, vor den Wölfen schützen oder erfahren, ob sie ein Werwolf ist), optional mit Selbstwahl; Aufruf jede Nacht, jede zweite, nur in der ersten oder Aktion nur einmal im Spiel; Siegbedingung (mit dem Lager, allein als Letzter, Überleben und Mitgewinn); Symbol aus 24 Emojis statt Buchstabe (kein Foto, Entscheidung). Menü „Karten in der Mitte“ zeigt Mittelkarten von Dieb und Gaukler jederzeit. Grenze: je eigene Rolle genau eine Aktion; Foto nicht umgesetzt.
 - Eigene Rollen mit Zielwahl und eigener Siegbedingung, eigenes Bild (Symbol oder Foto).
 - Mittelkarten von Gaukler und Dieb sichtbar, auch im Modus ohne Karten.
 

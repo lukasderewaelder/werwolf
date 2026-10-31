@@ -341,13 +341,20 @@ export function fillVillagers(counts, n) {
 /** Rollen mit camp 'wolf' sowie der Weiße Werwolf zählen als Werwölfe. */
 export const isWolfRole = (id) => RM[id]?.camp === 'wolf' || id === 'whitewolf';
 
+/** Aktionen, die eine eigene Rolle nachts ausführen kann (Zielperson wird im Kreis angetippt). */
+export const CUSTOM_ACTS = { none: 'Keine Aktion', mark: 'Person markieren', kill: 'Person töten', protect: 'Person vor den Wölfen schützen', peek: 'Erfahren, ob die Person ein Werwolf ist' };
+export const CUSTOM_WIN = { camp: 'Mit seinem Lager', solo: 'Allein als Letzter', survive: 'Überleben (gewinnt mit dem Sieger, wenn er noch lebt)' };
+
 /** Eigene Rollen (Name, Lager village|wolf, optionaler Aufruf) in die Rollentabelle eintragen. Ersetzt frühere Einträge gleicher Kennung. */
 export function registerRoles(list = []) {
   for (const c of list) {
+    const cact = CUSTOM_ACTS[c.cact] ? c.cact : 'none';
+    const win = c.win === 'solo' || c.win === 'survive' ? c.win : 'camp';
+    const wake = cact !== 'none' && (!c.wake || c.wake === 'none') ? 'every' : c.wake;
     const def = {
-      id: c.id, name: c.name, set: 'eigene', camp: c.camp === 'wolf' ? 'wolf' : 'village', color: c.color || (c.camp === 'wolf' ? '#8a2a2a' : '#4a5f8f'),
-      sub: c.sub || 'Eigene Rolle', desc: c.desc || '', say: c.say || '', custom: true,
-      ...(c.wake && c.wake !== 'none' ? { night: { when: c.wake === 'first' ? 'first' : 'every', order: c.after ? 260 : 115, act: null } } : {}),
+      id: c.id, name: c.name, set: 'eigene', camp: c.camp === 'wolf' && win !== 'solo' ? 'wolf' : 'village', color: c.color || (c.camp === 'wolf' ? '#8a2a2a' : '#4a5f8f'),
+      sub: c.sub || 'Eigene Rolle', desc: c.desc || '', say: c.say || '', custom: true, icon: c.icon || '', win, cact, cself: !!c.cself,
+      ...(wake && wake !== 'none' ? { night: { when: wake === 'first' ? 'first' : wake === 'even' ? 'even' : 'every', order: c.after ? 260 : 115, act: cact === 'none' ? null : 'cust', ...(wake === 'once' ? { once: true } : {}) } } : {}),
     };
     const i = ROLES.findIndex((x) => x.id === c.id);
     if (i >= 0) ROLES[i] = def; else ROLES.push(def);

@@ -263,14 +263,14 @@ on('start-game', () => {
 export { CAMP_LABEL };
 
 /* ---------- Eigene Rollen ---------- */
-const blankCustom = () => ({ name: '', camp: 'village', sub: '', desc: '', say: '', wake: 'none', after: false });
+const blankCustom = () => ({ name: '', camp: 'village', sub: '', desc: '', say: '', wake: 'none', after: false, icon: '', cact: 'none', cself: false, win: 'camp' });
 on('custom-new', () => { ui.modal = { type: 'custom', id: null, draft: blankCustom() }; });
 on('custom-edit', (el) => { const r = S.customRoles.find((x) => x.id === el.dataset.id); if (r) ui.modal = { type: 'custom', id: r.id, draft: { ...blankCustom(), ...r } }; });
 on('submit:custom-form', (f) => {
   const d = Object.fromEntries(new FormData(f).entries());
   const name = (d.name || '').trim().slice(0, 28);
   if (!name) { toast('Bitte einen Namen eingeben.'); return; }
-  const role = { id: ui.modal.id ?? uid('c'), name, camp: d.camp === 'wolf' ? 'wolf' : 'village', sub: (d.sub || '').trim().slice(0, 60), desc: (d.desc || '').trim().slice(0, 600), say: (d.say || '').trim().slice(0, 300), wake: d.wake || 'none', after: d.after === 'after' };
+  const role = { id: ui.modal.id ?? uid('c'), name, camp: d.camp === 'wolf' ? 'wolf' : 'village', sub: (d.sub || '').trim().slice(0, 60), desc: (d.desc || '').trim().slice(0, 600), say: (d.say || '').trim().slice(0, 300), wake: d.wake || 'none', after: d.after === 'after', icon: (d.icon || '').slice(0, 8), cact: d.cact || 'none', cself: d.cself === 'on', win: d.win || 'camp' };
   const i = S.customRoles.findIndex((x) => x.id === role.id);
   if (i >= 0) S.customRoles[i] = role; else S.customRoles.push(role);
   registerRoles([role]);

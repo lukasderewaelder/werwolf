@@ -22,11 +22,11 @@ export const DEFAULT_RULES = {
 
 // Stille Rollen werden im Kartenmodus in der ersten Nacht kurz erfasst (vor der eigentlichen Nacht).
 const SILENT_ORDER = { hunter: 60, girl: 61, elder: 62, idiot: 63, scapegoat: 64, bear: 65, knight: 66, puresoul: 67, angel: 68, maid: 69, greis: 70 };
-const INPUT_ACTS = new Set(['fire', 'kill', 'check', 'witch', 'lovers', 'swap', 'protect', 'infect', 'bigkill', 'whitekill', 'model', 'side', 'fox', 'mark', 'enchant', 'actor', 'seance']);
+const INPUT_ACTS = new Set(['fire', 'kill', 'check', 'witch', 'lovers', 'swap', 'protect', 'infect', 'bigkill', 'whitekill', 'model', 'side', 'fox', 'mark', 'enchant', 'actor', 'seance', 'cust']);
 export const CAUSE = {
   wolves: 'Werwölfe', bigwolf: 'Großer böser Wolf', whitewolf: 'Weißer Werwolf', poison: 'Gifttrank der Hexe',
   hunter: 'Schuss des Jägers', barber: 'Barbier', barberOut: 'Aus dem Dorf gejagt (Barbier)', fire: 'Verbrannt im Haus', charm: 'Betörung durch die Werwölfe', vote: 'Dorfgericht', tie: 'Sündenbock (Gleichstand)', heartbreak: 'Liebeskummer',
-  knight: 'Rostiges Schwert des Ritters', manual: 'Vom Spielleiter entfernt', girl: 'Von den Wölfen beim Spionieren erwischt',
+  custom: 'Fähigkeit einer eigenen Rolle', knight: 'Rostiges Schwert des Ritters', manual: 'Vom Spielleiter entfernt', girl: 'Von den Wölfen beim Spionieren erwischt',
 };
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -34,12 +34,12 @@ const emptyDraft = () => ({
   kill: null, girlCaught: false, check: null, heal: null, poison: null, lovers: [], protect: null, infect: false,
   bigkill: null, whitekill: null, model: null, side: null, fox: null, mark: null, enchant: [], vote: null,
   actorRole: null, thiefRole: null, seance: null, spCard: null, spQ: null, medium: null, sit: [],
-  fire: null, ban: [], banArm: false, innVote: null, innArm: false,
+  cust: {}, fire: null, ban: [], banArm: false, innVote: null, innArm: false,
   votes: {}, capVote: null, capArm: false, voteLog: [], voteMode: 'count',   // Stimmenzähler
 });
 
 /** Ältere Spielstände ohne Stimmenzähler ergänzen. */
-export function normalizeGame(g) { if (g) { g.draft = { ...emptyDraft(), ...g.draft }; g.charmed ??= {}; g.ev ??= null; g.town ??= null; } return g; }
+export function normalizeGame(g) { if (g) { g.draft = { ...emptyDraft(), ...g.draft }; g.charmed ??= {}; g.customUsed ??= {}; g.ev ??= null; g.town ??= null; } return g; }
 
 /* ---------- Zustand anlegen ---------- */
 
@@ -74,7 +74,7 @@ export function createGame(cfg, rnd = Math.random) {
     judgeUsed: false, judgeArmed: false, secondVote: false, voters: null, votersDay: -1,
     angelWin: false, angelWindow: true, winner: null, collectMorning: false,
     queue: [], interrupts: [], resume: null, dayMode: 'vote', draft: emptyDraft(),
-    morning: [], lastDeaths: [], log: [], dealIdx: 0, dealShown: false, charmed: {}, ev: null, town: null, pendingBarber: null,
+    morning: [], lastDeaths: [], log: [], dealIdx: 0, dealShown: false, charmed: {}, customUsed: {}, ev: null, town: null, pendingBarber: null,
   };
   g.ev = initEvents(g, cfg, rnd);
   if (g.cfg.rules.town) { g.cfg.town = { ...(cfg.town ?? DEFAULT_TOWN) }; g.town = { b: {}, used: {}, free: [], gone: [], fireUsed: false, innLost: false }; if (cfg.townMap) g.town.b = { ...cfg.townMap }; }
@@ -208,6 +208,7 @@ function actApplies(g, r) {
   if (r.id === 'fox' && g.foxLost) return false;
   if (r.id === 'arsonist' && (!g.town || g.town.fireUsed)) return false;
   if (r.id === 'actor' && !g.actorPool.length) return false;
+  if (n.once && g.customUsed?.[r.id]) return false;
   return true;
 }
 
@@ -398,8 +399,10 @@ export function checkWinner(g) {
   if (piper && liv.length > 1 && liv.every((id) => id === piper || g.enchanted[id])) return 'Der Flötenspieler';
   const ww = liv.find((id) => isWhiteWolf(g, id));
   if (ww && liv.length === 1) return 'Der Weiße Werwolf';
+  const loner = liv.find((id) => RM[g.roles[id]]?.win === 'solo');
+  if (loner && liv.length === 1) return RM[g.roles[loner]].name;
   const pack = liv.filter((id) => isWolf(g, id) && !isWhiteWolf(g, id));
-  if (!pack.length && !ww && !piper) return 'Das Dorf';
+  if (!pack.length && !ww && !piper && !loner) return 'Das Dorf';
   if (ww) return null;   // der Weiße Werwolf muss erst allein übrig bleiben oder sterben
   const others = liv.length - pack.length;
   if (g.cfg.rules.charm && pack.length && others - liv.filter((id) => g.charmed?.[id]).length <= 1) return 'Die Werwölfe';   // vorletzter Dorfbewohner betört
@@ -418,7 +421,10 @@ function afterDeaths(g, resume) {
   }
   if (g.interrupts.length) { g.phase = 'interrupt'; g.resume = resume; return; }
   const w = checkWinner(g);
-  if (w) { log(g, `Sieg: ${w}`); g.winner = w; g.phase = 'ended'; return; }
+  if (w) {
+    const co = (w === 'Das Dorf' || w === 'Die Werwölfe') ? livingIds(g).filter((id) => RM[g.roles[id]]?.win === 'survive') : [];
+    const text = co.length ? `${w} und ${co.map((id) => `${RM[g.roles[id]].name} ${nm(g, id)}`).join(', ')}` : w;
+    log(g, `Sieg: ${text}`); g.winner = text; g.phase = 'ended'; return; }
   if (resume === 'day') g.phase = 'day';
   else beginNight(g, g.day + 1);
 }
@@ -517,6 +523,17 @@ function finishNight(g) {
   if (d.mark) log(g, `Rabe markiert ${nm(g, d.mark)}`);
   g.lastProtect = d.protect || null;
   if (d.protect) log(g, `Heiler schützt ${nm(g, d.protect)}`);
+  const cprot = [], ckill = [];
+  for (const [rid, pid] of Object.entries(d.cust ?? {})) {
+    const rr = RM[rid];
+    if (!pid || !rr?.custom || !alive(g, pid) || !livingHolders(g, rid).length) continue;
+    g.customUsed[rid] = true;
+    const by = `${rr.name} ${nm(g, livingHolders(g, rid)[0].id)}`;
+    if (rr.cact === 'mark') { log(g, `${by} markiert ${nm(g, pid)}`); g.morning.push(`${rr.name}: ${nm(g, pid)} ist markiert.`); }
+    else if (rr.cact === 'protect') { cprot.push(pid); log(g, `${by} schützt ${nm(g, pid)}`); }
+    else if (rr.cact === 'peek') log(g, `${by} prüft ${nm(g, pid)}: ${isWolf(g, pid) ? 'Werwolf' : 'kein Werwolf'}`);
+    else if (rr.cact === 'kill') { ckill.push(pid); log(g, `${by} tötet ${nm(g, pid)}`); }
+  }
   if (d.enchant.length) { d.enchant.forEach((id) => { g.enchanted[id] = true; }); log(g, `Verzaubert: ${d.enchant.map((i) => nm(g, i)).join(', ')}`); }
   if (d.fox) {
     const grp = [d.fox, ...seatNeighbors(g, d.fox)], hit = grp.some((id) => isWolf(g, id));
@@ -544,7 +561,7 @@ function finishNight(g) {
     const infectable = cause === 'wolves' && d.infect && !g.urwolfUsed && livingHolders(g, 'urwolf').length && !(isElder && g.elderBites >= 1);
     if (isElder) g.elderBites++;
     if (infectable) { g.turned[v] = true; g.urwolfUsed = true; log(g, `Urwolf infiziert ${nm(g, v)} – ab jetzt heimlich Werwolf`); return; }
-    if (!girlVictim && v === d.protect) { log(g, `${nm(g, v)} wurde vom Heiler gerettet`); return; }
+    if (!girlVictim && (v === d.protect || cprot.includes(v))) { log(g, `${nm(g, v)} wurde vom Heiler gerettet`); return; }
     if (d.heal === v && !g.potions.heal) { g.potions.heal = true; log(g, `Hexe heilt ${nm(g, v)}`); return; }
     if (isElder && g.elderBites === 1) { log(g, `Der Alte ${nm(g, v)} übersteht den ersten Angriff`); return; }
     if (rules.charm && (cause === 'wolves' || cause === 'bigwolf') && !isWolf(g, v) && !g.charmed[v]) {
@@ -563,6 +580,7 @@ function finishNight(g) {
     if (d.bigkill && d.bigkill !== d.kill) wolfAttack(d.bigkill, 'bigwolf');
     if (d.whitekill && alive(g, d.whitekill)) wolfAttack(d.whitekill, 'whitewolf');
     if (d.poison && !g.potions.poison && alive(g, d.poison)) { g.potions.poison = true; kill(g, d.poison, 'poison'); }
+    for (const v of ckill) if (alive(g, v)) kill(g, v, 'custom');
   }
 
   if (d.fire && g.town && g.town.b[d.fire]) {
@@ -812,6 +830,12 @@ function tap(g, pid, toast) {
       break;
     }
     case 'seance': if (d.seance && d.spQ != null) d.medium = d.medium === pid ? null : pid; break;
+    case 'cust': {
+      const rr = RM[step.role];
+      if (!rr?.cself && holders(g, rr.id).some((x) => x.id === pid)) { toast?.(`${rr.name} kann sich nicht selbst wählen.`); return; }
+      d.cust[rr.id] = d.cust[rr.id] === pid ? null : pid;
+      break;
+    }
     default: break;
   }
 }

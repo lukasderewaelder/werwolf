@@ -3,7 +3,7 @@ import { S, ui, views, on, go, persist, toast } from './core.js';
 import { esc, art, I } from './art.js';
 import { topBar } from './home.js';
 import { rulesHtml } from './setup.js';
-import { ROLES, RM, SETS, CAMP_LABEL, findRoles } from '../engine/roles.js';
+import { ROLES, RM, SETS, CAMP_LABEL, CUSTOM_WIN, findRoles } from '../engine/roles.js';
 import { exportBackup, importBackup, defaultSettings } from '../store.js';
 import { installButton, isStandalone } from './install.js';
 import { setVolume } from '../audio.js';
@@ -29,8 +29,9 @@ views.library = () => {
 
 export function roleDetailHtml(id) {
   const r = RM[id];
-  const when = r.night ? ({ first: 'Nur in der ersten Nacht', every: 'Jede Nacht', even: 'Jede zweite Nacht' }[r.night.when] + (r.night.act ? '' : ' (erwacht nur kurz)')) : 'Kein Aufruf nachts';
-  return `<div class="rd">${art(id)}<div><span class="camp ${r.camp}">${CAMP_LABEL[r.camp]}</span><h2>${esc(r.name)}</h2><div class="eyebrow">${esc(r.sub)}</div><p>${esc(when)}${r.alt ? ` · früher: ${esc(r.alt.join(', '))}` : ''}</p></div></div>
+  const when = r.night ? ({ first: 'Nur in der ersten Nacht', every: 'Jede Nacht', even: 'Jede zweite Nacht' }[r.night.when] + (r.night.once ? ', Fähigkeit nur einmal im Spiel' : '') + (r.night.act ? '' : ' (erwacht nur kurz)')) : 'Kein Aufruf nachts';
+  const win = r.custom ? ` · Sieg: ${CUSTOM_WIN[r.win]}` : '';
+  return `<div class="rd">${art(id)}<div><span class="camp ${r.camp}">${CAMP_LABEL[r.camp]}</span><h2>${esc(r.name)}</h2><div class="eyebrow">${esc(r.sub)}</div><p>${esc(when)}${esc(win)}${r.alt ? ` · früher: ${esc(r.alt.join(', '))}` : ''}</p></div></div>
     <p>${esc(r.desc)}</p>${r.say ? `<div class="say">${esc(r.say)}</div>` : ''}`;
 }
 

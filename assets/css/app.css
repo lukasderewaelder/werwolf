@@ -115,6 +115,8 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
 .chip{flex:none;display:inline-flex;align-items:center;gap:7px;min-height:42px;padding:0 15px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-weight:700;font-size:15px;color:var(--muted)}
 .chip svg{width:17px;height:17px}
 .chip.on{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.chip:has(input:checked){background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.chip{position:relative}
 .chip em{font-style:normal;font-size:12px;background:var(--raise);color:var(--text);border-radius:999px;padding:1px 7px}
 .chip.on em{background:rgba(0,0,0,.2);color:inherit}
 .toggle{flex:none;width:52px;height:30px;border-radius:999px;padding:3px;background:var(--raise);border:1px solid var(--line);transition:background .2s}
