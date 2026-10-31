@@ -1,6 +1,7 @@
 // Speicher: Gruppen, Einstellungen, Einrichtung und laufendes Spiel in localStorage (mit Rückfall auf den Arbeitsspeicher).
 import { DEFAULT_RULES } from './engine/game.js';
 import { recommendCounts } from './engine/roles.js';
+import { DEFAULT_TOWN } from './engine/town.js';
 
 const KEY = 'werwolf-spielleiter-v1';
 export const FORMAT = 'werwolf-sicherung';
@@ -9,6 +10,7 @@ export const defaultSettings = () => ({
   theme: 'auto',          // auto = Nacht dunkel, Tag hell je Spielphase; night/day = fest
   sound: true, music: true, volume: 0.7,
   haptics: true, wakeLock: true, timer: 180, showRoles: true, lockPin: null,
+  townSel: { ...DEFAULT_TOWN },   // Die Gemeinde: Gebäude je Art
   eventOff: {}, beadleIds: [],   // Neumond: abgewählte Ereigniskarten, Karten für den Büttel
   mode: 'cards', rules: { ...DEFAULT_RULES },
 });
@@ -37,6 +39,7 @@ function normalize(s, base) {
   if (!Array.isArray(s.saves)) s.saves = [];
   if (!Array.isArray(s.customCards)) s.customCards = [];
   if (!Array.isArray(s.settings.beadleIds)) s.settings.beadleIds = [];
+  if (!s.settings.townSel || typeof s.settings.townSel !== 'object') s.settings.townSel = { ...DEFAULT_TOWN };
   if (!s.settings.eventOff || typeof s.settings.eventOff !== 'object') s.settings.eventOff = {};
   s.locked = !!s.locked && !!s.settings.lockPin;
   return s;

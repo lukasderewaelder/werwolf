@@ -2,6 +2,7 @@
 // Regelgrundlage: Regelheft "Die Werwölfe von Düsterwald – Der Pakt" (siehe docs/regelabgleich.md).
 import { ROLES, RM, ACTOR_POOL, roleName, requiredCards, registerRoles, isWolfRole } from './roles.js';
 import { SPIRIT_CARDS, KINDS, MAX_BEADLE } from './events.js';
+import { BUILDINGS, DEFAULT_TOWN } from './town.js';
 
 export const DEFAULT_RULES = {
   captain: true,            // Hauptmann wird am ersten Tag gewählt, Stimme zählt doppelt
@@ -16,14 +17,15 @@ export const DEFAULT_RULES = {
   charm: false,             // Lykanthropische Betörung: Wolfsopfer werden betört statt getötet
   harvest: false,           // Erntefest in Düsterwald: Fähigkeiten sind gestört
   voucher: false,           // „Er ist es ganz sicher nicht“: Abstimmung durch Bürgen
+  town: false,              // Die Gemeinde: Gebäude und Berufe
 };
 
 // Stille Rollen werden im Kartenmodus in der ersten Nacht kurz erfasst (vor der eigentlichen Nacht).
 const SILENT_ORDER = { hunter: 60, girl: 61, elder: 62, idiot: 63, scapegoat: 64, bear: 65, knight: 66, puresoul: 67, angel: 68, maid: 69, greis: 70 };
-const INPUT_ACTS = new Set(['kill', 'check', 'witch', 'lovers', 'swap', 'protect', 'infect', 'bigkill', 'whitekill', 'model', 'side', 'fox', 'mark', 'enchant', 'actor', 'seance']);
+const INPUT_ACTS = new Set(['fire', 'kill', 'check', 'witch', 'lovers', 'swap', 'protect', 'infect', 'bigkill', 'whitekill', 'model', 'side', 'fox', 'mark', 'enchant', 'actor', 'seance']);
 export const CAUSE = {
   wolves: 'Werwölfe', bigwolf: 'Großer böser Wolf', whitewolf: 'Weißer Werwolf', poison: 'Gifttrank der Hexe',
-  hunter: 'Schuss des Jägers', charm: 'Betörung durch die Werwölfe', vote: 'Dorfgericht', tie: 'Sündenbock (Gleichstand)', heartbreak: 'Liebeskummer',
+  hunter: 'Schuss des Jägers', barber: 'Barbier', barberOut: 'Aus dem Dorf gejagt (Barbier)', fire: 'Verbrannt im Haus', charm: 'Betörung durch die Werwölfe', vote: 'Dorfgericht', tie: 'Sündenbock (Gleichstand)', heartbreak: 'Liebeskummer',
   knight: 'Rostiges Schwert des Ritters', manual: 'Vom Spielleiter entfernt', girl: 'Von den Wölfen beim Spionieren erwischt',
 };
 
@@ -32,11 +34,12 @@ const emptyDraft = () => ({
   kill: null, girlCaught: false, check: null, heal: null, poison: null, lovers: [], protect: null, infect: false,
   bigkill: null, whitekill: null, model: null, side: null, fox: null, mark: null, enchant: [], vote: null,
   actorRole: null, thiefRole: null, seance: null, spCard: null, spQ: null, medium: null, sit: [],
+  fire: null, ban: [], banArm: false, innVote: null, innArm: false,
   votes: {}, capVote: null, capArm: false, voteLog: [], voteMode: 'count',   // Stimmenzähler
 });
 
 /** Ältere Spielstände ohne Stimmenzähler ergänzen. */
-export function normalizeGame(g) { if (g) { g.draft = { ...emptyDraft(), ...g.draft }; g.charmed ??= {}; g.ev ??= null; } return g; }
+export function normalizeGame(g) { if (g) { g.draft = { ...emptyDraft(), ...g.draft }; g.charmed ??= {}; g.ev ??= null; g.town ??= null; } return g; }
 
 /* ---------- Zustand anlegen ---------- */
 
@@ -50,6 +53,8 @@ export function setupProblems(cfg) {
   const total = Object.values(cfg.counts).reduce((a, b) => a + (b || 0), 0);
   const need = requiredCards(cfg.counts, n);
   if (total !== need) p.push(`Karten: ${total}, benötigt ${need}${(cfg.counts.thief || 0) > 0 ? ' (Spieler + 2 für den Dieb)' : ''}.`);
+  if ((cfg.counts.arsonist || 0) > 0 && cfg.rules && !cfg.rules.town) p.push('Der Brandstifter braucht „Die Gemeinde“ (Gebäude): in den Regeln einschalten.');
+  if (cfg.rules?.town && cfg.town && Object.values(cfg.town).reduce((x, y) => x + (y || 0), 0) > n) p.push(`Mehr Gebäude (${Object.values(cfg.town).reduce((x, y) => x + (y || 0), 0)}) als Spieler (${n}).`);
   return p;
 }
 
@@ -69,14 +74,45 @@ export function createGame(cfg, rnd = Math.random) {
     judgeUsed: false, judgeArmed: false, secondVote: false, voters: null, votersDay: -1,
     angelWin: false, angelWindow: true, winner: null, collectMorning: false,
     queue: [], interrupts: [], resume: null, dayMode: 'vote', draft: emptyDraft(),
-    morning: [], lastDeaths: [], log: [], dealIdx: 0, dealShown: false, charmed: {}, ev: null,
+    morning: [], lastDeaths: [], log: [], dealIdx: 0, dealShown: false, charmed: {}, ev: null, town: null, pendingBarber: null,
   };
   g.ev = initEvents(g, cfg, rnd);
+  if (g.cfg.rules.town) { g.cfg.town = { ...(cfg.town ?? DEFAULT_TOWN) }; g.town = { b: {}, used: {}, free: [], gone: [], fireUsed: false, innLost: false }; if (cfg.townMap) g.town.b = { ...cfg.townMap }; }
   if (g.cfg.counts.actor) pickActorPool(g, rnd);
   if (g.cfg.counts.greis) suggestGroups(g);
   if (g.cfg.mode === 'digital') dealRoles(g, rnd);
   if (g.cfg.counts.angel) { g.phase = 'day'; g.clock = 'day'; g.day = 0; g.dayMode = g.cfg.rules.captain ? 'captain' : 'vote'; log(g, '— Tag 0: Abstimmung vor der ersten Nacht (Engel im Spiel) —'); }
   return g;
+}
+
+/* ---------- Die Gemeinde: Gebäude ---------- */
+
+export const buildingOf = (g, id) => g.town?.b[id] ?? null;
+export const jobName = (g, id) => (buildingOf(g, id) ? BUILDINGS[buildingOf(g, id)].job : null);
+export const isVagabond = (g, id) => !!g.town && alive(g, id) && !g.town.b[id];
+/** Lebende Besitzer eines Gebäudes (z. B. 'inn'). */
+export const townHolders = (g, key) => (g.town ? g.cfg.players.filter((p) => g.town.b[p.id] === key && alive(g, p.id)) : []);
+export const innImmune = (g, id) => !!g.town && g.town.b[id] === 'inn' && !g.town.innLost && alive(g, id);
+/** Einmalige Fähigkeit steht noch zur Verfügung. */
+export const abilityReady = (g, id) => { const k = buildingOf(g, id); return !!k && alive(g, id) && !g.town.used[id] && !(k === 'inn' && g.town.innLost); };
+export const farmsInPlay = (g) => !!g.town && (g.cfg.town?.farm || 0) > 0;
+/** Wer Hauptmann werden darf: mit Bauernhöfen nur Bauern, sonst alle (null). */
+export function captainPool(g) { return farmsInPlay(g) ? townHolders(g, 'farm').map((p) => p.id) : null; }
+
+/** Ein Spieler scheidet aus (oder wird Vagabund): sein Gebäude wird frei. */
+function freeBuilding(g, id) {
+  const k = g.town?.b[id];
+  if (!k) return;
+  delete g.town.b[id]; delete g.town.used[id];
+  if (k !== 'vogt') g.town.free.push(k);   // das Haus des Vogts bleibt leer
+}
+
+/** Spielstart: Gebäude gleichmäßig zufällig an alle verteilen (restliche Spieler sind Vagabunden). */
+export function townRandomMap(g, rnd = Math.random) {
+  const keys = Object.entries(g.cfg.town ?? {}).flatMap(([k, n]) => Array(n || 0).fill(k));
+  const ids = shuffle(g.cfg.players.map((p) => p.id), rnd), map = {};
+  keys.slice(0, ids.length).forEach((k, i) => { map[ids[i]] = k; });
+  return map;
 }
 
 /** Neumond: Zugstapel (ohne die Karten des Büttels), Hand des Büttels, Spiritismus-Karten der Wahrsagerin. */
@@ -170,6 +206,7 @@ function actApplies(g, r) {
   if (r.id === 'urwolf' && g.urwolfUsed) return false;
   if (r.id === 'bigwolf' && Object.keys(g.dead).some((id) => isWolf(g, id))) return false;
   if (r.id === 'fox' && g.foxLost) return false;
+  if (r.id === 'arsonist' && (!g.town || g.town.fireUsed)) return false;
   if (r.id === 'actor' && !g.actorPool.length) return false;
   return true;
 }
@@ -216,6 +253,12 @@ export function nightSteps(g) {
     out.push({ key: r.id, role: r.id, act: input ? r.night.act : null, gone, label: r.id === borrowed && !cnt(g, r.id) ? `${r.name} (Gaukler)` : r.name, say: r.say ?? '' });
     if (r.id === 'cupid' && first) out.push({ key: 'lovers', role: null, info: true, label: 'Verliebte', say: 'Ich tippe die Verliebten an. Sie öffnen die Augen, erkennen einander und schlafen wieder ein.' });
     if (r.id === 'piper' && act && !gone) out.push({ key: 'enchanted', role: null, info: true, label: 'Verzauberte', say: 'Alle Verzauberten erwachen, erkennen einander und schlafen wieder ein.' });
+  }
+  if (g.town && townHolders(g, 'bakery').length) {
+    let at = -1;
+    out.forEach((s, i) => { if (s.role && RM[s.role]?.camp === 'wolf') at = i; });
+    if (at < 0) at = out.findIndex((s) => s.role === 'witch') - 1;
+    out.splice(at + 1, 0, { key: 'baker', role: null, info: true, label: 'Bäcker', say: 'Die Werwölfe schlafen ein. Der Bäcker öffnet kurz die Augen und schläft gleich wieder ein.' });
   }
   return out;
 }
@@ -271,6 +314,7 @@ export function settle(g) {
     const cause = g.dead[x].cause;
     log(g, `† ${nm(g, x)} (${roleLabel(g, x)}) – ${CAUSE[cause] ?? cause}`);
     const rid = g.roles[x];
+    freeBuilding(g, x);
     if (rid === 'elder' && ['vote', 'poison', 'hunter'].includes(cause) && !g.powersLost) {
       g.powersLost = true;
       log(g, 'Der Alte wurde nicht von den Wölfen getötet – die Dorfbewohner verlieren ihre Sonderfähigkeiten!');
@@ -280,7 +324,7 @@ export function settle(g) {
     if (g.ev?.beadle === x) { g.ev.beadle = null; log(g, `Der Büttel ${nm(g, x)} ist tot`); g.morning.push('Der Büttel ist tot. Der Hauptmann darf einen neuen ernennen.'); }
     if (rid === 'scapegoat') g.interrupts.push({ type: 'scapegoat', id: x, picks: [], forDay: g.clock === 'day' ? g.day + 1 : g.night });
     if (rid === 'angel' && g.angelWindow) g.angelWin = true;
-    if (g.captain === x && g.cfg.rules.captain) g.interrupts.push({ type: 'captain', id: x });
+    if (g.captain === x && g.cfg.rules.captain) { if (farmsInPlay(g) && !captainPool(g).length) { g.captain = null; g.captainLost = true; log(g, 'Kein Bauer mehr: Es gibt keinen Hauptmann mehr'); } else g.interrupts.push({ type: 'captain', id: x }); }
     if (g.lovers.includes(x)) { const pt = g.lovers.find((y) => y !== x); if (pt && !g.dead[pt]) kill(g, pt, 'heartbreak'); }
     if (g.model === x) {
       const wc = livingHolders(g, 'wildchild')[0];
@@ -302,6 +346,7 @@ export function unknownPool(g) {
 /** Wer am Tag mitstimmen darf: Lebende ohne den aufgedeckten Dorfdepp, bei Sündenbock-Anordnung nur die Genannten. */
 export function eligibleVoters(g) {
   let ids = livingIds(g).filter((id) => !(g.roles[id] === 'idiot' && g.idiotRevealed));
+  if (g.town && g.dayMode !== 'captain') ids = ids.filter((id) => g.town.b[id] !== 'school' && !(g.draft.ban ?? []).includes(id));   // Lehrerin stimmt nie ab, ausgeschlossene auch nicht
   if (g.dayMode !== 'captain' && g.voters && g.votersDay === g.day) ids = ids.filter((id) => g.voters.includes(id));
   return ids;
 }
@@ -336,7 +381,7 @@ export function voucherStart(g) {
   return null;
 }
 
-const resetVote = (g) => { const d = g.draft; d.vote = null; d.votes = {}; d.capVote = null; d.capArm = false; d.voteLog = []; d.sit = []; };
+const resetVote = (g) => { const d = g.draft; d.vote = null; d.votes = {}; d.capVote = null; d.capArm = false; d.voteLog = []; d.sit = []; d.innVote = null; d.innArm = false; d.banArm = false; };
 
 export function checkWinner(g) {
   if (g.interrupts.length || g.queue.length) return null;
@@ -365,6 +410,12 @@ export function checkWinner(g) {
 /** Prüft nach Toden auf offene Entscheidungen, Sieg, sonst weiter mit Tag oder Nacht. */
 function afterDeaths(g, resume) {
   settle(g);
+  if (g.pendingBarber && g.roles[g.pendingBarber.t]) {   // Ausgang erst, wenn die Karte der ausgeschalteten Person bekannt ist
+    const { b, t } = g.pendingBarber; g.pendingBarber = null;
+    if (isWolf(g, t)) log(g, `Der Barbier ${nm(g, b)} hat einen Werwolf erwischt: Das Dorf gratuliert, er überlebt`);
+    else { log(g, `${nm(g, t)} war kein Werwolf: Der Barbier ${nm(g, b)} wird aus dem Dorf gejagt`); if (alive(g, b)) kill(g, b, 'barberOut'); }
+    settle(g);
+  }
   if (g.interrupts.length) { g.phase = 'interrupt'; g.resume = resume; return; }
   const w = checkWinner(g);
   if (w) { log(g, `Sieg: ${w}`); g.winner = w; g.phase = 'ended'; return; }
@@ -479,6 +530,15 @@ function finishNight(g) {
   const charmedNow = [];
   const wolfAttack = (v, cause) => {
     if (!v || !alive(g, v)) return;
+    if (innImmune(g, v)) { log(g, `Die Werwölfe finden im Wirtshaus nichts: Wirt ${nm(g, v)} bleibt unbehelligt`); return; }
+    if (d.fire && d.fire === v && cause === 'wolves') {
+      const ps = g.cfg.players, i = ps.findIndex((p) => p.id === v);
+      let w = null;
+      for (let k = 1; k < ps.length && !w; k++) { const p = ps[(i - k + ps.length) % ps.length]; if (alive(g, p.id) && isWolf(g, p.id)) w = p.id; }
+      log(g, `Das Haus von ${nm(g, v)} brennt: Die Werwölfe fliehen, es gibt kein Opfer`);
+      if (w) { kill(g, w, 'fire'); g.morning.push(`Im brennenden Haus ist ein Werwolf umgekommen: ${nm(g, w)}.`); }
+      return;
+    }
     const isElder = g.roles[v] === 'elder' && powerOn(g, 'elder');
     const girlVictim = d.girlCaught && g.roles[v] === 'girl';
     const infectable = cause === 'wolves' && d.infect && !g.urwolfUsed && livingHolders(g, 'urwolf').length && !(isElder && g.elderBites >= 1);
@@ -505,6 +565,12 @@ function finishNight(g) {
     if (d.poison && !g.potions.poison && alive(g, d.poison)) { g.potions.poison = true; kill(g, d.poison, 'poison'); }
   }
 
+  if (d.fire && g.town && g.town.b[d.fire]) {
+    const fk = g.town.b[d.fire];
+    g.town.fireUsed = true; g.town.gone.push(fk); delete g.town.b[d.fire]; delete g.town.used[d.fire];
+    log(g, `Brandstifter: ${BUILDINGS[fk].name} von ${nm(g, d.fire)} brennt nieder`);
+    g.morning.push(`Das Gebäude „${BUILDINGS[fk].name}“ ist niedergebrannt. ${nm(g, d.fire)} ist ab jetzt Vagabund.`);
+  }
   if (charmedNow.length) g.morning.push(`Nur für den Spielleiter: Berühre unauffällig am Kopf: ${charmedNow.map((i) => nm(g, i)).join(', ')}. Nichts ansagen, niemand scheidet aus.`);
   const bear = livingHolders(g, 'bear')[0];
   if (bear && powerOn(g, 'bear')) {
@@ -518,7 +584,8 @@ function finishNight(g) {
     g.morning.push(`Das Dorf ist zerstritten! Gruppe 1: ${groupNames(g, 'A')}. Gruppe 2: ${groupNames(g, 'B')}.`);
   }
   votersNote(g);
-  g.dayMode = (rules.captain && !g.captain && !g.captainLost) ? 'captain' : 'vote';
+  if (farmsInPlay(g) && !g.captain && !g.captainLost && g.night >= 2 && !captainPool(g).length) { g.captainLost = true; log(g, 'Kein Bauer mehr: Es gibt keinen Hauptmann'); }
+  g.dayMode = (rules.captain && !g.captain && !g.captainLost && !(farmsInPlay(g) && g.night < 2)) ? 'captain' : 'vote';
   g.draft = emptyDraft(); g.subMode = null;
   settle(g);
   g.clock = 'day';
@@ -548,6 +615,12 @@ function endDay(g) {
   afterDeaths(g, 'night');
 }
 
+/** Der Wirt verliert Schutz und Plättchen, wenn er gegen eine Person gestimmt hat, die jetzt ausscheidet (auch bei Begnadigung). */
+function innCheck(g, victim) {
+  const inn = g.town && g.cfg.players.find((p) => g.town.b[p.id] === 'inn' && alive(g, p.id));
+  if (inn && !g.town.innLost && g.draft.innVote && g.draft.innVote === victim) { g.town.innLost = true; log(g, `Wirt ${nm(g, inn.id)} hat gegen ${nm(g, victim)} gestimmt und verliert seinen Schutz`); }
+}
+
 /** Hinrichtung: Wird ein Betörter hingerichtet, scheiden alle Betörten sofort aus. */
 function killByVote(g, v) {
   const was = !!g.charmed?.[v];
@@ -561,6 +634,8 @@ function executeVote(g) {
   const v = g.draft.vote;
   g.collectMorning = false;
   if (!v || !alive(g, v)) return;
+  if (innImmune(g, v)) return;
+  innCheck(g, v);
   const rid = g.roles[v];
   if (rid === 'idiot' && !g.idiotRevealed && powerOn(g, 'idiot')) {
     g.idiotRevealed = true;
@@ -631,6 +706,8 @@ function tap(g, pid, toast) {
       kill(g, pid, 'hunter');
     } else {
       if (!alive(g, pid)) return;
+      const pool = captainPool(g);
+      if (pool && !pool.includes(pid)) { toast?.('Nur ein Bauer darf Hauptmann werden.'); return; }
       g.interrupts.shift(); g.captain = pid; log(g, `Neuer Hauptmann: ${nm(g, pid)}`); fixBeadle(g);
     }
     resumeAfter(g);
@@ -638,6 +715,21 @@ function tap(g, pid, toast) {
   }
   if (g.phase === 'day') {
     if (!alive(g, pid)) return;
+    if (d.banArm) {
+      d.banArm = false;
+      const i = d.ban.indexOf(pid);
+      if (i >= 0) { d.ban.splice(i, 1); return; }
+      if (isVagabond(g, pid)) { toast?.('Vagabunden kann die Lehrerin nicht ausschließen.'); return; }
+      if (g.town?.b[pid] === 'school') { toast?.('Die Lehrerin stimmt ohnehin nie ab.'); return; }
+      if (d.ban.length >= 2) { toast?.('Höchstens zwei Personen.'); return; }
+      d.ban.push(pid); return;
+    }
+    if (d.innArm) {
+      d.innArm = false; d.innVote = d.innVote === pid ? null : pid;
+      if (d.innVote && (d.voteMode ?? 'count') === 'count') { d.votes[pid] = (d.votes[pid] ?? 0) + 1; d.voteLog.push({ k: 'i', pid }); }
+      return;
+    }
+    if (innImmune(g, pid) && g.dayMode !== 'captain') { toast?.('Der Wirt kann nicht ausscheiden.'); return; }
     if (d.voteMode === 'direct') { d.vote = d.vote === pid ? null : pid; return; }
     if (d.voteMode === 'voucher') {
       const el = eligibleVoters(g), i = d.sit.indexOf(pid);
@@ -681,6 +773,7 @@ function tap(g, pid, toast) {
     case 'kill':
       if (isWolf(g, pid)) { toast?.('Werwölfe fressen keine Werwölfe.'); return; }
       if (g.charmed[pid]) { toast?.('Diese Person ist schon betört.'); return; }
+      if (innImmune(g, pid)) { toast?.('Den Wirt fressen die Werwölfe nicht.'); return; }
       if (g.cfg.rules.harvest && !seatNeighbors(g, pid).some((x) => isWolf(g, x))) { toast?.('Erntefest: Die Werwölfe können nur jemanden neben einem Werwolf reißen.'); return; }
       tog('kill'); d.girlCaught = false;
       if (!d.kill) { d.infect = false; d.heal = null; }
@@ -706,7 +799,12 @@ function tap(g, pid, toast) {
       tog('whitekill'); break;
     case 'model': if (holders(g, 'wildchild').some((x) => x.id === pid)) return; tog('model'); break;
     case 'fox': tog('fox'); break;
-    case 'mark': tog('mark'); break;
+    case 'mark':
+      if (isVagabond(g, pid)) { toast?.('Vagabunden kann der Rabe nicht anschuldigen.'); return; }
+      tog('mark'); break;
+    case 'fire':
+      if (!g.town?.b[pid]) { toast?.('Nur ein bewohntes Gebäude kann brennen.'); return; }
+      tog('fire'); break;
     case 'enchant': {
       if (g.roles[pid] === 'piper' || g.enchanted[pid]) { toast?.('Bereits verzaubert oder Flötenspieler.'); return; }
       const i = d.enchant.indexOf(pid);
@@ -782,6 +880,48 @@ export function apply(g0, a, toast) {
     case 'seance-q': d.spQ = d.spQ === a.i ? null : a.i; if (d.spQ == null) d.medium = null; break;
     case 'ev-draw': if (g.ev && g.phase === 'day' && g.ev.deck.length) drawEvent(g); break;
     case 'ev-end': if (g.ev) g.ev.active = g.ev.active.filter((c) => c.id !== a.id); break;
+    case 'town-map': if (g.town) { g.town.b = { ...a.map }; log(g, 'Gebäude verteilt'); } break;
+    case 'ban-arm': if (g.town && townHolders(g, 'school').length && g.dayMode !== 'captain') { d.banArm = !d.banArm; d.innArm = false; d.capArm = false; } break;
+    case 'inn-arm': if (townHolders(g, 'inn').length && g.dayMode !== 'captain') { d.innArm = !d.innArm; d.banArm = false; d.capArm = false; } break;
+    case 'town-use': {
+      const id = a.pid, k = buildingOf(g, id);
+      if (g.phase === 'day' && k && ['church', 'shack', 'manor'].includes(k) && abilityReady(g, id)) {
+        if (k === 'shack') { const tg = a.target; if (tg && g.town.used[tg] && alive(g, tg)) { delete g.town.used[tg]; log(g, `Quacksalber ${nm(g, id)} gibt ${nm(g, tg)} die Berufsfähigkeit zurück`); g.town.used[id] = true; } }
+        else { g.town.used[id] = true; log(g, `${BUILDINGS[k].job} ${nm(g, id)} nutzt die Fähigkeit`); }
+      }
+      break;
+    }
+    case 'barber': {
+      const b = a.pid, tg = a.target;
+      if (g.phase === 'day' && buildingOf(g, b) === 'barber' && abilityReady(g, b) && tg !== b && alive(g, tg) && !isVagabond(g, tg)) {
+        g.town.used[b] = true;
+        log(g, `Barbier ${nm(g, b)} schaltet ${nm(g, tg)} aus`);
+        g.pendingBarber = { b, t: tg };
+        kill(g, tg, 'barber');
+        afterDeaths(g, 'day');
+      }
+      break;
+    }
+    case 'pardon': {
+      const m = townHolders(g, 'manor')[0];
+      if (g.phase === 'day' && g.dayMode === 'vote' && m && abilityReady(g, m.id)) {
+        let v = d.vote;
+        if (!v && (d.voteMode ?? 'count') === 'count') { const tl = tally(g); if (tl.leaders.length === 1) v = tl.leaders[0]; }
+        if (v && alive(g, v)) {
+          d.vote = v; g.town.used[m.id] = true;
+          innCheck(g, v);
+          log(g, `Schlossherr ${nm(g, m.id)} begnadigt ${nm(g, v)}: Niemand scheidet aus`);
+          g.collectMorning = false;
+          endDay(g);
+        }
+      }
+      break;
+    }
+    case 'vogt-assign': {
+      const v = townHolders(g, 'vogt')[0], i = g.town?.free.indexOf(a.key) ?? -1;
+      if (g.phase === 'day' && v && i >= 0 && isVagabond(g, a.pid)) { g.town.free.splice(i, 1); g.town.b[a.pid] = a.key; log(g, `Vogt ${nm(g, v.id)}: ${nm(g, a.pid)} zieht in ${BUILDINGS[a.key].name}`); }
+      break;
+    }
     case 'beadle-set':
       if (g.ev && alive(g, a.pid) && a.pid !== g.captain) { g.ev.beadle = a.pid; log(g, `Büttel: ${nm(g, a.pid)}`); }
       break;
@@ -821,9 +961,10 @@ export function apply(g0, a, toast) {
     case 'vote-cap-arm': if (g.captain && alive(g, g.captain) && g.dayMode === 'vote') d.capArm = !d.capArm; break;
     case 'vote-undo': {
       const e = d.voteLog.pop();
+      if (e?.k === 'i') { d.votes[e.pid] = Math.max(0, (d.votes[e.pid] ?? 1) - 1); if (!d.votes[e.pid]) delete d.votes[e.pid]; d.innVote = null; }
       if (e?.k === 'v') { d.votes[e.pid] = Math.max(0, (d.votes[e.pid] ?? 1) - 1); if (!d.votes[e.pid]) delete d.votes[e.pid]; }
       if (e?.k === 'c') d.capVote = null;
-      d.capArm = false;
+      d.capArm = false; d.innArm = false; d.banArm = false;
       break;
     }
     case 'vote-reset': resetVote(g); break;
@@ -834,6 +975,8 @@ export function apply(g0, a, toast) {
     }
     case 'captain-confirm': {
       if (!d.vote && d.voteMode === 'count') { const t = tally(g); if (t.leaders.length === 1) d.vote = t.leaders[0]; }
+      const pool = captainPool(g);
+      if (d.vote && pool && !pool.includes(d.vote)) { d.vote = null; toast?.('Nur ein Bauer darf Hauptmann werden.'); break; }
       if (d.vote && alive(g, d.vote)) { g.captain = d.vote; g.dayMode = 'vote'; log(g, `Hauptmann: ${nm(g, d.vote)}`); fixBeadle(g); resetVote(g); }
       break;
     }

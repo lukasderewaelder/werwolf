@@ -9,6 +9,8 @@ import { stopMusic } from '../audio.js';
 import { keypad, forgotWait } from './lock.js';
 import { isIOS, isAndroid } from './install.js';
 import { cardsModal, cardEditModal, variantsModal, evModal } from './cards.js';
+import { townModal, townAssignModal } from './town.js';
+import { BUILDINGS } from '../engine/town.js';
 
 const sheet = (inner, { wide = false } = {}) => `<div class="backdrop" data-action="close-modal"><div class="modal ${wide ? 'wide' : ''}" data-stop role="dialog" aria-modal="true">${inner}</div></div>`;
 const closeBtn = (label = 'Schließen') => `<div class="mfoot"><button class="btn" data-action="close-modal">${label}</button></div>`;
@@ -56,6 +58,7 @@ views.modal = () => {
         <button class="opt" data-action="show-who"><span class="t"><b>Wer ist wer</b><span>Rollen, Status und Korrekturen pro Spieler</span></span>${I.right}</button>
         <button class="opt" data-action="show-roles"><span class="t"><b>Rollen im Spiel</b><span>Spickzettel mit allen Karten dieser Runde</span></span>${I.right}</button>
         <button class="opt" data-action="show-log-menu"><span class="t"><b>Protokoll</b><span>Was bisher passiert ist</span></span>${I.right}</button>
+        ${g?.town ? `<button class="opt" data-action="town-open"><span class="t"><b>Die Gemeinde</b><span>Gebäude, Berufe und einmalige Fähigkeiten</span></span>${I.right}</button>` : ''}
         ${g?.ev && g.cfg.rules.events ? `<button class="opt" data-action="ev-open"><span class="t"><b>Ereigniskarten</b><span>Stapel, wirkende Karten und Büttel</span></span>${I.right}</button>` : ''}
         ${g?.cfg.counts.greis ? `<button class="opt" data-action="greis-open"><span class="t"><b>Gruppen des Greises</b><span>Dorf in zwei Gruppen teilen</span></span>${I.right}</button>` : ''}
         <button class="opt" data-action="end-game"><span class="t"><b style="color:var(--danger)">Spiel beenden</b><span>Abbrechen und zur Startseite</span></span></button>
@@ -70,7 +73,7 @@ views.modal = () => {
       return sheet(`<h2>Rollen im Spiel</h2><div class="ov-grid">${items}</div>${closeBtn()}`, { wide: true });
     }
     case 'who': {
-      const rows = g.cfg.players.map((p) => `<button class="death" data-action="player-open" data-id="${p.id}" style="text-align:left;width:100%">${art(g.roles[p.id])}<div><b>${esc(p.name)}${g.captain === p.id ? ' · Hauptmann' : ''}</b><small>${esc(g.roles[p.id] ? roleLabel(g, p.id) : 'Rolle noch nicht erfasst')} · ${alive(g, p.id) ? 'lebt' : `† ${esc(CAUSE[g.dead[p.id].cause] ?? g.dead[p.id].cause)}`}</small></div></button>`).join('');
+      const rows = g.cfg.players.map((p) => `<button class="death" data-action="player-open" data-id="${p.id}" style="text-align:left;width:100%">${art(g.roles[p.id])}<div><b>${esc(p.name)}${g.captain === p.id ? ' · Hauptmann' : ''}${g.town?.b[p.id] ? ` · ${esc(BUILDINGS[g.town.b[p.id]].job)}` : ''}</b><small>${esc(g.roles[p.id] ? roleLabel(g, p.id) : 'Rolle noch nicht erfasst')} · ${alive(g, p.id) ? 'lebt' : `† ${esc(CAUSE[g.dead[p.id].cause] ?? g.dead[p.id].cause)}`}</small></div></button>`).join('');
       return sheet(`<h2>Wer ist wer</h2><div class="deaths">${rows}</div>${closeBtn()}`);
     }
     case 'player': {
@@ -110,6 +113,8 @@ views.modal = () => {
         </form>
         ${m.id ? `<button class="btn danger" data-action="custom-delete">${I.close}Rolle löschen</button>` : ''}${closeBtn('Abbrechen')}`);
     }
+    case 'town': return townModal(g);
+    case 'town-assign': return townAssignModal(g);
     case 'cards': return cardsModal();
     case 'card-edit': return cardEditModal(m);
     case 'variants': return variantsModal();

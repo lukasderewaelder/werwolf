@@ -95,11 +95,20 @@ Offen: Doppel-Ich (zwei Karten pro Spieler) ist noch nicht umgesetzt. Die 36 Ori
 
 Abnahme: Eine Partie mit Ereigniskarten läuft durch (Karte am zweiten Morgen, Büttel, Wahrsagerin), eine kurze Partie mit Betörung und eine mit „Bürgen“ funktionieren wie im Regelheft.
 
-## M13 Die Gemeinde
+## M13 Die Gemeinde (umgesetzt, wartet auf deine Abnahme)
 - Gebäude und Berufe, Brandstifter, Rabe mit anonymem Brief nach Originalregel, Vogt, Wirt, Bäcker, Barbier u. a.
 - Zuordnung der Gebäude beim Start, Anzeige am Spielerstein.
 
-Abnahme: Eine Partie mit Gebäuden läuft durch.
+Umgesetzt (Regel „Die Gemeinde“ unter Neumond und Varianten, Gebäude je Art wählbar):
+- Gebäude und Berufe: Bauernhof (Bauern), Kirche (Beichtvater), Bruchbude (Quacksalber), Bäckerei (Bäcker), Barbierladen (Barbier), Wirtshaus (Wirt), Herrensitz (Schlossherr), Schulhaus (Lehrerin), Haus des Vogts (Vogt). Beim Start verteilt die App die Gebäude zufällig, du änderst sie durch Antippen. Kürzel am Spielerstein, Übersicht im Menü „Die Gemeinde“. Wer kein Gebäude hat, ist Vagabund.
+- Bauern: Hauptmann erst ab der zweiten Runde und nur unter Bauern, ohne Bauern kein Hauptmann mehr.
+- Wirt: nicht fressbar, nicht ausscheidbar, „Stimme des Wirts“ im Abstimmungsfeld; stimmt er gegen jemanden, der ausscheidet (auch bei Begnadigung), verliert er den Schutz.
+- Lehrerin schließt bis zu zwei Personen aus (keine Vagabunden), stimmt selbst nie ab. Schlossherr begnadigt einmal. Barbier schaltet einmal eine Person aus (Wolf: er überlebt, sonst scheidet er mit aus; keine Vagabunden). Beichtvater und Quacksalber als einmalige Fähigkeiten im Gemeinde-Dialog. Vogt weist freie Gebäude Vagabunden zu. Bäcker hat einen eigenen Nachtschritt nach den Wölfen.
+- Brandstifter (neue Rolle, braucht die Gemeinde): einmal ein Gebäude anzünden, es brennt am Morgen nieder, der Bewohner wird Vagabund. Beim Haus des Wolfsopfers verbrennt der nächste Werwolf entgegen dem Uhrzeigersinn, es gibt kein Opfer. Rabe kann keine Vagabunden belasten.
+Deine Entscheidungen: Ein neuer Bewohner darf eine schon benutzte einmalige Fähigkeit wieder nutzen; „zur Rechten“ ist entgegen dem Uhrzeigersinn.
+Bekannt: Schlossherr-Knopf nur im Modus „Stimmen zählen“; Wirt-Immunität und Bürgen-Abstimmung zusammen sind nicht abgestimmt.
+
+Abnahme: Eine Partie mit Gebäuden läuft durch (Verteilen, Wirt, Lehrerin, Barbier, Brandstifter).
 
 ## M14 Eigene Rollen mit Aktion
 - Eigene Rollen mit Zielwahl und eigener Siegbedingung, eigenes Bild (Symbol oder Foto).
@@ -120,7 +129,6 @@ Abnahme: Sicherung auf ein zweites Gerät übertragen und dort laden.
 - iOS spielt Töne erst nach der ersten Berührung und beachtet den Stummschalter.
 - Wake Lock (Bildschirm anlassen) braucht bei installierten iOS-Apps mindestens iOS 16.4.
 - Wolfshund und Wildes Kind: Die Seite bleibt nach dem Tod geheim, die Rolle selbst wird beim Aufdecken genannt.
-- Ereigniskarten (Neumond) und Gemeinde-Gebäude fehlen bis M12 und M13.
 
 ## M16 Originale einsetzen (ganz am Ende)
 - Die fünf Freesound-Töne (Wolf, Hahn, Gong, Glocke, Tod) in Originalqualität: Du lädst die Originale mit deinem Konto in einen Ordner, ich schneide, wandle um und baue sie ein.

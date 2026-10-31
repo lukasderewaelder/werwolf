@@ -5,8 +5,9 @@ import { topBar, rosterHtml, groupChips } from './home.js';
 import { ensureGroup, presentPlayers, currentCounts } from '../store.js';
 import { ROLES, RM, SETS, CAMP_LABEL, recommendCounts, requiredCards, fillVillagers, registerRoles } from '../engine/roles.js';
 import { uid } from '../store.js';
-import { createGame, setupProblems, DEFAULT_RULES } from '../engine/game.js';
+import { createGame, setupProblems, DEFAULT_RULES, townRandomMap } from '../engine/game.js';
 import { activeCards } from './cards.js';
+import { townSetupHtml, townSel } from './town.js';
 
 const STEPS = ['Wer spielt mit?', 'Wie spielt ihr?', 'Welche Rollen?', 'Regeln und Start'];
 
@@ -27,6 +28,7 @@ export function variantRows() {
     ['events', 'Ereigniskarten (Neumond)', 'Ab dem zweiten Morgen liest der zuletzt Ausgeschiedene eine Karte vor. Dazu Büttel und Wahrsagerin mit Spiritismus-Fragen.'],
     ['charm', 'Lykanthropische Betörung', 'Wolfsopfer sterben nicht, sondern verlieren heimlich alle Fähigkeiten. Wird ein Betörter hingerichtet, scheiden alle Betörten aus. Die Wölfe gewinnen mit dem vorletzten betörten Dorfbewohner.'],
     ['harvest', 'Erntefest in Düsterwald', 'Fähigkeiten sind gestört: Wölfe reißen nur Nachbarn von Wölfen, Jäger und Heiler wirken nur auf Nachbarn, der Flötenspieler verzaubert nur eine Person, die Seherin sieht die Rollen ihrer Nachbarn mit. Hexe, Hauptmann, Sündenbock und Amor führst du nach dem Regelheft selbst.'],
+    ['town', 'Die Gemeinde (Gebäude und Berufe)', 'Öffentliche Gebäude mit Berufen: Bauern, Wirt, Lehrerin, Barbier, Schlossherr, Vogt u. a. Vagabunden ohne Gebäude ziehen später ein. Dazu Rabe und Brandstifter.'],
     ['voucher', '„Er ist es ganz sicher nicht“', 'Neue Art der Abstimmung: Reihum bürgt jeder für eine Person, die sich setzt. Wer als Einziger steht, ist das Opfer.'],
   ];
 }
@@ -42,6 +44,7 @@ export function rulesHtml(rules) {
       <div class="seg"><button class="${rules.seerSees !== 'camp' ? 'on' : ''}" data-action="rule-set" data-key="seerSees" data-v="role">Die ganze Rolle</button><button class="${rules.seerSees === 'camp' ? 'on' : ''}" data-action="rule-set" data-key="seerSees" data-v="camp">Nur: Werwolf oder nicht</button></div>
     </div>${ruleRows().map(row).join('')}
     <div class="eyebrow" style="margin-top:6px">Neumond und Varianten</div>${variantRows().map(row).join('')}${cards}
+    ${rules.town ? townSetupHtml(presentPlayers(S).length) : ''}
     <button class="btn sm" data-action="variants-open" style="align-self:flex-start">Weitere Varianten zum Nachlesen</button></div>`;
 }
 
@@ -240,18 +243,20 @@ views.setup = () => {
 on('start-game', () => {
   const players = presentPlayers(S);
   const counts = S.setup.counts;
-  const pr = setupProblems({ players, counts });
+  const pr = setupProblems({ players, counts, rules: S.settings.rules, town: townSel() });
   if (pr.length) { toast(pr[0]); S.setup.step = 2; return; }
   const custom = S.customRoles.filter((r) => counts[r.id]);
   const rules = { ...DEFAULT_RULES, ...S.settings.rules };
   const eventCards = rules.events ? activeCards() : [];
   if (rules.events && !eventCards.length) { toast('Keine Ereigniskarten ausgewählt: Karten und Büttel öffnen.'); return; }
   const beadleIds = (S.settings.beadleIds ?? []).filter((id) => eventCards.some((c) => c.id === id));
-  S.game = createGame({ players, counts, custom, mode: S.settings.mode, rules, eventCards, beadleIds });
+  S.game = createGame({ players, counts, custom, mode: S.settings.mode, rules, eventCards, beadleIds, town: rules.town ? { ...townSel() } : null });
+  if (rules.town) S.game.town.b = townRandomMap(S.game);
   clearUndo();
   ui.timer.left = S.settings.timer; ui.timer.running = false;
   go('game');
-  if (counts.greis && S.settings.mode === 'cards') { ui.modal = { type: 'greis' }; render(); }
+  if (rules.town) { ui.modal = { type: 'town-assign' }; render(); }
+  else if (counts.greis && S.settings.mode === 'cards') { ui.modal = { type: 'greis' }; render(); }
   return false;
 });
 

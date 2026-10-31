@@ -287,6 +287,15 @@ export const ROLES = [
     say: "Der Rabe erwacht und zeigt auf eine verdächtige Person.",
     desc: "Wacht jede Nacht auf und zeigt auf eine verdächtige Person. Am nächsten Morgen wird bekannt gegeben, dass diese Person bei der Abstimmung zwei Stimmen zusätzlich gegen sich hat.",
     night: { when: "every", order: 130, act: "mark" } },
+  { id: "arsonist",
+    name: "Brandstifter",
+    set: "gemeinde",
+    camp: "village",
+    color: "#c2561e",
+    sub: "Zündet einmal ein Haus an",
+    say: "Der Brandstifter erwacht und darf einmal im Spiel ein Gebäude in Brand setzen.",
+    desc: "Darf einmal im Spiel ein Gebäude wählen, auf das die Feuerkarte gelegt wird. Am nächsten Morgen brennt es nieder, sein Bewohner scheidet nicht aus, sondern wird Vagabund. Wählt er das Haus des Wolfsopfers, verbrennt der Werwolf zur Rechten des Opfers, die anderen Wölfe fliehen und es gibt kein Opfer. Braucht „Die Gemeinde“ (Gebäude).",
+    night: { when: "every", order: 135, act: "fire" } },
 ];
 
 export const RM = Object.fromEntries(ROLES.map((r) => [r.id, r]));

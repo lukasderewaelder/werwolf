@@ -854,3 +854,62 @@ test('Neumond: Betörte tragen ein Zeichen, der Morgen meldet sie nur dem Spiell
   assert.deepEqual(problems, []);
   await ctx.close();
 });
+
+/* ---------- Die Gemeinde ---------- */
+
+test('Gemeinde: Regel einschalten, Gebäude wählen, beim Start verteilen, Gemeinde-Dialog am Handy', async () => {
+  const ctx = await app.newContext(PHONE_CTX);
+  const { page, problems } = await app.openApp({ context: ctx });
+  await page.click('[data-action=go][data-view=settings]');
+  await page.waitForTimeout(400);
+  await page.click('[data-action=rule-toggle][data-key=town]');
+  assert.ok(await page.locator('[data-action=town-farm]').first().isVisible());
+  await page.click('[data-action=town-key][data-key=barber]');
+  assert.equal(await page.evaluate(() => window.__werwolf.S.settings.townSel.barber), 1);
+  // Spiel mit Gebäuden anlegen (wie nach dem Start-Knopf) und Zuordnung öffnen
+  await startGame(page, { names: NAMES, counts: COUNTS8, roles: ROLES8, rules: { town: true } });
+  await page.evaluate(async () => {
+    const { townRandomMap } = await import('/src/engine/game.js');
+    const w = window.__werwolf, g = w.S.game;
+    g.cfg.town = { farm: 2, inn: 1, barber: 1 };
+    w.dispatch({ t: 'town-map', map: townRandomMap(g) });
+    w.ui.modal = { type: 'town-assign' }; w.render();
+  });
+  await page.waitForTimeout(350);
+  assert.match(await page.locator('.modal').innerText(), /Gebäude verteilen/);
+  await reachable(page, '.modal .mfoot .btn', 'Gebäude Fertig');
+  await page.click('[data-action=town-clear]');
+  assert.equal(await page.evaluate(() => Object.keys(window.__werwolf.S.game.town.b).length), 0);
+  await page.locator('[data-action=town-cycle]').first().click();
+  assert.equal(await page.evaluate(() => Object.keys(window.__werwolf.S.game.town.b).length), 1);
+  await page.click('[data-action=town-random]');
+  await page.click('.modal .mfoot .btn');
+  assert.ok(await page.locator('.tok:visible .bdg[title]').count() >= 4, 'Gebäude-Kürzel an den Steinen');
+  // Gemeinde-Dialog
+  await page.evaluate(() => { const w = window.__werwolf; w.ui.modal = { type: 'town' }; w.render(); });
+  await reachable(page, '.modal .mfoot .btn', 'Gemeinde schließen');
+  assert.match(await page.locator('.modal').innerText(), /Die Gemeinde/);
+  assert.deepEqual(problems, []);
+  await ctx.close();
+});
+
+test('Gemeinde: Lehrerin und Wirt im Abstimmungsfeld, Bäcker in der Nacht', async () => {
+  const ctx = await app.newContext(PHONE_CTX);
+  const { page, problems } = await app.openApp({ context: ctx });
+  await startGame(page, { names: NAMES, counts: { wolf: 1, seer: 1, villager: 6 }, roles: ['wolf', 'seer', 'villager', 'villager', 'villager', 'villager', 'villager', 'villager'], rules: { town: true } });
+  await page.evaluate(() => { const w = window.__werwolf, g = w.S.game; g.cfg.town = { school: 1, inn: 1, bakery: 1, farm: 1 }; g.town.b = { p3: 'school', p4: 'inn', p5: 'bakery', p6: 'farm' }; w.render(); });
+  await gotoStep(page, 'baker');
+  assert.match(await page.locator('.rolebox h2').innerText(), /Bäcker/);
+  await nightToDay(page);
+  await page.evaluate(() => window.__werwolf.dispatch({ t: 'skip-captain' }));
+  await page.waitForTimeout(350);
+  await page.click('[data-action=ban-arm]');
+  await tapName(page, 'Felix');
+  assert.deepEqual(await page.evaluate(() => window.__werwolf.S.game.draft.ban), ['p6']);
+  await page.click('[data-action=inn-arm]');
+  await tapName(page, 'Greta');
+  assert.equal(await page.evaluate(() => window.__werwolf.S.game.draft.innVote), 'p7');
+  await reachable(page, '[data-action=day-execute]', 'Hinrichten (Gemeinde)');
+  assert.deepEqual(problems, []);
+  await ctx.close();
+});

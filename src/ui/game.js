@@ -8,6 +8,8 @@ import {
 } from '../engine/game.js';
 import { SPIRIT_CARDS } from '../engine/events.js';
 import { eventBlock } from './cards.js';
+import { townVoteHtml } from './town.js';
+import { BUILDINGS } from '../engine/town.js';
 import { sfx } from '../audio.js';
 
 const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -33,6 +35,7 @@ function marks(g, c) {
         case 'model': if (d.model) m.pick.add(d.model); break;
         case 'fox': if (d.fox) [d.fox, ...seatNeighbors(g, d.fox)].forEach((x) => m.pick.add(x)); break;
         case 'mark': if (d.mark) m.pick.add(d.mark); break;
+        case 'fire': if (d.fire) m.target.add(d.fire); break;
         case 'seance': if (d.medium) m.pick.add(d.medium); break;
         case 'enchant': d.enchant.forEach((x) => m.pick.add(x)); Object.keys(g.enchanted).forEach((x) => m.dim.add(x)); break;
         default: break;
@@ -45,6 +48,7 @@ function marks(g, c) {
       else { const t = tally(g); t.rows.forEach((r) => { m.count[r.pid] = r.total; }); t.leaders.forEach((x) => m.target.add(x)); }
     }
     if (g.captain) m.role.add(g.captain);
+    if (g.phase === 'day' && d.ban) d.ban.forEach((x) => m.dim.add(x));
     const it = g.interrupts[0];
     if (it?.type === 'scapegoat') it.picks.forEach((x) => m.pick.add(x));
     if (it && ['hunter', 'captain', 'scapegoat'].includes(it.type)) m.dim.add(it.id);
@@ -60,6 +64,7 @@ function tokHtml(g, p, i, n, mk, mode) {
   const b = [];
   if (mk.count[p.id]) b.push(`<span class="bdg gold cnt" title="Stimmen">${mk.count[p.id]}</span>`);
   if (g.captain === p.id) b.push(`<span class="bdg gold" title="Hauptmann">${I.crown}</span>`);
+  if (g.town?.b[p.id]) b.push(`<span class="bdg" title="${esc(BUILDINGS[g.town.b[p.id]].job)}">${BUILDINGS[g.town.b[p.id]].code}</span>`);
   if (g.lovers.includes(p.id)) b.push(`<span class="bdg red" title="Verliebt">${I.heart}</span>`);
   if (g.enchanted[p.id]) b.push(`<span class="bdg blue" title="Verzaubert">${I.flute}</span>`);
   if (g.charmed?.[p.id] && !dead && showRoles()) b.push(`<span class="bdg blue" title="Betört">${I.moon}</span>`);
@@ -225,6 +230,7 @@ function taskBox(g, c) {
           cls = 'ok';
         } else prompt = 'Der Fuchs zeigt auf die Mitte einer Dreiergruppe. Person antippen.';
         break;
+      case 'fire': prompt = d.fire ? `Das Gebäude von ${nm(g, d.fire)} brennt (${BUILDINGS[g.town.b[d.fire]]?.name ?? ''}).` : 'Welches Gebäude setzt der Brandstifter in Brand? Einmal im Spiel, Person im Kreis antippen oder Weiter.'; cls = d.fire ? 'ok' : ''; break;
       case 'mark': prompt = d.mark ? `Belastet: ${nm(g, d.mark)} (zwei Stimmen mehr)` : 'Wen belastet der Rabe? (optional)'; break;
       case 'enchant': prompt = `Tippe 2 Personen zum Verzaubern an (${d.enchant.length}/2).${Object.keys(g.enchanted).length ? ` Schon verzaubert: ${Object.keys(g.enchanted).map((x) => nm(g, x)).join(', ')}.` : ''}`; cls = d.enchant.length === 2 ? 'ok' : ''; break;
       default: break;
@@ -326,6 +332,7 @@ function voteCard(g) {
       <div class="vres ${t.tie ? 'warn' : ''}">${esc(result)}</div>
       <div class="muted vhint">${t.cast} von ${t.eligible} Händen gezählt${t.cast < t.eligible ? '' : ', alle sind durch'}</div>
       <div class="acts">
+        ${count ? townVoteHtml(g) : ''}
         ${cap ? `<button class="btn sm ${d.capArm ? 'on' : ''}" data-action="vote-cap-arm">${I.crown}<span>${d.capVote ? `Hauptmann: ${esc(nm(g, d.capVote))}` : d.capArm ? 'Jetzt Hauptmanns Wahl antippen' : 'Stimme des Hauptmanns'}</span></button>` : ''}
         <button class="btn sm" data-action="vote-undo" ${d.voteLog.length ? '' : 'disabled'}>${I.undo}<span>Letzte zurück</span></button>
         <button class="btn sm" data-action="vote-reset" ${d.voteLog.length ? '' : 'disabled'}>${I.reset}<span>Neu zählen</span></button>
