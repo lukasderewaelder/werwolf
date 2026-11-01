@@ -12,6 +12,12 @@ Aufbau jeder Karte: Die Figur oder das Symbol steht mittig, ist groß und füllt
 Stil:
 Extrem einfache, flache Vektorgrafik für eine Werwolf-Spielkarte. Klare, große geometrische Formen, geschlossene Farbflächen, vereinfachte Silhouetten und wenige gleichmäßig breite Konturen. Maximal zwei bis drei Motivfarben neben dem einfarbigen dunklen Hintergrund und dem einheitlichen Kartenrahmen. Keine Texturen, keine Pinselstriche, kein Realismus, keine Fell- oder Stoffstruktur, keine kleinen Ornamente, keine winzigen Gegenstände, keine aufwendigen Gesichter, keine Verläufe, kein Lichtschein, keine Schlagschatten, keine Tiefe. Jede Rolle wird durch eine große Figur oder ein großes Symbol und höchstens ein deutliches Erkennungsmerkmal dargestellt. Die Grafik soll auch als kleine Kartenminiatur sofort erkennbar sein. Dezente, leicht düstere Märchenstimmung nur durch Farbwahl und Formen, nicht durch Landschaft oder Effekte. Kein Text, keine Zahlen, keine Buchstaben, kein Wasserzeichen.
 
+Verbindliche Vereinfachungsregeln:
+- Große Formen statt Einzelheiten; wenige Innenlinien und maximal zwei einfache Gesichtszüge (zum Beispiel Augen oder Mund).
+- Keine Szenen oder Landschaften: Hintergrund auf jeder Karte eine ruhige, einfarbige dunkelblaue, dunkelgraue oder dunkelbraune Fläche. Allenfalls ein großer Kreis als Mond, falls ausdrücklich beschrieben.
+- Keine dreidimensionale Beleuchtung und keine feinen Details. Farbe trennt Formen, nicht Schatten.
+- Motive dürfen unterschiedlich sein, müssen aber wie ein zusammengehöriges minimalistisches Icon-Set wirken.
+
 Die vier Motive stehen in dieser Reihenfolge: 1 links oben, 2 rechts oben, 3 links unten, 4 rechts unten.
 
 1. DORFBEWOHNER: Brustbild eines einfachen Dorfbewohners im Profil, braune Weste, helles Hemd. Erkennungsmerkmal: eine große Mistgabel neben dem Kopf. Motivfarben: Braun, Hautton, Senfgelb. Hintergrund: dunkles Nachtblau (#101a2b). Eine Figur.
@@ -33,6 +39,12 @@ Aufbau jeder Karte: Die Figur oder das Symbol steht mittig, ist groß und füllt
 
 Stil:
 Extrem einfache, flache Vektorgrafik für eine Werwolf-Spielkarte. Klare, große geometrische Formen, geschlossene Farbflächen, vereinfachte Silhouetten und wenige gleichmäßig breite Konturen. Maximal zwei bis drei Motivfarben neben dem einfarbigen dunklen Hintergrund und dem einheitlichen Kartenrahmen. Keine Texturen, keine Pinselstriche, kein Realismus, keine Fell- oder Stoffstruktur, keine kleinen Ornamente, keine winzigen Gegenstände, keine aufwendigen Gesichter, keine Verläufe, kein Lichtschein, keine Schlagschatten, keine Tiefe. Jede Rolle wird durch eine große Figur oder ein großes Symbol und höchstens ein deutliches Erkennungsmerkmal dargestellt. Die Grafik soll auch als kleine Kartenminiatur sofort erkennbar sein. Dezente, leicht düstere Märchenstimmung nur durch Farbwahl und Formen, nicht durch Landschaft oder Effekte. Kein Text, keine Zahlen, keine Buchstaben, kein Wasserzeichen.
+
+Verbindliche Vereinfachungsregeln:
+- Große Formen statt Einzelheiten; wenige Innenlinien und maximal zwei einfache Gesichtszüge (zum Beispiel Augen oder Mund).
+- Keine Szenen oder Landschaften: Hintergrund auf jeder Karte eine ruhige, einfarbige dunkelblaue, dunkelgraue oder dunkelbraune Fläche. Allenfalls ein großer Kreis als Mond, falls ausdrücklich beschrieben.
+- Keine dreidimensionale Beleuchtung und keine feinen Details. Farbe trennt Formen, nicht Schatten.
+- Motive dürfen unterschiedlich sein, müssen aber wie ein zusammengehöriges minimalistisches Icon-Set wirken.
 
 Die vier Motive stehen in dieser Reihenfolge: 1 links oben, 2 rechts oben, 3 links unten, 4 rechts unten.
 
@@ -56,6 +68,12 @@ Aufbau jeder Karte: Die Figur oder das Symbol steht mittig, ist groß und füllt
 Stil:
 Extrem einfache, flache Vektorgrafik für eine Werwolf-Spielkarte. Klare, große geometrische Formen, geschlossene Farbflächen, vereinfachte Silhouetten und wenige gleichmäßig breite Konturen. Maximal zwei bis drei Motivfarben neben dem einfarbigen dunklen Hintergrund und dem einheitlichen Kartenrahmen. Keine Texturen, keine Pinselstriche, kein Realismus, keine Fell- oder Stoffstruktur, keine kleinen Ornamente, keine winzigen Gegenstände, keine aufwendigen Gesichter, keine Verläufe, kein Lichtschein, keine Schlagschatten, keine Tiefe. Jede Rolle wird durch eine große Figur oder ein großes Symbol und höchstens ein deutliches Erkennungsmerkmal dargestellt. Die Grafik soll auch als kleine Kartenminiatur sofort erkennbar sein. Dezente, leicht düstere Märchenstimmung nur durch Farbwahl und Formen, nicht durch Landschaft oder Effekte. Kein Text, keine Zahlen, keine Buchstaben, kein Wasserzeichen.
 
+Verbindliche Vereinfachungsregeln:
+- Große Formen statt Einzelheiten; wenige Innenlinien und maximal zwei einfache Gesichtszüge (zum Beispiel Augen oder Mund).
+- Keine Szenen oder Landschaften: Hintergrund auf jeder Karte eine ruhige, einfarbige dunkelblaue, dunkelgraue oder dunkelbraune Fläche. Allenfalls ein großer Kreis als Mond, falls ausdrücklich beschrieben.
+- Keine dreidimensionale Beleuchtung und keine feinen Details. Farbe trennt Formen, nicht Schatten.
+- Motive dürfen unterschiedlich sein, müssen aber wie ein zusammengehöriges minimalistisches Icon-Set wirken.
+
 Die vier Motive stehen in dieser Reihenfolge: 1 links oben, 2 rechts oben, 3 links unten, 4 rechts unten.
 
 1. HEILER: Brustbild einer freundlichen Figur mit hellem Tuch. Erkennungsmerkmal: ein großes grünes Kreuz auf der Brust. Motivfarben: Grün, Weiß, Hautton. Hintergrund: dunkles Tannengrün (#0e2018). Eine Figur.
@@ -77,6 +95,12 @@ Aufbau jeder Karte: Die Figur oder das Symbol steht mittig, ist groß und füllt
 
 Stil:
 Extrem einfache, flache Vektorgrafik für eine Werwolf-Spielkarte. Klare, große geometrische Formen, geschlossene Farbflächen, vereinfachte Silhouetten und wenige gleichmäßig breite Konturen. Maximal zwei bis drei Motivfarben neben dem einfarbigen dunklen Hintergrund und dem einheitlichen Kartenrahmen. Keine Texturen, keine Pinselstriche, kein Realismus, keine Fell- oder Stoffstruktur, keine kleinen Ornamente, keine winzigen Gegenstände, keine aufwendigen Gesichter, keine Verläufe, kein Lichtschein, keine Schlagschatten, keine Tiefe. Jede Rolle wird durch eine große Figur oder ein großes Symbol und höchstens ein deutliches Erkennungsmerkmal dargestellt. Die Grafik soll auch als kleine Kartenminiatur sofort erkennbar sein. Dezente, leicht düstere Märchenstimmung nur durch Farbwahl und Formen, nicht durch Landschaft oder Effekte. Kein Text, keine Zahlen, keine Buchstaben, kein Wasserzeichen.
+
+Verbindliche Vereinfachungsregeln:
+- Große Formen statt Einzelheiten; wenige Innenlinien und maximal zwei einfache Gesichtszüge (zum Beispiel Augen oder Mund).
+- Keine Szenen oder Landschaften: Hintergrund auf jeder Karte eine ruhige, einfarbige dunkelblaue, dunkelgraue oder dunkelbraune Fläche. Allenfalls ein großer Kreis als Mond, falls ausdrücklich beschrieben.
+- Keine dreidimensionale Beleuchtung und keine feinen Details. Farbe trennt Formen, nicht Schatten.
+- Motive dürfen unterschiedlich sein, müssen aber wie ein zusammengehöriges minimalistisches Icon-Set wirken.
 
 Die vier Motive stehen in dieser Reihenfolge: 1 links oben, 2 rechts oben, 3 links unten, 4 rechts unten.
 
@@ -100,6 +124,12 @@ Aufbau jeder Karte: Die Figur oder das Symbol steht mittig, ist groß und füllt
 Stil:
 Extrem einfache, flache Vektorgrafik für eine Werwolf-Spielkarte. Klare, große geometrische Formen, geschlossene Farbflächen, vereinfachte Silhouetten und wenige gleichmäßig breite Konturen. Maximal zwei bis drei Motivfarben neben dem einfarbigen dunklen Hintergrund und dem einheitlichen Kartenrahmen. Keine Texturen, keine Pinselstriche, kein Realismus, keine Fell- oder Stoffstruktur, keine kleinen Ornamente, keine winzigen Gegenstände, keine aufwendigen Gesichter, keine Verläufe, kein Lichtschein, keine Schlagschatten, keine Tiefe. Jede Rolle wird durch eine große Figur oder ein großes Symbol und höchstens ein deutliches Erkennungsmerkmal dargestellt. Die Grafik soll auch als kleine Kartenminiatur sofort erkennbar sein. Dezente, leicht düstere Märchenstimmung nur durch Farbwahl und Formen, nicht durch Landschaft oder Effekte. Kein Text, keine Zahlen, keine Buchstaben, kein Wasserzeichen.
 
+Verbindliche Vereinfachungsregeln:
+- Große Formen statt Einzelheiten; wenige Innenlinien und maximal zwei einfache Gesichtszüge (zum Beispiel Augen oder Mund).
+- Keine Szenen oder Landschaften: Hintergrund auf jeder Karte eine ruhige, einfarbige dunkelblaue, dunkelgraue oder dunkelbraune Fläche. Allenfalls ein großer Kreis als Mond, falls ausdrücklich beschrieben.
+- Keine dreidimensionale Beleuchtung und keine feinen Details. Farbe trennt Formen, nicht Schatten.
+- Motive dürfen unterschiedlich sein, müssen aber wie ein zusammengehöriges minimalistisches Icon-Set wirken.
+
 Die vier Motive stehen in dieser Reihenfolge: 1 links oben, 2 rechts oben, 3 links unten, 4 rechts unten.
 
 1. GROSSER BÖSER WOLF: Extrem breiter, wuchtiger Wolfskopf im Profil, Maul weit offen mit großen Zähnen als Dreiecke. Erkennungsmerkmal: die übergroße Größe des Kopfes, der fast die ganze Karte füllt. Motivfarben: Bordeaux, Schwarz. Hintergrund: sehr dunkles Rot (#1a0809). Ein Tier.
@@ -121,6 +151,12 @@ Aufbau jeder Karte: Die Figur oder das Symbol steht mittig, ist groß und füllt
 
 Stil:
 Extrem einfache, flache Vektorgrafik für eine Werwolf-Spielkarte. Klare, große geometrische Formen, geschlossene Farbflächen, vereinfachte Silhouetten und wenige gleichmäßig breite Konturen. Maximal zwei bis drei Motivfarben neben dem einfarbigen dunklen Hintergrund und dem einheitlichen Kartenrahmen. Keine Texturen, keine Pinselstriche, kein Realismus, keine Fell- oder Stoffstruktur, keine kleinen Ornamente, keine winzigen Gegenstände, keine aufwendigen Gesichter, keine Verläufe, kein Lichtschein, keine Schlagschatten, keine Tiefe. Jede Rolle wird durch eine große Figur oder ein großes Symbol und höchstens ein deutliches Erkennungsmerkmal dargestellt. Die Grafik soll auch als kleine Kartenminiatur sofort erkennbar sein. Dezente, leicht düstere Märchenstimmung nur durch Farbwahl und Formen, nicht durch Landschaft oder Effekte. Kein Text, keine Zahlen, keine Buchstaben, kein Wasserzeichen.
+
+Verbindliche Vereinfachungsregeln:
+- Große Formen statt Einzelheiten; wenige Innenlinien und maximal zwei einfache Gesichtszüge (zum Beispiel Augen oder Mund).
+- Keine Szenen oder Landschaften: Hintergrund auf jeder Karte eine ruhige, einfarbige dunkelblaue, dunkelgraue oder dunkelbraune Fläche. Allenfalls ein großer Kreis als Mond, falls ausdrücklich beschrieben.
+- Keine dreidimensionale Beleuchtung und keine feinen Details. Farbe trennt Formen, nicht Schatten.
+- Motive dürfen unterschiedlich sein, müssen aber wie ein zusammengehöriges minimalistisches Icon-Set wirken.
 
 Die vier Motive stehen in dieser Reihenfolge: 1 links oben, 2 rechts oben, 3 links unten, 4 rechts unten.
 
@@ -144,6 +180,12 @@ Aufbau jeder Karte: Die Figur oder das Symbol steht mittig, ist groß und füllt
 Stil:
 Extrem einfache, flache Vektorgrafik für eine Werwolf-Spielkarte. Klare, große geometrische Formen, geschlossene Farbflächen, vereinfachte Silhouetten und wenige gleichmäßig breite Konturen. Maximal zwei bis drei Motivfarben neben dem einfarbigen dunklen Hintergrund und dem einheitlichen Kartenrahmen. Keine Texturen, keine Pinselstriche, kein Realismus, keine Fell- oder Stoffstruktur, keine kleinen Ornamente, keine winzigen Gegenstände, keine aufwendigen Gesichter, keine Verläufe, kein Lichtschein, keine Schlagschatten, keine Tiefe. Jede Rolle wird durch eine große Figur oder ein großes Symbol und höchstens ein deutliches Erkennungsmerkmal dargestellt. Die Grafik soll auch als kleine Kartenminiatur sofort erkennbar sein. Dezente, leicht düstere Märchenstimmung nur durch Farbwahl und Formen, nicht durch Landschaft oder Effekte. Kein Text, keine Zahlen, keine Buchstaben, kein Wasserzeichen.
 
+Verbindliche Vereinfachungsregeln:
+- Große Formen statt Einzelheiten; wenige Innenlinien und maximal zwei einfache Gesichtszüge (zum Beispiel Augen oder Mund).
+- Keine Szenen oder Landschaften: Hintergrund auf jeder Karte eine ruhige, einfarbige dunkelblaue, dunkelgraue oder dunkelbraune Fläche. Allenfalls ein großer Kreis als Mond, falls ausdrücklich beschrieben.
+- Keine dreidimensionale Beleuchtung und keine feinen Details. Farbe trennt Formen, nicht Schatten.
+- Motive dürfen unterschiedlich sein, müssen aber wie ein zusammengehöriges minimalistisches Icon-Set wirken.
+
 Die vier Motive stehen in dieser Reihenfolge: 1 links oben, 2 rechts oben, 3 links unten, 4 rechts unten.
 
 1. BÄRENFÜHRER: Bärenkopf von vorn mit runden Ohren. Erkennungsmerkmal: eine dicke Kette um den Hals. Motivfarben: Braun, Grau. Hintergrund: dunkles Rotbraun (#1f1410). Ein Tier.
@@ -165,6 +207,12 @@ Aufbau jeder Karte: Die Figur oder das Symbol steht mittig, ist groß und füllt
 
 Stil:
 Extrem einfache, flache Vektorgrafik für eine Werwolf-Spielkarte. Klare, große geometrische Formen, geschlossene Farbflächen, vereinfachte Silhouetten und wenige gleichmäßig breite Konturen. Maximal zwei bis drei Motivfarben neben dem einfarbigen dunklen Hintergrund und dem einheitlichen Kartenrahmen. Keine Texturen, keine Pinselstriche, kein Realismus, keine Fell- oder Stoffstruktur, keine kleinen Ornamente, keine winzigen Gegenstände, keine aufwendigen Gesichter, keine Verläufe, kein Lichtschein, keine Schlagschatten, keine Tiefe. Jede Rolle wird durch eine große Figur oder ein großes Symbol und höchstens ein deutliches Erkennungsmerkmal dargestellt. Die Grafik soll auch als kleine Kartenminiatur sofort erkennbar sein. Dezente, leicht düstere Märchenstimmung nur durch Farbwahl und Formen, nicht durch Landschaft oder Effekte. Kein Text, keine Zahlen, keine Buchstaben, kein Wasserzeichen.
+
+Verbindliche Vereinfachungsregeln:
+- Große Formen statt Einzelheiten; wenige Innenlinien und maximal zwei einfache Gesichtszüge (zum Beispiel Augen oder Mund).
+- Keine Szenen oder Landschaften: Hintergrund auf jeder Karte eine ruhige, einfarbige dunkelblaue, dunkelgraue oder dunkelbraune Fläche. Allenfalls ein großer Kreis als Mond, falls ausdrücklich beschrieben.
+- Keine dreidimensionale Beleuchtung und keine feinen Details. Farbe trennt Formen, nicht Schatten.
+- Motive dürfen unterschiedlich sein, müssen aber wie ein zusammengehöriges minimalistisches Icon-Set wirken.
 
 Die vier Motive stehen in dieser Reihenfolge: 1 links oben, 2 rechts oben, 3 links unten, 4 rechts unten.
 
