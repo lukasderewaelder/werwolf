@@ -2,7 +2,7 @@
 // Der Block zwischen den Marken wird von tools/precache.mjs erzeugt (node tools/precache.mjs).
 
 // >>> precache
-const VERSION = '1a543c8f5f';
+const VERSION = 'b56a9aeff5';
 const ASSETS = [
   './',
   './assets/audio/glocke.mp3',
@@ -36,7 +36,7 @@ const ASSETS = [
   './assets/portraits/guard.webp',
   './assets/portraits/hunter.webp',
   './assets/portraits/idiot.webp',
-  './assets/portraits/judge.svg',
+  './assets/portraits/judge.webp',
   './assets/portraits/knight.webp',
   './assets/portraits/maid.webp',
   './assets/portraits/medium.webp',
