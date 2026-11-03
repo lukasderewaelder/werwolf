@@ -958,3 +958,17 @@ test('Nacht: Weiter fragt nach, solange eine Pflichtentscheidung fehlt', async (
   assert.deepEqual(problems, []);
   await page.context().close();
 });
+
+test('Anleitung: Kapitel lassen sich aufklappen und passen aufs Handy', async () => {
+  const { context, page, problems } = await app.openApp({ viewport: PHONE });
+  await page.click('[data-action=go][data-view=guide]');
+  await page.waitForSelector('[data-action=guide-open]');
+  assert.equal(await page.locator('[data-action=guide-open]').count(), 7);
+  assert.equal(await page.locator('[data-action=guide-open][aria-expanded=true]').count(), 1);
+  await page.click('[data-action=guide-open][data-i="3"]');
+  assert.equal(await page.locator('[data-action=guide-open][aria-expanded=true]').count(), 1);
+  assert.ok(await page.locator('text=Dieb und Gaukler').first().isVisible());
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  assert.deepEqual(problems, []);
+  await context.close();
+});

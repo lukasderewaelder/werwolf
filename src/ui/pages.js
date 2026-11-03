@@ -35,16 +35,50 @@ export function roleDetailHtml(id) {
     <p>${esc(r.desc)}</p>${r.say ? `<div class="say">${esc(r.say)}</div>` : ''}`;
 }
 
+const GUIDE = [
+  ['Spiel vorbereiten', [
+    'Auf der Startseite „Neues Spiel“ wählen. Zuerst kommen die Spieler: Namen eintippen oder aus einer Gruppe (z. B. Klasse 7a) übernehmen. Gruppen merken sich die Namen für das nächste Mal.',
+    'Danach werden die Rollen gewählt. Die App schlägt eine passende Verteilung vor; mit Plus und Minus änderst du sie. Unter „Rollen“ auf der Startseite kannst du jede Karte nachschlagen.',
+    'Zum Schluss die Regeln und Hausregeln einstellen. Im Kartenmodus teilt die App die Karten verdeckt aus; sonst gibst du die Rollen selbst aus und trägst sie in Nacht 1 ein.',
+  ]],
+  ['Die Nacht', [
+    'Oben zeigt das Schrittband, welche Rolle gerade dran ist. Lies die kursive Ansage laut vor. Die Reihenfolge entspricht dem Regelheft.',
+    'Tippe die Spieler im Kreis an, um Opfer, Verliebte oder geprüfte Personen zu wählen. Mit „Weiter“ geht es zum nächsten Schritt.',
+    'Fehlt eine Pflichtentscheidung (zum Beispiel das Opfer der Werwölfe), fragt die App nach, bevor sie weitergeht. Mit „Zurück“ holst du sie nach. Optionale Aktionen wie die der Hexe darfst du überspringen.',
+    'Im Schrittband kannst du auf einen Schritt tippen, um dorthin zu springen. Nach vorn fragt die App bei offenen Entscheidungen nach, zurück geht immer.',
+  ]],
+  ['Der Tag', [
+    'Am Morgen nennt die App die Toten und die Nachrichten der Nacht. Besondere Folgen wie Jäger oder Verliebte löst die App Schritt für Schritt aus.',
+    'Starte den Timer für die Diskussion. Wähle den Hauptmann, wenn die Regel aktiv ist. Danach tippst du an, wen das Dorf hinrichtet.',
+    'Nach jeder Phase prüft die App, ob eine Seite gewonnen hat, und zeigt dann den Endbildschirm.',
+  ]],
+  ['Besondere Rollen und Karten', [
+    'Dieb und Gaukler haben Karten in der Mitte. Du findest sie im Menü unter „Karten in der Mitte“.',
+    'Die Gemeinde, Ereigniskarten und die Gruppen des Greises erscheinen im Menü nur, wenn sie im Spiel aktiv sind.',
+    'Eigene Rollen mit Aktion legst du bei der Rollenwahl im Reiter „Eigene“ an. Sie laufen in der Nacht wie die Originale.',
+  ]],
+  ['Fehler korrigieren', [
+    'Der Pfeil oben macht die letzte Aktion rückgängig, beliebig oft.',
+    'Im Menü unter „Wer ist wer“ siehst du Rollen und Status aller Spieler und kannst sie korrigieren.',
+    'Das Protokoll im Menü zeigt, was bisher passiert ist. Du kannst es teilen, als Datei speichern oder kopieren.',
+  ]],
+  ['Geheim halten', [
+    'Mit dem Auge-Knopf blendest du die Rollen auf den Spielersteinen aus, falls jemand mitschaut.',
+    '„Bildschirm sperren“ im Menü sichert die App mit einer PIN, falls das Gerät offen liegt. Die PIN legst du in den Optionen fest.',
+  ]],
+  ['Pause, Sichern und Teilen', [
+    'Mit „Pausieren und später weiterspielen“ wird das Spiel gespeichert. Du setzt es von der Startseite aus fort.',
+    'In den Optionen speicherst du eine Sicherung als Datei (Gruppen, Einstellungen, eigene Karten) und lädst sie auf einem anderen Gerät wieder. So ziehst du auch auf ein neues Gerät um.',
+    'Mit „Installieren“ liegt die App wie eine normale App auf dem Startbildschirm und läuft danach auch ohne Internet.',
+  ]],
+];
+
+on('guide-open', (el) => { const i = +el.dataset.i; ui.guideOpen = ui.guideOpen === i ? -1 : i; });
 views.guide = () => {
-  const steps = [
-    ['moon', 'Nacht', 'Lies die kursiven Ansagen vor. Die App weckt die Rollen in der Reihenfolge des Regelhefts. Mit „Weiter“ geht es zum nächsten Schritt.'],
-    ['people', 'Antippen', 'Tippe die Spieler im Kreis an: Opfer der Wölfe, Verliebte, geprüfte Person. Im Kartenmodus fragt die App in Nacht 1 zuerst „Wer ist es?“.'],
-    ['sun', 'Tag', 'Die App nennt die Toten und die Nachrichten des Morgens. Starte den Timer, wähle den Hauptmann und tippe an, wen das Dorf hinrichtet.'],
-    ['undo', 'Vertippt?', 'Der Pfeil oben macht jede Aktion rückgängig. Im Menü findest du Protokoll, Rollenübersicht und Korrekturen.'],
-    ['eye', 'Geheim halten', 'Nur du siehst das Gerät. Mit dem Auge-Knopf blendest du Rollen auf den Spielersteinen aus, falls jemand mitschaut.'],
-  ];
-  return `<div class="view">${topBar('Anleitung', 'So leitest du ein Spiel')}
-    <div class="page"><div class="col scroll" style="flex:1;min-height:0">${steps.map(([ic, t, d], i) => `<div class="card flat row" style="align-items:flex-start"><span class="no member" style="min-height:0;padding:0;border:0;background:none"><span class="no" style="background:var(--accent);color:var(--accent-ink)">${i + 1}</span></span><div><b style="font-family:var(--serif);font-size:19px">${t}</b><p class="muted">${d}</p></div></div>`).join('')}</div>
+  const open = ui.guideOpen ?? 0;
+  const chapter = ([t, ps], i) => `<div class="card flat" style="padding:0"><button class="opt" data-action="guide-open" data-i="${i}" aria-expanded="${open === i}" style="width:100%"><span class="t"><b style="font-family:var(--serif);font-size:19px">${i + 1}. ${esc(t)}</b></span>${open === i ? '–' : '+'}</button>${open === i ? `<div class="col" style="padding:0 16px 14px">${ps.map((p) => `<p class="muted" style="margin:0">${esc(p)}</p>`).join('')}</div>` : ''}</div>`;
+  return `<div class="view">${topBar('Anleitung', 'So funktioniert die App')}
+    <div class="page"><div class="col scroll" style="flex:1;min-height:0" data-keep="guide">${GUIDE.map(chapter).join('')}</div>
       <div class="foot"><button class="btn primary" data-action="new-game">${I.moon}<span>Neues Spiel</span></button></div></div></div>`;
 };
 

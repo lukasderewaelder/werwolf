@@ -39,7 +39,7 @@ views.home = () => {
         <div class="menu-grid">
           <button class="tile" data-action="go" data-view="groups">${I.people}<b>Gruppen</b><span>Spieler und Runden verwalten</span></button>
           <button class="tile" data-action="go" data-view="library">${I.book}<b>Rollen</b><span>Nachschlagen und Regeln</span></button>
-          <button class="tile" data-action="go" data-view="guide">${I.list}<b>Anleitung</b><span>So leitest du ein Spiel</span></button>
+          <button class="tile" data-action="go" data-view="guide">${I.list}<b>Anleitung</b><span>So funktioniert die App</span></button>
           <button class="tile" data-action="go" data-view="settings">${I.sliders}<b>Optionen</b><span>Sound, Hausregeln, Sicherung</span></button>
         </div>
       </div>
