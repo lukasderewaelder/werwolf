@@ -271,7 +271,7 @@ on('custom-edit', (el) => { const r = S.customRoles.find((x) => x.id === el.data
 function readCustomForm(f) {
   const d = Object.fromEntries(new FormData(f).entries());
   const count = ui.modal?.draft?.blocks?.length ?? 0;
-  const blocks = Array.from({ length: count }, (_, i) => ({ k: d[`bk_k_${i}`], n: d[`bk_n_${i}`], when: d[`bk_when_${i}`], limit: d[`bk_limit_${i}`], role: d[`bk_role_${i}`], self: d[`bk_self_${i}`] === 'on', rep: d[`bk_rep_${i}`] === 'on' }));
+  const blocks = Array.from({ length: count }, (_, i) => ({ k: d[`bk_k_${i}`], n: d[`bk_n_${i}`], when: d[`bk_when_${i}`], limit: d[`bk_limit_${i}`], chance: d[`bk_chance_${i}`], role: d[`bk_role_${i}`], self: d[`bk_self_${i}`] === 'on', rep: d[`bk_rep_${i}`] === 'on' }));
   return {
     name: (d.name || '').trim().slice(0, 28), camp: d.camp === 'wolf' ? 'wolf' : 'village', sub: (d.sub || '').trim().slice(0, 60), desc: (d.desc || '').trim().slice(0, 600), say: (d.say || '').trim().slice(0, 300),
     wake: d.wake || 'none', after: d.after === 'after', icon: (d.icon || '').slice(0, 8), blocks, passives: Object.keys(PASSIVES).filter((k) => d[`pa_${k}`] === 'on'),

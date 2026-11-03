@@ -1,6 +1,6 @@
 // Spiellogik ohne Oberfläche: Zustand ist reines JSON, jede Aktion liefert einen neuen Zustand.
 // Regelgrundlage: Regelheft "Die Werwölfe von Düsterwald – Der Pakt" (siehe docs/regelabgleich.md).
-import { ROLES, RM, ACTOR_POOL, roleName, requiredCards, registerRoles, isWolfRole, BLOCKS, targetsOf, custKey } from './roles.js';
+import { ROLES, RM, ACTOR_POOL, roleName, requiredCards, registerRoles, isWolfRole, BLOCKS, targetsOf, custKey, whenOk } from './roles.js';
 import { SPIRIT_CARDS, KINDS, MAX_BEADLE } from './events.js';
 import { BUILDINGS, DEFAULT_TOWN } from './town.js';
 
@@ -27,7 +27,12 @@ export const CAUSE = {
   wolves: 'Werwölfe', bigwolf: 'Großer böser Wolf', whitewolf: 'Weißer Werwolf', poison: 'Gifttrank der Hexe',
   hunter: 'Schuss des Jägers', barber: 'Barbier', barberOut: 'Aus dem Dorf gejagt (Barbier)', fire: 'Verbrannt im Haus', charm: 'Betörung durch die Werwölfe', vote: 'Dorfgericht', tie: 'Sündenbock (Gleichstand)', heartbreak: 'Liebeskummer',
   custom: 'Fähigkeit einer eigenen Rolle', knight: 'Rostiges Schwert des Ritters', manual: 'Vom Spielleiter entfernt', girl: 'Von den Wölfen beim Spionieren erwischt',
+  guard: 'Als Leibwächter für seinen Schützling gestorben',
 };
+
+/** Zufall für Fähigkeiten mit Erfolgschance; Tests können ihn festlegen. */
+let rand = Math.random;
+export const setRandom = (f) => { rand = f ?? Math.random; };
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const emptyDraft = () => ({
@@ -39,7 +44,7 @@ const emptyDraft = () => ({
 });
 
 /** Ältere Spielstände ohne Stimmenzähler ergänzen. */
-export function normalizeGame(g) { if (g) { g.draft = { ...emptyDraft(), ...g.draft }; g.charmed ??= {}; g.customUsed ??= {}; g.cuse ??= {}; g.clast ??= {}; g.bound ??= {}; g.blocked ??= {}; g.mutes ??= []; g.hardyUsed ??= {}; g.ev ??= null; g.town ??= null; } return g; }
+export function normalizeGame(g) { if (g) { g.draft = { ...emptyDraft(), ...g.draft }; g.charmed ??= {}; g.customUsed ??= {}; g.cuse ??= {}; g.clast ??= {}; g.bound ??= {}; g.blocked ??= {}; g.mutes ??= []; g.hardyUsed ??= {}; g.cult ??= {}; g.jail ??= []; g.ev ??= null; g.town ??= null; } return g; }
 
 /* ---------- Zustand anlegen ---------- */
 
@@ -74,7 +79,7 @@ export function createGame(cfg, rnd = Math.random) {
     judgeUsed: false, judgeArmed: false, secondVote: false, voters: null, votersDay: -1,
     angelWin: false, angelWindow: true, winner: null, collectMorning: false,
     queue: [], interrupts: [], resume: null, dayMode: 'vote', draft: emptyDraft(),
-    morning: [], lastDeaths: [], log: [], dealIdx: 0, dealShown: false, charmed: {}, customUsed: {}, cuse: {}, clast: {}, bound: {}, blocked: {}, mutes: [], hardyUsed: {}, execWin: null, ev: null, town: null, pendingBarber: null,
+    morning: [], lastDeaths: [], log: [], dealIdx: 0, dealShown: false, charmed: {}, customUsed: {}, cuse: {}, clast: {}, bound: {}, blocked: {}, mutes: [], hardyUsed: {}, cult: {}, jail: [], execWin: null, ev: null, town: null, pendingBarber: null,
   };
   g.ev = initEvents(g, cfg, rnd);
   if (g.cfg.rules.town) { g.cfg.town = { ...(cfg.town ?? DEFAULT_TOWN) }; g.town = { b: {}, used: {}, free: [], gone: [], fireUsed: false, innLost: false }; if (cfg.townMap) g.town.b = { ...cfg.townMap }; }
@@ -204,10 +209,7 @@ export function log(g, t) { g.log.push({ p: clockLabel(g), t }); }
 
 /** Baustein einer eigenen Rolle ist heute Nacht aufrufbar (Nacht, Grenzen, Ziele vorhanden). */
 export function blockApplies(g, r, b, i) {
-  const n = g.night;
-  if (b.when === 'first' && n !== 1) return false;
-  if (b.when === 'later' && n < 2) return false;
-  if (b.when === 'even' && n % 2) return false;
+  if (BLOCKS[b.k].day || !whenOk(g.night, b)) return false;
   if (b.limit && (g.cuse?.[custKey(r.id, i)] ?? 0) >= b.limit) return false;
   if (b.k === 'revive' && !Object.keys(g.dead).length) return false;
   if (b.k === 'bind' && g.bound?.[r.id]) return false;
@@ -215,6 +217,23 @@ export function blockApplies(g, r, b, i) {
 }
 /** Alle lebenden Träger der Rolle sind diese Nacht gesperrt. */
 const lockedNow = (g, r) => { const hs = livingHolders(g, r.id); return hs.length > 0 && hs.every((h) => g.blocked?.[h.id] === g.night); };
+
+/** Fähigkeiten eigener Rollen, die heute am Tag eingesetzt werden können (Schuss, Einsperren). */
+export function dayBlocks(g) {
+  const out = [];
+  if (g.phase !== 'day' || g.day < 1) return out;
+  for (const r of ROLES) {
+    if (!r.custom || !r.blocks || !powerOn(g, r.id)) continue;
+    const hs = livingHolders(g, r.id);
+    if (!hs.length) continue;
+    r.blocks.forEach((b, i) => {
+      const key = custKey(r.id, i), used = g.cuse?.[key] ?? 0;
+      if (!BLOCKS[b.k].day || !whenOk(g.day, b) || (b.limit && used >= b.limit)) return;
+      out.push({ r, b, i, key, holder: hs[0], left: b.limit ? b.limit - used : 0 });
+    });
+  }
+  return out;
+}
 
 function actApplies(g, r) {
   const n = r.night;
@@ -365,6 +384,8 @@ export function settle(g) {
     const cause = g.dead[x].cause;
     log(g, `† ${nm(g, x)} (${roleLabel(g, x)}) – ${CAUSE[cause] ?? cause}`);
     const rid = g.roles[x];
+    const rw = RM[rid];
+    if (rw?.custom && !g.charmed?.[x] && !g.execWin && (rw.win === 'dies' || (rw.win === 'killed' && ['wolves', 'bigwolf', 'whitewolf'].includes(cause)))) { g.execWin = x; log(g, `${rw.name} ${nm(g, x)} ist gestorben – genau sein Plan`); }
     freeBuilding(g, x);
     if (rid === 'elder' && ['vote', 'poison', 'hunter'].includes(cause) && !g.powersLost) {
       g.powersLost = true;
@@ -459,8 +480,10 @@ export function checkWinner(g) {
   if (ww && liv.length === 1) return 'Der Weiße Werwolf';
   const loner = liv.find((id) => RM[g.roles[id]]?.win === 'solo');
   if (loner && liv.length === 1) return RM[g.roles[loner]].name;
+  const lead = liv.find((id) => RM[g.roles[id]]?.win === 'cult' && !g.charmed?.[id]);
+  if (lead && liv.every((id) => id === lead || g.cult?.[id] === g.roles[lead])) return `${RM[g.roles[lead]].name} ${nm(g, lead)} mit der Sekte`;
   const pack = liv.filter((id) => isWolf(g, id) && !isWhiteWolf(g, id));
-  if (!pack.length && !ww && !piper && !loner) return 'Das Dorf';
+  if (!pack.length && !ww && !piper && !loner && !lead) return 'Das Dorf';
   if (ww) return null;   // der Weiße Werwolf muss erst allein übrig bleiben oder sterben
   const others = liv.length - pack.length;
   if (g.cfg.rules.charm && pack.length && others - liv.filter((id) => g.charmed?.[id]).length <= 1) return 'Die Werwölfe';   // vorletzter Dorfbewohner betört
@@ -590,7 +613,21 @@ function finishNight(g) {
   if (d.mark) log(g, `Rabe markiert ${nm(g, d.mark)}`);
   g.lastProtect = d.protect || null;
   if (d.protect) log(g, `Heiler schützt ${nm(g, d.protect)}`);
-  const cprot = [], ckill = [];
+  const cprot = [], ckill = [], cguard = [], alerts = new Set(), visits = {};
+  const visit = (who, t) => { if (who && t && who !== t) { visits[t] ??= []; if (!visits[t].includes(who)) visits[t].push(who); } };
+  const pack = livingIds(g).filter((x) => isWolf(g, x) && !isWhiteWolf(g, x));
+  pack.forEach((w) => visit(w, d.kill));
+  if (d.bigkill) livingHolders(g, 'bigwolf').forEach((h) => visit(h.id, d.bigkill));
+  if (d.whitekill) livingHolders(g, 'whitewolf').forEach((h) => visit(h.id, d.whitekill));
+  const seerH = livingHolders(g, 'seer')[0], guardH = livingHolders(g, 'guard')[0], witchH = livingHolders(g, 'witch')[0], ravenH = livingHolders(g, 'raven')[0];
+  if (seerH) visit(seerH.id, d.check);
+  if (guardH) visit(guardH.id, d.protect);
+  if (witchH) { visit(witchH.id, d.poison); visit(witchH.id, d.heal); }
+  if (ravenH) visit(ravenH.id, d.mark);
+  for (const [key, v] of Object.entries(d.cust ?? {})) {
+    const [rid, ix] = key.split('#'), b = RM[rid]?.custom ? RM[rid].blocks?.[+(ix ?? 0)] : null, h = livingHolders(g, rid)[0];
+    if (b && h && !['watch', 'alert', 'bind', 'revive'].includes(b.k)) targetsOf(v).forEach((t) => visit(h.id, t));
+  }
   for (const [key, v] of Object.entries(d.cust ?? {})) {
     const [rid, ix] = key.split('#'), rr = RM[rid], b = rr?.custom ? rr.blocks?.[+(ix ?? 0)] : null;
     const holder = livingHolders(g, rid)[0];
@@ -600,7 +637,17 @@ function finishNight(g) {
     if (!ts.length || (B.fixed && ts.length < B.fixed)) continue;
     g.cuse[key] = (g.cuse[key] ?? 0) + 1; g.customUsed[rid] = true; g.clast[key] = ts;
     const by = `${rr.name} ${holder.name}`, names = ts.map((x) => nm(g, x)).join(' & '), note = (t) => g.morning.push(`Nur für den Spielleiter: ${t}`);
+    if (b.chance < 100 && rand() * 100 >= b.chance) { log(g, `${by}: ${B.short} bei ${names} ist diesmal gescheitert (Chance ${b.chance} %)`); note(`${by}: ${B.short} hat diesmal nicht gewirkt.`); continue; }
     switch (b.k) {
+      case 'guard': ts.forEach((x) => cguard.push({ t: x, by: holder.id })); log(g, `${by} bewacht ${names}`); break;
+      case 'recruit': {
+        const t = ts.filter((x) => x !== holder.id && g.cult[x] !== rid);
+        t.forEach((x) => { g.cult[x] = rid; });
+        if (t.length) { const tn = t.map((x) => nm(g, x)).join(' & '); log(g, `${by} wirbt ${tn} für die Sekte an`); note(`${tn} gehört jetzt zur Sekte von ${rr.name} ${holder.name}.`); }
+        break;
+      }
+      case 'watch': ts.forEach((x) => { const vs = (visits[x] ?? []).filter((y) => y !== holder.id).map((y) => nm(g, y)); log(g, `${by} beobachtet ${nm(g, x)}: ${vs.join(', ') || 'kein Besuch'}`); note(`${nm(g, x)} wurde besucht von: ${vs.join(', ') || 'niemandem'}.`); }); break;
+      case 'alert': alerts.add(holder.id); log(g, `${by} ist wachsam`); break;
       case 'mark': log(g, `${by} markiert ${names}`); ts.forEach((x) => g.morning.push(`${rr.name}: ${nm(g, x)} ist markiert.`)); break;
       case 'protect': cprot.push(...ts); log(g, `${by} schützt ${names}`); break;
       case 'peek': log(g, `${by} prüft ${names}: ${ts.map((x) => (looksWolf(g, x) ? 'Werwolf' : 'kein Werwolf')).join(', ')}`); break;
@@ -629,6 +676,8 @@ function finishNight(g) {
       default: break;
     }
   }
+  for (const j of g.jail ?? []) if (alive(g, j.id)) { (j.kill ? ckill : cprot).push(j.id); log(g, `${nm(g, j.id)} sitzt im Kerker${j.kill ? ' und wird hingerichtet' : ' und ist vor den Wölfen sicher'}`); }
+  g.jail = [];
   if (d.enchant.length) { d.enchant.forEach((id) => { g.enchanted[id] = true; }); log(g, `Verzaubert: ${d.enchant.map((i) => nm(g, i)).join(', ')}`); }
   if (d.fox) {
     const grp = [d.fox, ...seatNeighbors(g, d.fox)], hit = grp.some((id) => looksWolf(g, id));
@@ -651,12 +700,15 @@ function finishNight(g) {
       if (w) { kill(g, w, 'fire'); g.morning.push(`Im brennenden Haus ist ein Werwolf umgekommen: ${nm(g, w)}.`); }
       return;
     }
+    if (alerts.has(v)) { log(g, `${nm(g, v)} ist wachsam: Der Angriff läuft ins Leere`); return; }
     const isElder = g.roles[v] === 'elder' && powerOn(g, 'elder');
     const girlVictim = d.girlCaught && g.roles[v] === 'girl';
     const infectable = cause === 'wolves' && d.infect && !g.urwolfUsed && livingHolders(g, 'urwolf').length && !(isElder && g.elderBites >= 1);
     if (isElder) g.elderBites++;
     if (infectable) { g.turned[v] = true; g.urwolfUsed = true; log(g, `Urwolf infiziert ${nm(g, v)} – ab jetzt heimlich Werwolf`); return; }
     if (!girlVictim && (v === d.protect || cprot.includes(v))) { log(g, `${nm(g, v)} wurde vom Heiler gerettet`); return; }
+    const gd = cguard.find((x) => x.t === v && alive(g, x.by));
+    if (!girlVictim && gd) { log(g, `${nm(g, v)} wird von ${nm(g, gd.by)} bewacht: ${nm(g, gd.by)} stirbt an seiner Stelle`); kill(g, gd.by, 'guard'); return; }
     if (d.heal === v && !g.potions.heal) { g.potions.heal = true; log(g, `Hexe heilt ${nm(g, v)}`); return; }
     if (hasPassive(g, v, 'hardy') && !g.hardyUsed[v]) { g.hardyUsed[v] = true; log(g, `${nm(g, v)} übersteht den ersten Angriff`); return; }
     if (isElder && g.elderBites === 1) { log(g, `Der Alte ${nm(g, v)} übersteht den ersten Angriff`); return; }
@@ -675,8 +727,9 @@ function finishNight(g) {
     wolfAttack(d.kill, 'wolves');
     if (d.bigkill && d.bigkill !== d.kill) wolfAttack(d.bigkill, 'bigwolf');
     if (d.whitekill && alive(g, d.whitekill)) wolfAttack(d.whitekill, 'whitewolf');
-    if (d.poison && !g.potions.poison && alive(g, d.poison)) { g.potions.poison = true; kill(g, d.poison, 'poison'); }
-    for (const v of ckill) if (alive(g, v)) kill(g, v, 'custom');
+    if (d.poison && !g.potions.poison && alive(g, d.poison)) { g.potions.poison = true; if (alerts.has(d.poison)) log(g, `${nm(g, d.poison)} ist wachsam: Das Gift wirkt nicht`); else kill(g, d.poison, 'poison'); }
+    for (const v of ckill) if (alive(g, v)) { if (alerts.has(v)) log(g, `${nm(g, v)} ist wachsam: Der Angriff läuft ins Leere`); else kill(g, v, 'custom'); }
+    for (const a of alerts) for (const t of visits[a] ?? []) if (alive(g, t) && !alerts.has(t)) { kill(g, t, 'custom'); log(g, `${nm(g, t)} besuchte den wachsamen ${nm(g, a)} und stirbt`); g.morning.push(`Nur für den Spielleiter: ${nm(g, t)} hat ${nm(g, a)} besucht und stirbt.`); }
   }
 
   if (d.fire && g.town && g.town.b[d.fire]) {
@@ -931,6 +984,7 @@ function tap(g, pid, toast) {
     case 'cust': {
       const rr = RM[step.role];
       if (!cb) return;
+      if (cb.k === 'alert' && !holders(g, rr.id).some((x) => x.id === pid)) { toast?.('Zum Wachsamsein die eigene Person antippen.'); return; }
       if (!cb.self && holders(g, rr.id).some((x) => x.id === pid)) { toast?.(`${rr.name} kann sich nicht selbst wählen.`); return; }
       if (cb.rep && (g.clast?.[step.key] ?? []).includes(pid)) { toast?.('Nicht zweimal hintereinander dieselbe Person.'); return; }
       if (cb.k === 'turn' && isWolf(g, pid)) { toast?.('Diese Person ist schon ein Werwolf.'); return; }
@@ -1120,6 +1174,18 @@ export function apply(g0, a, toast) {
     case 'skip-to-night': endDay(g); break;
     case 'set-captain': g.captain = a.pid; g.dayMode = 'vote'; resetVote(g); log(g, `Hauptmann: ${nm(g, a.pid)}`); fixBeadle(g); break;
     case 'skip-captain': g.dayMode = 'vote'; resetVote(g); break;
+    case 'day-cust': {
+      const e = dayBlocks(g).find((x) => x.key === a.key), t = a.pid;
+      if (!e || !t || !alive(g, t)) break;
+      if (!e.b.self && holders(g, e.r.id).some((x) => x.id === t)) { toast?.(`${e.r.name} kann sich nicht selbst wählen.`); break; }
+      if (e.b.rep && (g.clast?.[e.key] ?? []).includes(t)) { toast?.('Nicht zweimal hintereinander dieselbe Person.'); break; }
+      const B = BLOCKS[e.b.k], by = `${e.r.name} ${e.holder.name}`;
+      g.cuse[e.key] = (g.cuse[e.key] ?? 0) + 1; g.customUsed[e.r.id] = true; g.clast[e.key] = [t];
+      if (e.b.chance < 100 && rand() * 100 >= e.b.chance) { log(g, `${by}: ${B.short} bei ${nm(g, t)} ist diesmal gescheitert (Chance ${e.b.chance} %)`); toast?.('Diesmal gescheitert – nichts passiert.'); break; }
+      if (e.b.k === 'shoot') { log(g, `${by} erschießt ${nm(g, t)}`); g.collectMorning = false; kill(g, t, 'custom'); afterDeaths(g, 'day'); }
+      else { g.jail.push({ id: t, by: e.r.id, kill: e.b.k === 'jailkill' }); g.blocked[t] = g.night + 1; log(g, `${by} sperrt ${nm(g, t)} ein`); toast?.(`${nm(g, t)} ist eingesperrt.`); }
+      break;
+    }
     case 'manual-kill': if (g.phase === 'day' && alive(g, a.pid)) { kill(g, a.pid, 'manual'); afterDeaths(g, 'day'); } break;
     case 'rename': { const p = g.cfg.players.find((x) => x.id === a.pid); if (p && a.name) p.name = a.name; break; }
     case 'deal-next': g.dealIdx++; g.dealShown = false; break;

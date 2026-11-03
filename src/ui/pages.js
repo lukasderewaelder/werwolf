@@ -55,7 +55,7 @@ const GUIDE = [
   ['Besondere Rollen und Karten', [
     'Dieb und Gaukler haben Karten in der Mitte. Du findest sie im Menü unter „Karten in der Mitte“.',
     'Die Gemeinde, Ereigniskarten und die Gruppen des Greises erscheinen im Menü nur, wenn sie im Spiel aktiv sind.',
-    'Eigene Rollen legst du bei der Rollenwahl im Reiter „Eigene“ an. Eine Rolle besteht aus Bausteinen: beliebig viele nächtliche Fähigkeiten (töten, schützen, prüfen, stumm schalten, sperren, tauschen, verlieben, verwandeln, wiederbeleben …) mit eigenen Grenzen, dazu passive Eigenschaften und eine Siegbedingung.',
+    'Eigene Rollen legst du bei der Rollenwahl im Reiter „Eigene“ an. Eine Rolle besteht aus Bausteinen: beliebig viele nächtliche Fähigkeiten (töten, schützen, prüfen, stumm schalten, sperren, tauschen, verlieben, verwandeln, wiederbeleben, als Leibwächter schützen, in eine Sekte anwerben, Besucher beobachten, wachsam sein …) mit eigenen Grenzen und auf Wunsch einer Erfolgschance, die die App würfelt. Fähigkeiten wie Schuss oder Einsperren setzt du am Tag in der Karte „Fähigkeiten am Tag“ ein. Dazu kommen passive Eigenschaften und eine Siegbedingung (auch: gewinnt, wenn er stirbt, oder wenn alle Lebenden zu seiner Sekte gehören).',
   ]],
   ['Fehler korrigieren', [
     'Der Pfeil oben macht die letzte Aktion rückgängig, beliebig oft.',

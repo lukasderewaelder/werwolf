@@ -4,7 +4,7 @@ import { esc, art, I, initials, circlePos, tokenSize, roleShort } from './art.js
 import { RM, CAMP_LABEL, roleName, BLOCKS, targetsOf } from '../engine/roles.js';
 import {
   alive, nm, isWolf, looksWolf, roleLabel, holders, livingHolders, seatNeighbors, stepContext, nightSteps, openDecision, unknownPool, livingIds, CAUSE, groupNames, powerOn, tally,
-  eligibleVoters, voucherVictim, voucherStart,
+  eligibleVoters, voucherVictim, voucherStart, dayBlocks,
 } from '../engine/game.js';
 import { SPIRIT_CARDS } from '../engine/events.js';
 import { eventBlock } from './cards.js';
@@ -366,6 +366,22 @@ function voteCard(g) {
   return `<div class="card vote-card"><div class="eyebrow">${captainMode ? 'Hauptmannswahl' : 'Abstimmung'}</div>${seg}${body}</div>`;
 }
 
+/** Tagesfähigkeiten eigener Rollen (Schuss, Einsperren): Ziel wählen und einsetzen. */
+function dayAbilityCard(g) {
+  const list = dayBlocks(g);
+  if (!list.length) return '';
+  const targets = livingIds(g);
+  const rows = list.map((e) => {
+    const B = BLOCKS[e.b.k], opts = targets.filter((x) => e.b.self || !holders(g, e.r.id).some((h) => h.id === x));
+    const chance = e.b.chance < 100 ? ` · Chance ${e.b.chance} %` : '', left = e.b.limit ? ` · noch ${e.left}×` : '';
+    return `<div class="col" style="gap:6px"><b>${esc(e.r.name)} ${esc(e.holder.name)}: ${esc(B.short)}</b><span class="muted">${esc(B.name.replace(/^Am Tag: /, ''))}${chance}${left}</span>
+      <div class="row" style="gap:8px"><select class="inp" id="dayt-${esc(e.key)}" aria-label="Ziel">${opts.map((x) => `<option value="${x}">${esc(nm(g, x))}</option>`).join('')}</select>
+      <button class="btn sm" data-action="day-cust" data-key="${esc(e.key)}">${I.right}<span>Einsetzen</span></button></div></div>`;
+  }).join('');
+  return `<div class="card col"><div class="eyebrow">Fähigkeiten am Tag</div>${rows}</div>`;
+}
+on('day-cust', (el) => { const sel = document.getElementById(`dayt-${el.dataset.key}`); if (sel?.value) { buzz(30); dispatch({ t: 'day-cust', key: el.dataset.key, pid: sel.value }); } return false; });
+
 function dayPanel(g) {
   const d = g.draft;
   const judge = livingHolders(g, 'judge')[0];
@@ -385,6 +401,7 @@ function dayPanel(g) {
     if (g.voters && g.votersDay === g.day) body += `<div class="task warn"><div class="prompt">${I.horns}<span>Nur diese Personen dürfen abstimmen: ${esc(g.voters.map((x) => nm(g, x)).join(', ') || 'niemand')}</span></div></div>`;
     if (g.idiotRevealed) body += `<div class="hint">${I.jester}<span>Der Dorfdepp ist aufgedeckt und darf nicht mehr abstimmen.</span></div>`;
     if (g.ravenMark && alive(g, g.ravenMark)) body += `<div class="hint">${I.feather}<span>Der Rabe hat ${esc(nm(g, g.ravenMark))} belastet: zwei Stimmen mehr (zählt die App mit).</span></div>`;
+    body += dayAbilityCard(g);
     body += voteCard(g);
     if (judge && !g.judgeUsed) body += `<button class="btn ${g.judgeArmed ? 'on' : ''}" data-action="judge-sign">${I.scale}<span>${g.judgeArmed ? 'Richter-Zeichen gegeben: zweite Abstimmung folgt' : 'Richter-Zeichen erhalten'}</span></button>`;
     if (g.captain) body += `<div class="hint">${I.crown}<span>Hauptmann: <b>${esc(nm(g, g.captain))}</b>. Seine Stimme zählt doppelt.</span></div>`;

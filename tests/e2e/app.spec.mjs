@@ -176,6 +176,39 @@ test('Eigene Rolle: anlegen, einplanen, in der Nacht aufgerufen', async () => {
   await page.context().close();
 });
 
+test('Eigene Rolle: Tagesfähigkeit mit Chance wird im Editor gebaut und am Tag eingesetzt', async () => {
+  const { page, problems } = await app.openApp();
+  await page.click('[data-action=new-game]');
+  await page.fill('#add-inp', 'Anna, Ben, Carla, David, Eva, Felix'); await page.press('#add-inp', 'Enter');
+  await page.click('[data-action=wiz-next]'); await page.click('[data-action=wiz-next]');
+  await page.click('[data-action=lib-set-setup][data-set=eigene]');
+  await page.click('[data-action=custom-new]');
+  await page.fill('#custom-form input[name=name]', 'Schütze');
+  await page.click('[data-action=custom-block-add]');
+  await page.selectOption('#bk-k-0', 'shoot');
+  assert.equal(await page.locator('#custom-form select[name=bk_chance_0]').count(), 1);
+  assert.equal(await page.locator('#custom-form select[name=bk_when_0] option').first().innerText(), 'Jeden Tag');
+  await page.selectOption('#custom-form select[name=bk_limit_0]', '1');
+  await page.selectOption('#custom-form select[name=win]', 'cult');
+  await page.click('#custom-form button[type=submit]');
+  await page.click('[data-action=role-inc]');
+  await page.click('[data-action=wiz-next]');
+  await page.click('[data-action=start-game]');
+  await page.waitForSelector('.game');
+  await page.evaluate(() => {
+    const w = window.__werwolf, g = w.S.game, id = w.S.customRoles[0].id;
+    g.roles = { [g.cfg.players[0].id]: id }; g.phase = 'day'; g.clock = 'day'; g.day = 1; g.dayMode = 'vote'; w.render();
+  });
+  await page.waitForSelector('text=Fähigkeiten am Tag');
+  await page.selectOption('[id^="dayt-"]', { label: 'Felix' });
+  await page.click('[data-action=day-cust]');
+  const dead = await page.evaluate(() => Object.keys(window.__werwolf.S.game.dead));
+  assert.equal(dead.length, 1);
+  assert.equal(await page.locator('text=Fähigkeiten am Tag').count(), 0, 'nach dem Einsatz verbraucht');
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});
+
 test('Verbitterter Greis: Gruppen lassen sich zuordnen', async () => {
   const { page, problems } = await app.openApp();
   await startGame(page, { names: NAMES.slice(0, 6), counts: { wolf: 1, greis: 1, villager: 4 }, mode: 'cards' });

@@ -358,8 +358,19 @@ export const BLOCKS = {
   convert: { name: 'Person in eine feste Rolle verwandeln', short: 'Verwandeln', verb: 'verwandelt', role: true },
   revive: { name: 'Gestorbene Person wiederbeleben', short: 'Wiederbeleben', verb: 'belebt wieder', dead: true },
   bind: { name: 'Schützling oder Ziel festlegen (einmalig)', short: 'Ziel festlegen', verb: 'bestimmt als Ziel', limit1: true },
+  guard: { name: 'Person vor den Wölfen schützen und selbst an ihrer Stelle sterben (Leibwächter)', short: 'Leibwächter', verb: 'bewacht' },
+  recruit: { name: 'Person in die Sekte aufnehmen (Sektenführer)', short: 'Anwerben', verb: 'wirbt an' },
+  watch: { name: 'Erfahren, wer die Person in dieser Nacht besucht hat (Beobachter)', short: 'Beobachten', verb: 'beobachtet' },
+  alert: { name: 'Wachsam sein: unangreifbar, jeder Besucher stirbt (Veteran). Eigene Person antippen', short: 'Wachsam', verb: 'ist wachsam', fixed: 1, selfOnly: true },
+  shoot: { name: 'Am Tag: Person erschießen (Schütze)', short: 'Schuss', verb: 'erschießt', day: true },
+  jail: { name: 'Am Tag: Person einsperren (in der Nacht geschützt, aber gesperrt)', short: 'Einsperren', verb: 'sperrt ein', day: true },
+  jailkill: { name: 'Am Tag: Person einsperren und in der Nacht hinrichten (Kerkermeister)', short: 'Hinrichten', verb: 'richtet in der Nacht hin', day: true },
 };
 export const BLOCK_WHEN = { every: 'Jede Nacht', first: 'Nur in der ersten Nacht', later: 'Ab der zweiten Nacht', even: 'Jede zweite Nacht' };
+export const BLOCK_WHEN_DAY = { every: 'Jeden Tag', first: 'Nur am ersten Tag', later: 'Ab dem zweiten Tag', even: 'Jeden zweiten Tag' };
+export const BLOCK_CHANCE = [100, 75, 50, 25];
+/** Zeitpunkt-Prüfung für Nacht- und Tagbausteine (n = Nacht- bzw. Tagnummer). */
+export const whenOk = (n, b) => !(b.when === 'first' && n !== 1) && !(b.when === 'later' && n < 2) && !(b.when === 'even' && n % 2);
 /** Passive Eigenschaften, kombinierbar. */
 export const PASSIVES = {
   hardy: 'Übersteht den ersten Angriff der Werwölfe',
@@ -374,11 +385,16 @@ export const CUSTOM_WIN = {
   bound: 'Sein Ziel lebt am Ende (gewinnt mit dem Sieger, wenn er und sein Ziel leben)',
   hunt: 'Sein Ziel ist ausgeschieden (gewinnt mit dem Sieger, wenn er lebt)',
   executed: 'Allein, wenn das Dorf ihn hinrichtet (Narr)',
+  dies: 'Allein, wenn er stirbt – egal wie',
+  killed: 'Allein, wenn die Werwölfe ihn nachts töten',
+  cult: 'Allein, wenn alle Lebenden zu seiner Sekte gehören (Sektenführer)',
 };
+/** Siegbedingungen, bei denen die Rolle allein gewinnt und deshalb immer zum Dorf-Lager zählt. */
+export const SOLO_WINS = ['solo', 'executed', 'dies', 'killed', 'cult'];
 /** Alte Aktionen (vor den Bausteinen); nur noch zum Umrechnen gespeicherter Rollen. */
 export const CUSTOM_ACTS = { none: 'Keine Aktion', mark: 'Person markieren', kill: 'Person töten', protect: 'Person vor den Wölfen schützen', peek: 'Erfahren, ob die Person ein Werwolf ist' };
 
-export const blankBlock = (k = 'kill') => ({ k, n: 1, when: 'every', limit: 0, self: false, rep: false, role: 'villager' });
+export const blankBlock = (k = 'kill') => ({ k, n: 1, when: 'every', limit: 0, self: false, rep: false, role: 'villager', chance: 100 });
 
 /** Zielliste eines Eintrags im Entwurf (früher eine einzelne Kennung). */
 export const targetsOf = (v) => (Array.isArray(v) ? v : v ? [v] : []);
@@ -396,7 +412,8 @@ export function customBlocks(c) {
     const B = BLOCKS[b.k];
     return {
       k: b.k, n: B.fixed ?? Math.max(1, Math.min(3, Math.round(+b.n) || 1)), when: BLOCK_WHEN[b.when] ? b.when : 'every',
-      limit: B.limit1 ? 1 : Math.max(0, Math.min(9, Math.round(+b.limit) || 0)), self: !!b.self, rep: !!b.rep, role: b.role || 'villager',
+      limit: B.limit1 ? 1 : Math.max(0, Math.min(9, Math.round(+b.limit) || 0)), self: B.selfOnly ? true : !!b.self, rep: !!b.rep, role: b.role || 'villager',
+      chance: B.limit1 ? 100 : BLOCK_CHANCE.includes(+b.chance) ? +b.chance : 100,
     };
   });
   if ((c.win === 'bound' || c.win === 'hunt') && !out.some((b) => b.k === 'bind')) out.unshift({ ...blankBlock('bind'), when: 'first', limit: 1 });
@@ -411,9 +428,9 @@ export function registerRoles(list = []) {
     const passives = (Array.isArray(c.passives) ? c.passives : []).filter((p) => PASSIVES[p]);
     const wake = c.wake === 'first' || c.wake === 'even' || c.wake === 'every' ? c.wake : 'none';
     const order = c.after ? 260 : 115;
-    const night = blocks.length ? { when: 'every', order, act: 'cust' } : wake !== 'none' ? { when: wake, order, act: null } : null;
+    const night = blocks.some((b) => !BLOCKS[b.k].day) ? { when: 'every', order, act: 'cust' } : wake !== 'none' ? { when: wake, order, act: null } : null;
     const def = {
-      id: c.id, name: c.name, set: 'eigene', camp: c.camp === 'wolf' && win !== 'solo' && win !== 'executed' ? 'wolf' : 'village', color: c.color || (c.camp === 'wolf' ? '#8a2a2a' : '#4a5f8f'),
+      id: c.id, name: c.name, set: 'eigene', camp: c.camp === 'wolf' && !SOLO_WINS.includes(win) ? 'wolf' : 'village', color: c.color || (c.camp === 'wolf' ? '#8a2a2a' : '#4a5f8f'),
       sub: c.sub || 'Eigene Rolle', desc: c.desc || '', say: c.say || '', custom: true, icon: c.icon || '', win, blocks, passives, heir: c.heir && c.heir !== c.id ? c.heir : '', needUse: !!c.needUse,
       ...(night ? { night } : {}),
     };

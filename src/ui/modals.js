@@ -2,7 +2,7 @@
 import { S, ui, views, on, go, dispatch, persist, toast, clearUndo } from './core.js';
 import { esc, art, I, initials } from './art.js';
 import { roleDetailHtml, soundCard } from './pages.js';
-import { RM, ROLES, roleName, SETS, CUSTOM_WIN, BLOCKS, BLOCK_WHEN, PASSIVES } from '../engine/roles.js';
+import { RM, ROLES, roleName, SETS, CUSTOM_WIN, BLOCKS, BLOCK_WHEN, BLOCK_WHEN_DAY, BLOCK_CHANCE, PASSIVES } from '../engine/roles.js';
 import { nm, alive, roleLabel, CAUSE } from '../engine/game.js';
 import { groupById, defaultSettings, defaultSetup } from '../store.js';
 import { stopMusic } from '../audio.js';
@@ -58,12 +58,13 @@ function customBlockHtml(b, i) {
   const sel = (name, cur, opts) => `<select class="inp" name="${name}_${i}">${opts.map(([v, t]) => `<option value="${v}" ${String(cur) === String(v) ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
   const field = (label, html) => `<label class="col" style="gap:4px"><span class="eyebrow">${label}</span>${html}</label>`;
   return `<div class="card flat col" style="gap:8px"><div class="row between"><b>Baustein ${i + 1}</b><button type="button" class="btn sm" data-action="custom-block-del" data-i="${i}">${I.close}<span>Entfernen</span></button></div>
-    <select class="inp" id="bk-k-${i}" name="bk_k_${i}" aria-label="Fähigkeit">${Object.entries(BLOCKS).map(([k, x]) => `<option value="${k}" ${b.k === k ? 'selected' : ''}>${x.name}</option>`).join('')}</select>
+    <select class="inp" id="bk-k-${i}" name="bk_k_${i}" aria-label="Fähigkeit">${Object.entries(BLOCKS).map(([k, x]) => `<option value="${k}" ${b.k === k ? 'selected' : ''}>${x.day ? 'Tag: ' : ''}${x.name}</option>`).join('')}</select>
     ${B.fixed ? '' : field('Wie viele Personen?', sel('bk_n', b.n, [[1, 'Eine Person'], [2, 'Bis zu zwei Personen'], [3, 'Bis zu drei Personen']]))}
     ${B.role ? field('In welche Rolle?', sel('bk_role', b.role, ROLES.filter((r) => !r.custom).map((r) => [r.id, esc(r.name)]))) : ''}
-    ${field('Wann?', sel('bk_when', b.when, Object.entries(BLOCK_WHEN)))}
+    ${field('Wann?', sel('bk_when', b.when, Object.entries(B.day ? BLOCK_WHEN_DAY : BLOCK_WHEN)))}
     ${B.limit1 ? '' : field('Wie oft im Spiel?', sel('bk_limit', b.limit, [[0, 'Unbegrenzt'], [1, 'Nur einmal'], [2, 'Höchstens zweimal'], [3, 'Höchstens dreimal']]))}
-    ${B.dead ? '' : `<label class="row" style="gap:8px;align-items:center"><input type="checkbox" name="bk_self_${i}" ${b.self ? 'checked' : ''}><span>Darf sich selbst wählen</span></label>`}
+    ${B.limit1 ? '' : field('Gelingt zu', sel('bk_chance', b.chance ?? 100, BLOCK_CHANCE.map((c) => [c, c === 100 ? 'Immer (100 %)' : `${c} % (die App würfelt)`])))}
+    ${B.dead || B.selfOnly ? '' : `<label class="row" style="gap:8px;align-items:center"><input type="checkbox" name="bk_self_${i}" ${b.self ? 'checked' : ''}><span>Darf sich selbst wählen</span></label>`}
     <label class="row" style="gap:8px;align-items:center"><input type="checkbox" name="bk_rep_${i}" ${b.rep ? 'checked' : ''}><span>Nicht zweimal hintereinander dieselbe Person</span></label></div>`;
 }
 
