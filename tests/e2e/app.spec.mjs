@@ -147,8 +147,13 @@ test('Eigene Rolle: anlegen, einplanen, in der Nacht aufgerufen', async () => {
   await page.click('[data-action=lib-set-setup][data-set=eigene]');
   await page.click('[data-action=custom-new]');
   await page.fill('#custom-form input[name=name]', 'Nachtwächter');
-  await page.selectOption('#custom-form select[name=wake]', 'every');
-  await page.selectOption('#custom-form select[name=cact]', 'protect');
+  await page.click('[data-action=custom-block-add]');
+  await page.selectOption('#bk-k-0', 'protect');
+  await page.click('[data-action=custom-block-add]');
+  await page.selectOption('#bk-k-1', 'swap');
+  assert.equal(await page.locator('#custom-form select[name=bk_n_1]').count(), 0, 'Tauschen hat feste Zielzahl');
+  await page.selectOption('#custom-form select[name=bk_limit_1]', '1');
+  await page.check('#custom-form input[name=pa_hardy]');
   await page.selectOption('#custom-form select[name=win]', 'survive');
   await page.click('#custom-form label.chip:has(input[value="🛡️"])');
   await page.fill('#custom-form input[name=say]', 'Der Nachtwächter erwacht.');
@@ -160,7 +165,9 @@ test('Eigene Rolle: anlegen, einplanen, in der Nacht aufgerufen', async () => {
   await page.waitForSelector('.game');
   assert.ok((await page.locator('.sdot').allInnerTexts()).some((t) => /Nachtwächter/.test(t)));
   const cr = await page.evaluate(() => window.__werwolf.S.customRoles[0]);
-  assert.deepEqual([cr.cact, cr.win, cr.icon], ['protect', 'survive', '🛡️']);
+  assert.deepEqual([cr.blocks.map((b) => [b.k, b.limit]), cr.passives, cr.win, cr.icon], [[['protect', 0], ['swap', 1]], ['hardy'], 'survive', '🛡️']);
+  const keys = await page.evaluate(() => window.__werwolf.S.game && Array.from(document.querySelectorAll('.sdot')).map((e) => e.textContent.trim()));
+  assert.ok(keys.some((t) => /Nachtwächter: Schützen/.test(t)) && keys.some((t) => /Nachtwächter: Tauschen/.test(t)), 'zwei Schritte: ' + keys);
   // überlebt das Neuladen (Rolle ist im Spielstand gespeichert)
   await page.reload();
   await page.click('[data-action=resume]');

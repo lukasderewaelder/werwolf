@@ -55,7 +55,7 @@ const GUIDE = [
   ['Besondere Rollen und Karten', [
     'Dieb und Gaukler haben Karten in der Mitte. Du findest sie im Menü unter „Karten in der Mitte“.',
     'Die Gemeinde, Ereigniskarten und die Gruppen des Greises erscheinen im Menü nur, wenn sie im Spiel aktiv sind.',
-    'Eigene Rollen mit Aktion legst du bei der Rollenwahl im Reiter „Eigene“ an. Sie laufen in der Nacht wie die Originale.',
+    'Eigene Rollen legst du bei der Rollenwahl im Reiter „Eigene“ an. Eine Rolle besteht aus Bausteinen: beliebig viele nächtliche Fähigkeiten (töten, schützen, prüfen, stumm schalten, sperren, tauschen, verlieben, verwandeln, wiederbeleben …) mit eigenen Grenzen, dazu passive Eigenschaften und eine Siegbedingung.',
   ]],
   ['Fehler korrigieren', [
     'Der Pfeil oben macht die letzte Aktion rückgängig, beliebig oft.',

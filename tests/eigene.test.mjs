@@ -19,9 +19,9 @@ const V = (n) => Array(n).fill('villager');
 test('Eigene Rolle: Töten wirkt am Morgen, Selbstwahl ist gesperrt', () => {
   let g = mk(['wolf', 'c1', ...V(4)], { cact: 'kill', wake: 'every' });
   g = goKey(g, 'c1'); g = tap(g, 'p2');
-  assert.equal(g.draft.cust.c1 ?? null, null, 'nicht selbst');
+  assert.deepEqual(g.draft.cust.c1 ?? [], [], 'nicht selbst');
   g = tap(g, 'p4');
-  assert.equal(g.draft.cust.c1, 'p4');
+  assert.deepEqual(g.draft.cust.c1, ['p4']);
   g = finishNight(g);
   assert.ok(!alive(g, 'p4'));
   assert.equal(g.dead.p4.cause, 'custom');
@@ -30,7 +30,7 @@ test('Eigene Rolle: Töten wirkt am Morgen, Selbstwahl ist gesperrt', () => {
 test('Eigene Rolle: Schutz hält den Wolfsbiss ab', () => {
   let g = mk(['wolf', 'c1', ...V(4)], { cact: 'protect', wake: 'every', cself: true });
   g = goKey(g, 'c1'); g = tap(g, 'p2');
-  assert.equal(g.draft.cust.c1, 'p2', 'Selbstwahl erlaubt');
+  assert.deepEqual(g.draft.cust.c1, ['p2'], 'Selbstwahl erlaubt');
   g = goKey(g, 'wolf'); g = tap(g, 'p2');
   g = finishNight(g);
   assert.ok(alive(g, 'p2'));
@@ -42,7 +42,7 @@ test('Eigene Rolle: Prüfen und Markieren ändern nichts, nur einmal im Spiel', 
   g = goKey(g, 'wolf'); g = tap(g, 'p5');
   g = finishNight(g);
   assert.ok(g.log.some((l) => /prüft P1: Werwolf/.test(l.t)));
-  assert.equal(g.customUsed.c1, true);
+  assert.equal(g.cuse.c1, 1);
   g = apply(g, { t: 'skip-captain' }); g = apply(g, { t: 'day-none' });
   assert.ok(!nightSteps(g).some((s) => s.key === 'c1' && s.act), 'zweite Nacht: Fähigkeit verbraucht');
   let m = mk(['wolf', 'c1', ...V(4)], { cact: 'mark', wake: 'every' });
@@ -53,7 +53,7 @@ test('Eigene Rolle: Prüfen und Markieren ändern nichts, nur einmal im Spiel', 
 test('Eigene Rolle: einmal wird nur beim Einsatz verbraucht', () => {
   let g = mk(['wolf', 'c1', ...V(4)], { cact: 'kill', wake: 'once' });
   g = finishNight(g);
-  assert.notEqual(g.customUsed.c1, true);
+  assert.ok(!g.cuse.c1);
   assert.ok(nightSteps(apply(apply(g, { t: 'skip-captain' }), { t: 'day-none' })).some((s) => s.key === 'c1' && s.act));
 });
 

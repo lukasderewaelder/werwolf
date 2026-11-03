@@ -117,6 +117,12 @@ Umgesetzt: Eigene Rollen haben eine frei wählbare Nachtaktion (Person markieren
 
 Abnahme: Eine selbst gebaute Rolle mit Aktion funktioniert in einer Partie.
 
+## M14b Eigene Rollen aus Bausteinen (umgesetzt, wartet auf deine Abnahme)
+Umgesetzt: Eine eigene Rolle besteht aus bis zu 8 Bausteinen, jeder ein eigener Nachtschritt mit Zielzahl 1–3, Zeitpunkt (jede Nacht, nur Nacht 1, ab Nacht 2, jede zweite), Grenze (unbegrenzt bis dreimal), Selbstwahl und „nicht zweimal dieselbe Person“. Aktionen: töten, schützen, markieren, Werwolf prüfen, echte Rolle erfahren, stumm schalten (Stimmrecht weg), Fähigkeit sperren (nächste Nacht), Rollen tauschen, verlieben, zum Werwolf machen, in feste Rolle verwandeln, Gestorbene wiederbeleben, Ziel festlegen. Passive: übersteht ersten Wolfsangriff, gilt als Werwolf für Fuchs/Bär/Prüfungen, Rache beim Tod, stirbt mit seinem Ziel; erbt eine Rolle, wenn sie stirbt. Siege: Ziel lebt am Ende, Ziel ausgeschieden, Narr (Hinrichtung), optional nur nach Einsatz der Fähigkeit. Alte Rollen mit einer Aktion laufen unverändert weiter.
+Grenzen: Wiederbelebte behalten Rolle und Verliebte-Bindung; Tausch und Verwandlung brauchen bekannte Karten (im Kartenmodus erst nach Zuordnung).
+
+Abnahme: Eine Rolle mit zwei Bausteinen und einer passiven Eigenschaft funktioniert in einer Partie.
+
 ## M15 Daten und Pflege
 - Sicherungserinnerung, Gruppen per QR-Code oder Datei übertragen.
 - Automatische Tests bei jedem Push (GitHub Actions).

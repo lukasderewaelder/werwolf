@@ -1,6 +1,6 @@
 // Spiellogik ohne Oberfläche: Zustand ist reines JSON, jede Aktion liefert einen neuen Zustand.
 // Regelgrundlage: Regelheft "Die Werwölfe von Düsterwald – Der Pakt" (siehe docs/regelabgleich.md).
-import { ROLES, RM, ACTOR_POOL, roleName, requiredCards, registerRoles, isWolfRole } from './roles.js';
+import { ROLES, RM, ACTOR_POOL, roleName, requiredCards, registerRoles, isWolfRole, BLOCKS, targetsOf, custKey } from './roles.js';
 import { SPIRIT_CARDS, KINDS, MAX_BEADLE } from './events.js';
 import { BUILDINGS, DEFAULT_TOWN } from './town.js';
 
@@ -39,7 +39,7 @@ const emptyDraft = () => ({
 });
 
 /** Ältere Spielstände ohne Stimmenzähler ergänzen. */
-export function normalizeGame(g) { if (g) { g.draft = { ...emptyDraft(), ...g.draft }; g.charmed ??= {}; g.customUsed ??= {}; g.ev ??= null; g.town ??= null; } return g; }
+export function normalizeGame(g) { if (g) { g.draft = { ...emptyDraft(), ...g.draft }; g.charmed ??= {}; g.customUsed ??= {}; g.cuse ??= {}; g.clast ??= {}; g.bound ??= {}; g.blocked ??= {}; g.mutes ??= []; g.hardyUsed ??= {}; g.ev ??= null; g.town ??= null; } return g; }
 
 /* ---------- Zustand anlegen ---------- */
 
@@ -74,7 +74,7 @@ export function createGame(cfg, rnd = Math.random) {
     judgeUsed: false, judgeArmed: false, secondVote: false, voters: null, votersDay: -1,
     angelWin: false, angelWindow: true, winner: null, collectMorning: false,
     queue: [], interrupts: [], resume: null, dayMode: 'vote', draft: emptyDraft(),
-    morning: [], lastDeaths: [], log: [], dealIdx: 0, dealShown: false, charmed: {}, customUsed: {}, ev: null, town: null, pendingBarber: null,
+    morning: [], lastDeaths: [], log: [], dealIdx: 0, dealShown: false, charmed: {}, customUsed: {}, cuse: {}, clast: {}, bound: {}, blocked: {}, mutes: [], hardyUsed: {}, execWin: null, ev: null, town: null, pendingBarber: null,
   };
   g.ev = initEvents(g, cfg, rnd);
   if (g.cfg.rules.town) { g.cfg.town = { ...(cfg.town ?? DEFAULT_TOWN) }; g.town = { b: {}, used: {}, free: [], gone: [], fireUsed: false, innLost: false }; if (cfg.townMap) g.town.b = { ...cfg.townMap }; }
@@ -167,6 +167,10 @@ export function isWolf(g, id) {
   return isWolfRole(r) || (r === 'wolfdog' && g.wolfdogWolf) || !!g.turned[id];
 }
 export const isWhiteWolf = (g, id) => g.roles[id] === 'whitewolf';
+/** Passive Eigenschaft einer eigenen Rolle (Betörte haben keine Fähigkeiten mehr). */
+export const hasPassive = (g, id, p) => !!RM[g.roles[id]]?.passives?.includes(p) && !g.charmed?.[id];
+/** Werwolf für Prüfungen von Fuchs, Bär, Seherin (Lager-Modus) und eigene Bausteine. */
+export const looksWolf = (g, id) => isWolf(g, id) || hasPassive(g, id, 'looksWolf');
 export const powerOn = (g, roleId) => !(g.powersLost && RM[roleId]?.camp === 'village');
 
 export function roleLabel(g, id) {
@@ -198,17 +202,32 @@ export function log(g, t) { g.log.push({ p: clockLabel(g), t }); }
 
 /* ---------- Nachtablauf ---------- */
 
+/** Baustein einer eigenen Rolle ist heute Nacht aufrufbar (Nacht, Grenzen, Ziele vorhanden). */
+export function blockApplies(g, r, b, i) {
+  const n = g.night;
+  if (b.when === 'first' && n !== 1) return false;
+  if (b.when === 'later' && n < 2) return false;
+  if (b.when === 'even' && n % 2) return false;
+  if (b.limit && (g.cuse?.[custKey(r.id, i)] ?? 0) >= b.limit) return false;
+  if (b.k === 'revive' && !Object.keys(g.dead).length) return false;
+  if (b.k === 'bind' && g.bound?.[r.id]) return false;
+  return true;
+}
+/** Alle lebenden Träger der Rolle sind diese Nacht gesperrt. */
+const lockedNow = (g, r) => { const hs = livingHolders(g, r.id); return hs.length > 0 && hs.every((h) => g.blocked?.[h.id] === g.night); };
+
 function actApplies(g, r) {
   const n = r.night;
   if (!n?.act) return false;
   if (!powerOn(g, r.id)) return false;
+  if (lockedNow(g, r)) return false;
+  if (r.custom && r.blocks) return r.blocks.some((b, i) => blockApplies(g, r, b, i));
   if (!nightMatches(g, r)) return false;
   if (r.id === 'urwolf' && g.urwolfUsed) return false;
   if (r.id === 'bigwolf' && Object.keys(g.dead).some((id) => isWolf(g, id))) return false;
   if (r.id === 'fox' && g.foxLost) return false;
   if (r.id === 'arsonist' && (!g.town || g.town.fireUsed)) return false;
   if (r.id === 'actor' && !g.actorPool.length) return false;
-  if (n.once && g.customUsed?.[r.id]) return false;
   return true;
 }
 
@@ -251,6 +270,11 @@ export function nightSteps(g) {
     const gone = !first && living.length === 0;
     if (gone && !g.cfg.rules.callDeadRoles) continue;
     const input = act && INPUT_ACTS.has(r.night.act) && !gone;
+    if (input && r.custom && r.blocks) {
+      const on = r.blocks.map((b, i) => i).filter((i) => blockApplies(g, r, r.blocks[i], i));
+      on.forEach((i, k) => out.push({ key: custKey(r.id, i), role: r.id, act: 'cust', blk: i, gone: false, label: on.length > 1 ? `${r.name}: ${BLOCKS[r.blocks[i].k].short}` : r.name, say: k === 0 ? r.say ?? '' : '' }));
+      continue;
+    }
     out.push({ key: r.id, role: r.id, act: input ? r.night.act : null, gone, label: r.id === borrowed && !cnt(g, r.id) ? `${r.name} (Gaukler)` : r.name, say: r.say ?? '' });
     if (r.id === 'cupid' && first) out.push({ key: 'lovers', role: null, info: true, label: 'Verliebte', say: 'Ich tippe die Verliebten an. Sie öffnen die Augen, erkennen einander und schlafen wieder ein.' });
     if (r.id === 'piper' && act && !gone) out.push({ key: 'enchanted', role: null, info: true, label: 'Verzauberte', say: 'Alle Verzauberten erwachen, erkennen einander und schlafen wieder ein.' });
@@ -301,6 +325,10 @@ export function openDecision(g) {
     case 'model': return d.model ? null : 'Das Wilde Kind hat noch kein Vorbild gewählt.';
     case 'side': return d.side ? null : 'Der Wolfshund hat sich noch nicht für eine Seite entschieden.';
     case 'fox': return d.fox ? null : 'Der Fuchs hat noch keine Dreiergruppe gewählt.';
+    case 'cust': {
+      const b = RM[c.step.role]?.blocks?.[c.step.blk ?? 0], have = targetsOf(d.cust?.[c.step.key]).length, need = b ? BLOCKS[b.k].fixed ?? 0 : 0;
+      return need && have > 0 && have < need ? `${who}: Es sind erst ${have} von ${need} Personen gewählt.` : null;
+    }
     default: return null;
   }
 }
@@ -344,6 +372,12 @@ export function settle(g) {
       g.morning.push('Der Alte ist tot. Die Dorfbewohner verlieren alle Sonderfähigkeiten (Zweideutige und Einzelgänger nicht).');
     }
     if (rid === 'hunter' && powerOn(g, 'hunter') && !g.charmed?.[x]) g.interrupts.push({ type: 'hunter', id: x });
+    if (RM[rid]?.passives?.includes('revenge') && !g.charmed?.[x]) g.interrupts.push({ type: 'hunter', id: x, name: RM[rid].name });
+    for (const h of ROLES) {
+      if (!h.custom) continue;
+      if (h.heir === rid) for (const p of livingHolders(g, h.id)) { g.roles[p.id] = rid; log(g, `${h.name} ${p.name} erbt die Rolle ${roleName(rid)}`); g.morning.push(`Nur für den Spielleiter: ${p.name} ist jetzt ${roleName(rid)}.`); if (['wildchild', 'wolfdog', 'judge'].includes(rid)) g.fresh[rid] = true; }
+      if (h.passives.includes('bondDeath') && g.bound?.[h.id] === x) for (const p of livingHolders(g, h.id)) if (!g.dead[p.id]) kill(g, p.id, 'heartbreak');
+    }
     if (g.ev?.beadle === x) { g.ev.beadle = null; log(g, `Der Büttel ${nm(g, x)} ist tot`); g.morning.push('Der Büttel ist tot. Der Hauptmann darf einen neuen ernennen.'); }
     if (rid === 'scapegoat') g.interrupts.push({ type: 'scapegoat', id: x, picks: [], forDay: g.clock === 'day' ? g.day + 1 : g.night });
     if (rid === 'angel' && g.angelWindow) g.angelWin = true;
@@ -371,6 +405,7 @@ export function eligibleVoters(g) {
   let ids = livingIds(g).filter((id) => !(g.roles[id] === 'idiot' && g.idiotRevealed));
   if (g.town && g.dayMode !== 'captain') ids = ids.filter((id) => g.town.b[id] !== 'school' && !(g.draft.ban ?? []).includes(id));   // Lehrerin stimmt nie ab, ausgeschlossene auch nicht
   if (g.dayMode !== 'captain' && g.voters && g.votersDay === g.day) ids = ids.filter((id) => g.voters.includes(id));
+  if (g.mutes?.length) ids = ids.filter((id) => !g.mutes.some((m) => m.id === id && m.day === g.day));
   return ids;
 }
 
@@ -409,6 +444,7 @@ const resetVote = (g) => { const d = g.draft; d.vote = null; d.votes = {}; d.cap
 export function checkWinner(g) {
   if (g.interrupts.length || g.queue.length) return null;
   if (g.angelWin) return 'Der Engel';
+  if (g.execWin) return `${RM[g.roles[g.execWin]]?.name ?? 'Narr'} ${nm(g, g.execWin)}`;
   const liv = livingIds(g);
   if (!liv.length) return 'Niemand – alle sind tot';
   const greis = liv.find((id) => g.roles[id] === 'greis');
@@ -432,6 +468,15 @@ export function checkWinner(g) {
   return null;
 }
 
+/** Eigene Rolle gewinnt mit dem Sieger: Überleben, lebendes Ziel oder ausgeschiedenes Ziel. */
+function coWinner(g, id) {
+  const r = RM[g.roles[id]];
+  if (!r?.custom || g.charmed?.[id]) return false;
+  if (r.needUse && !Object.keys(g.cuse ?? {}).some((k) => k === r.id || k.startsWith(`${r.id}#`))) return false;
+  const t = g.bound?.[r.id];
+  return r.win === 'survive' || (r.win === 'bound' && !!t && alive(g, t)) || (r.win === 'hunt' && !!t && !alive(g, t));
+}
+
 /** Prüft nach Toden auf offene Entscheidungen, Sieg, sonst weiter mit Tag oder Nacht. */
 function afterDeaths(g, resume) {
   settle(g);
@@ -444,7 +489,7 @@ function afterDeaths(g, resume) {
   if (g.interrupts.length) { g.phase = 'interrupt'; g.resume = resume; return; }
   const w = checkWinner(g);
   if (w) {
-    const co = (w === 'Das Dorf' || w === 'Die Werwölfe') ? livingIds(g).filter((id) => RM[g.roles[id]]?.win === 'survive') : [];
+    const co = (w === 'Das Dorf' || w === 'Die Werwölfe') ? livingIds(g).filter((id) => coWinner(g, id)) : [];
     const text = co.length ? `${w} und ${co.map((id) => `${RM[g.roles[id]].name} ${nm(g, id)}`).join(', ')}` : w;
     log(g, `Sieg: ${text}`); g.winner = text; g.phase = 'ended'; return; }
   if (resume === 'day') g.phase = 'day';
@@ -546,19 +591,47 @@ function finishNight(g) {
   g.lastProtect = d.protect || null;
   if (d.protect) log(g, `Heiler schützt ${nm(g, d.protect)}`);
   const cprot = [], ckill = [];
-  for (const [rid, pid] of Object.entries(d.cust ?? {})) {
-    const rr = RM[rid];
-    if (!pid || !rr?.custom || !alive(g, pid) || !livingHolders(g, rid).length) continue;
-    g.customUsed[rid] = true;
-    const by = `${rr.name} ${nm(g, livingHolders(g, rid)[0].id)}`;
-    if (rr.cact === 'mark') { log(g, `${by} markiert ${nm(g, pid)}`); g.morning.push(`${rr.name}: ${nm(g, pid)} ist markiert.`); }
-    else if (rr.cact === 'protect') { cprot.push(pid); log(g, `${by} schützt ${nm(g, pid)}`); }
-    else if (rr.cact === 'peek') log(g, `${by} prüft ${nm(g, pid)}: ${isWolf(g, pid) ? 'Werwolf' : 'kein Werwolf'}`);
-    else if (rr.cact === 'kill') { ckill.push(pid); log(g, `${by} tötet ${nm(g, pid)}`); }
+  for (const [key, v] of Object.entries(d.cust ?? {})) {
+    const [rid, ix] = key.split('#'), rr = RM[rid], b = rr?.custom ? rr.blocks?.[+(ix ?? 0)] : null;
+    const holder = livingHolders(g, rid)[0];
+    if (!b || !holder) continue;
+    const B = BLOCKS[b.k];
+    const ts = targetsOf(v).filter((x) => (B.dead ? !!g.dead[x] : alive(g, x)));
+    if (!ts.length || (B.fixed && ts.length < B.fixed)) continue;
+    g.cuse[key] = (g.cuse[key] ?? 0) + 1; g.customUsed[rid] = true; g.clast[key] = ts;
+    const by = `${rr.name} ${holder.name}`, names = ts.map((x) => nm(g, x)).join(' & '), note = (t) => g.morning.push(`Nur für den Spielleiter: ${t}`);
+    switch (b.k) {
+      case 'mark': log(g, `${by} markiert ${names}`); ts.forEach((x) => g.morning.push(`${rr.name}: ${nm(g, x)} ist markiert.`)); break;
+      case 'protect': cprot.push(...ts); log(g, `${by} schützt ${names}`); break;
+      case 'peek': log(g, `${by} prüft ${names}: ${ts.map((x) => (looksWolf(g, x) ? 'Werwolf' : 'kein Werwolf')).join(', ')}`); break;
+      case 'peekrole': log(g, `${by} prüft ${names}: ${ts.map((x) => roleLabel(g, x)).join(', ')}`); break;
+      case 'kill': ckill.push(...ts); log(g, `${by} tötet ${names}`); break;
+      case 'silence': ts.forEach((x) => g.mutes.push({ id: x, day: g.night })); log(g, `${by} schaltet ${names} stumm`); g.morning.push(`${names}: darf heute nicht sprechen und nicht abstimmen.`); break;
+      case 'block': ts.forEach((x) => { g.blocked[x] = g.night + 1; }); log(g, `${by} sperrt ${names} für die nächste Nacht`); note(`${names} ist in der nächsten Nacht gesperrt: nur zum Schein aufrufen.`); break;
+      case 'swap': {
+        const [p, q] = ts;
+        if (!g.roles[p] || !g.roles[q]) { log(g, `${by}: Tausch von ${names} nicht möglich, eine Rolle ist noch unbekannt`); break; }
+        [g.roles[p], g.roles[q]] = [g.roles[q], g.roles[p]];
+        log(g, `${by} tauscht die Rollen von ${names}`); note(`${nm(g, p)} ist jetzt ${roleName(g.roles[p])}, ${nm(g, q)} ist jetzt ${roleName(g.roles[q])}.`); break;
+      }
+      case 'love':
+        if (g.lovers.length) log(g, `${by}: ${names} bleiben unverliebt, es gibt schon ein Liebespaar`);
+        else { g.lovers = [...ts]; log(g, `${by} verliebt ${names}`); note(`${names} sind verliebt.`); }
+        break;
+      case 'turn': { const t = ts.filter((x) => !isWolf(g, x)); t.forEach((x) => { g.turned[x] = true; }); if (t.length) { log(g, `${by} macht ${t.map((x) => nm(g, x)).join(' & ')} heimlich zum Werwolf`); note(`${t.map((x) => nm(g, x)).join(' & ')} ist jetzt Werwolf.`); } break; }
+      case 'convert':
+        if (RM[b.role]) { ts.forEach((x) => { g.roles[x] = b.role; if (['wildchild', 'wolfdog', 'judge'].includes(b.role)) g.fresh[b.role] = true; }); log(g, `${by} verwandelt ${names} in ${roleName(b.role)}`); note(`${names} ist jetzt ${roleName(b.role)}.`); }
+        break;
+      case 'revive':
+        ts.forEach((x) => { delete g.dead[x]; g.queue = g.queue.filter((y) => y !== x); g.lastDeaths = g.lastDeaths.filter((y) => y !== x); g.morning.push(`${nm(g, x)} ist wieder da!`); });
+        log(g, `${by} belebt ${names} wieder`); break;
+      case 'bind': g.bound[rid] = ts[0]; log(g, `${by} bestimmt ${names} als Ziel`); break;
+      default: break;
+    }
   }
   if (d.enchant.length) { d.enchant.forEach((id) => { g.enchanted[id] = true; }); log(g, `Verzaubert: ${d.enchant.map((i) => nm(g, i)).join(', ')}`); }
   if (d.fox) {
-    const grp = [d.fox, ...seatNeighbors(g, d.fox)], hit = grp.some((id) => isWolf(g, id));
+    const grp = [d.fox, ...seatNeighbors(g, d.fox)], hit = grp.some((id) => looksWolf(g, id));
     log(g, `Fuchs prüft ${grp.map((i) => nm(g, i)).join(', ')}: ${hit ? 'Wolf dabei' : 'kein Wolf'}`);
     if (!hit) g.foxLost = true;
   }
@@ -585,6 +658,7 @@ function finishNight(g) {
     if (infectable) { g.turned[v] = true; g.urwolfUsed = true; log(g, `Urwolf infiziert ${nm(g, v)} – ab jetzt heimlich Werwolf`); return; }
     if (!girlVictim && (v === d.protect || cprot.includes(v))) { log(g, `${nm(g, v)} wurde vom Heiler gerettet`); return; }
     if (d.heal === v && !g.potions.heal) { g.potions.heal = true; log(g, `Hexe heilt ${nm(g, v)}`); return; }
+    if (hasPassive(g, v, 'hardy') && !g.hardyUsed[v]) { g.hardyUsed[v] = true; log(g, `${nm(g, v)} übersteht den ersten Angriff`); return; }
     if (isElder && g.elderBites === 1) { log(g, `Der Alte ${nm(g, v)} übersteht den ersten Angriff`); return; }
     if (rules.charm && (cause === 'wolves' || cause === 'bigwolf') && !isWolf(g, v) && !g.charmed[v]) {
       g.charmed[v] = true; charmedNow.push(v);
@@ -614,7 +688,7 @@ function finishNight(g) {
   if (charmedNow.length) g.morning.push(`Nur für den Spielleiter: Berühre unauffällig am Kopf: ${charmedNow.map((i) => nm(g, i)).join(', ')}. Nichts ansagen, niemand scheidet aus.`);
   const bear = livingHolders(g, 'bear')[0];
   if (bear && powerOn(g, 'bear')) {
-    const growl = seatNeighbors(g, bear.id).some((id) => isWolf(g, id)) || isWolf(g, bear.id);
+    const growl = seatNeighbors(g, bear.id).some((id) => looksWolf(g, id)) || looksWolf(g, bear.id);
     g.morning.push(growl ? 'Der Bär brummt laut!' : 'Der Bär bleibt ruhig.');
   }
   if (g.ravenMark && alive(g, g.ravenMark)) g.morning.push(`Der Rabe hat ${nm(g, g.ravenMark)} belastet: zwei Stimmen mehr gegen die Person.`);
@@ -677,6 +751,7 @@ function executeVote(g) {
   if (innImmune(g, v)) return;
   innCheck(g, v);
   const rid = g.roles[v];
+  if (RM[rid]?.custom && RM[rid].win === 'executed' && !g.charmed?.[v]) { g.execWin = v; log(g, `${RM[rid].name} ${nm(g, v)} wurde hingerichtet – genau sein Plan`); }
   if (rid === 'idiot' && !g.idiotRevealed && powerOn(g, 'idiot')) {
     g.idiotRevealed = true;
     log(g, `Dorfdepp ${nm(g, v)} entlarvt – überlebt ohne Stimmrecht`);
@@ -807,7 +882,8 @@ function tap(g, pid, toast) {
     if (holders(g, r.id).length >= need && step.act) g.subMode = 'action';
     return;
   }
-  if (mode !== 'action' || !alive(g, pid)) return;
+  const cb = step.act === 'cust' ? RM[step.role]?.blocks?.[step.blk ?? 0] : null;
+  if (mode !== 'action' || alive(g, pid) === !!(cb && BLOCKS[cb.k].dead)) { if (cb && BLOCKS[cb.k].dead && mode === 'action') toast?.('Tippe eine gestorbene Person an.'); return; }
   const tog = (k) => { d[k] = d[k] === pid ? null : pid; };
   switch (step.act) {
     case 'kill':
@@ -854,8 +930,16 @@ function tap(g, pid, toast) {
     case 'seance': if (d.seance && d.spQ != null) d.medium = d.medium === pid ? null : pid; break;
     case 'cust': {
       const rr = RM[step.role];
-      if (!rr?.cself && holders(g, rr.id).some((x) => x.id === pid)) { toast?.(`${rr.name} kann sich nicht selbst wählen.`); return; }
-      d.cust[rr.id] = d.cust[rr.id] === pid ? null : pid;
+      if (!cb) return;
+      if (!cb.self && holders(g, rr.id).some((x) => x.id === pid)) { toast?.(`${rr.name} kann sich nicht selbst wählen.`); return; }
+      if (cb.rep && (g.clast?.[step.key] ?? []).includes(pid)) { toast?.('Nicht zweimal hintereinander dieselbe Person.'); return; }
+      if (cb.k === 'turn' && isWolf(g, pid)) { toast?.('Diese Person ist schon ein Werwolf.'); return; }
+      const arr = targetsOf(d.cust[step.key]), i = arr.indexOf(pid);
+      if (i >= 0) arr.splice(i, 1);
+      else if (cb.n === 1) arr.splice(0, arr.length, pid);
+      else if (arr.length < cb.n) arr.push(pid);
+      else { toast?.(`Schon ${cb.n} gewählt – erst eine Person abwählen.`); return; }
+      d.cust[step.key] = arr;
       break;
     }
     default: break;

@@ -1,9 +1,9 @@
 // Spielansicht: Tisch mit Spielersteinen, Nachtschritte, Tag, Abfragen, Rollenvergabe, Ende.
 import { S, ui, views, on, go, dispatch, undo, canUndo, toast, buzz, afterRender, persist, clearUndo } from './core.js';
 import { esc, art, I, initials, circlePos, tokenSize, roleShort } from './art.js';
-import { RM, CAMP_LABEL, roleName } from '../engine/roles.js';
+import { RM, CAMP_LABEL, roleName, BLOCKS, targetsOf } from '../engine/roles.js';
 import {
-  alive, nm, isWolf, roleLabel, holders, livingHolders, seatNeighbors, stepContext, nightSteps, openDecision, unknownPool, livingIds, CAUSE, groupNames, powerOn, tally,
+  alive, nm, isWolf, looksWolf, roleLabel, holders, livingHolders, seatNeighbors, stepContext, nightSteps, openDecision, unknownPool, livingIds, CAUSE, groupNames, powerOn, tally,
   eligibleVoters, voucherVictim, voucherStart,
 } from '../engine/game.js';
 import { SPIRIT_CARDS } from '../engine/events.js';
@@ -37,7 +37,12 @@ function marks(g, c) {
         case 'mark': if (d.mark) m.pick.add(d.mark); break;
         case 'fire': if (d.fire) m.target.add(d.fire); break;
         case 'seance': if (d.medium) m.pick.add(d.medium); break;
-        case 'cust': { const t = d.cust[step.role]; if (t) (r.cact === 'protect' ? m.safe : r.cact === 'kill' ? m.target : m.pick).add(t); break; }
+        case 'cust': {
+          const b = r.blocks?.[step.blk ?? 0];
+          targetsOf(d.cust[step.key]).forEach((t) => (b?.k === 'protect' ? m.safe : b?.k === 'kill' ? m.target : m.pick).add(t));
+          if (b?.rep) (g.clast?.[step.key] ?? []).forEach((t) => m.dim.add(t));
+          break;
+        }
         case 'enchant': d.enchant.forEach((x) => m.pick.add(x)); Object.keys(g.enchanted).forEach((x) => m.dim.add(x)); break;
         default: break;
       }
@@ -133,14 +138,14 @@ const harvestSeen = (g, id) => {
   const ids = [id, ...seatNeighbors(g, id)];
   if (ids.some((x) => !g.roles[x])) return null;
   const camp = g.cfg.rules.seerSees === 'camp';
-  const names = ids.map((x) => (camp ? (isWolf(g, x) ? 'Werwolf' : 'Kein Werwolf') : RM[g.roles[x]].name)).sort();
+  const names = ids.map((x) => (camp ? (looksWolf(g, x) ? 'Werwolf' : 'Kein Werwolf') : RM[g.roles[x]].name)).sort();
   return `${ids.map((x) => nm(g, x)).join(', ')}: ${names.join(', ')} (Erntefest: nicht zuordnen)`;
 };
 
 const seenText = (g, id) => {
   const rid = g.roles[id];
   if (!rid) return null;
-  if (g.cfg.rules.seerSees === 'camp') return isWolf(g, id) ? 'Werwolf' : 'Kein Werwolf';
+  if (g.cfg.rules.seerSees === 'camp') return looksWolf(g, id) ? 'Werwolf' : 'Kein Werwolf';
   const card = g.actorId === id && rid !== 'actor' ? 'Gaukler' : RM[rid].name;
   return g.turned[id] ? `${card} (Karte; infiziert, die Seherin sieht nur die Karte)` : card;
 };
@@ -226,18 +231,23 @@ function taskBox(g, c) {
         break;
       case 'fox':
         if (d.fox) {
-          const grp = [d.fox, ...seatNeighbors(g, d.fox)], hit = grp.some((id) => isWolf(g, id));
+          const grp = [d.fox, ...seatNeighbors(g, d.fox)], hit = grp.some((id) => looksWolf(g, id));
           prompt = hit ? `JA: Unter ${grp.map((x) => nm(g, x)).join(', ')} ist ein Werwolf (nicken).` : 'NEIN: Kein Werwolf dabei. Der Fuchs verliert seine Gabe (Kopf schütteln).';
           cls = 'ok';
         } else prompt = 'Der Fuchs zeigt auf die Mitte einer Dreiergruppe. Person antippen.';
         break;
       case 'fire': prompt = d.fire ? `Das Gebäude von ${nm(g, d.fire)} brennt (${BUILDINGS[g.town.b[d.fire]]?.name ?? ''}).` : 'Welches Gebäude setzt der Brandstifter in Brand? Einmal im Spiel, Person im Kreis antippen oder Weiter.'; cls = d.fire ? 'ok' : ''; break;
       case 'cust': {
-        const t = d.cust[r.id], verb = { mark: 'markiert', kill: 'tötet', protect: 'beschützt', peek: 'prüft' }[r.cact] ?? 'wählt', once = r.night?.once ? ' (nur einmal im Spiel, sonst Weiter)' : ' (optional)';
-        if (!t) prompt = `Wen ${verb} ${r.name}? Person im Kreis antippen${once}.`;
-        else if (r.cact === 'peek') prompt = !g.roles[t] ? `${nm(g, t)}: Rolle noch nicht erfasst.` : `${nm(g, t)}: ${isWolf(g, t) ? 'Werwolf (nicken)' : 'Kein Werwolf (Kopf schütteln)'}`;
-        else prompt = `${r.name} ${verb}: ${nm(g, t)}`;
-        cls = t ? 'ok' : '';
+        const b = r.blocks[step.blk ?? 0], B = BLOCKS[b.k], ts = targetsOf(d.cust[step.key]), names = ts.map((x) => nm(g, x)).join(' & ');
+        const need = B.fixed ?? 1, left = b.limit ? b.limit - (g.cuse?.[step.key] ?? 0) : 0;
+        const opt = b.limit ? ` (noch ${left}× im Spiel, sonst Weiter)` : ' (optional)';
+        if (!ts.length) prompt = `${r.name}: ${B.name}. ${B.dead ? 'Gestorbene Person im Kreis antippen' : b.n > 1 ? `Bis zu ${b.n} Personen im Kreis antippen` : 'Person im Kreis antippen'}${opt}.`;
+        else if (b.k === 'peek') prompt = ts.map((x) => (!g.roles[x] ? `${nm(g, x)}: Rolle noch nicht erfasst.` : `${nm(g, x)}: ${looksWolf(g, x) ? 'Werwolf (nicken)' : 'Kein Werwolf (Kopf schütteln)'}`)).join(' ');
+        else if (b.k === 'peekrole') prompt = ts.map((x) => (g.roles[x] ? `${nm(g, x)}: ${roleLabel(g, x)}` : `${nm(g, x)}: Rolle noch nicht erfasst.`)).join(' ');
+        else if (b.k === 'convert') prompt = `${r.name} verwandelt ${names} in ${roleName(b.role)}`;
+        else if (b.k === 'swap' || b.k === 'love') prompt = ts.length < need ? `${names}: noch ${need - ts.length} Person antippen (${ts.length}/${need})` : `${r.name} ${B.verb}: ${names}`;
+        else prompt = `${r.name} ${B.verb}: ${names}${b.n > 1 ? ` (${ts.length}/${b.n})` : ''}`;
+        cls = ts.length >= need ? 'ok' : '';
         break;
       }
       case 'mark': prompt = d.mark ? `Belastet: ${nm(g, d.mark)} (zwei Stimmen mehr)` : 'Wen belastet der Rabe? (optional)'; break;
@@ -424,7 +434,7 @@ function interruptPanel(g) {
     body = `<div class="task"><div class="prompt">${I.eye}<span>Welche Karte hatte ${esc(nm(g, it.id))}? Tippe die aufgedeckte Rolle an.</span></div></div>
       <div class="ov-grid">${pool.map((id) => `<button class="ov" data-action="reveal" data-role="${id}">${art(id)}<b>${esc(RM[id].name)}</b></button>`).join('')}</div>`;
   } else if (it.type === 'hunter') {
-    body = `<div class="task warn"><div class="prompt">${I.target}<span>Jäger ${esc(nm(g, it.id))} ist tot und schießt noch einmal. Tippe sein Ziel im Kreis an.</span></div></div>`;
+    body = `<div class="task warn"><div class="prompt">${I.target}<span>${esc(it.name ?? 'Jäger')} ${esc(nm(g, it.id))} ist tot und schießt noch einmal. Tippe sein Ziel im Kreis an.</span></div></div>`;
     foot = `<button class="btn primary" data-action="interrupt-skip">Er schießt niemanden</button>`;
   } else if (it.type === 'captain') {
     body = `<div class="task warn"><div class="prompt">${I.crown}<span>Hauptmann ${esc(nm(g, it.id))} ist tot und ernennt seinen Nachfolger. Tippe die Person an.</span></div></div>`;

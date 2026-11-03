@@ -2,7 +2,7 @@
 import { S, ui, views, on, go, dispatch, persist, toast, clearUndo } from './core.js';
 import { esc, art, I, initials } from './art.js';
 import { roleDetailHtml, soundCard } from './pages.js';
-import { RM, ROLES, roleName, SETS, CUSTOM_ACTS, CUSTOM_WIN } from '../engine/roles.js';
+import { RM, ROLES, roleName, SETS, CUSTOM_WIN, BLOCKS, BLOCK_WHEN, PASSIVES } from '../engine/roles.js';
 import { nm, alive, roleLabel, CAUSE } from '../engine/game.js';
 import { groupById, defaultSettings, defaultSetup } from '../store.js';
 import { stopMusic } from '../audio.js';
@@ -51,6 +51,21 @@ on('player-role', (el) => { dispatch({ t: 'assign-direct', pid: ui.modal.id, rol
 on('player-kill', () => { const id = ui.modal.id; ui.modal = null; dispatch({ t: 'manual-kill', pid: id }); return false; });
 on('player-captain', () => { const id = ui.modal.id; ui.modal = null; dispatch({ t: 'set-captain', pid: id }); return false; });
 on('submit:player-rename', (f) => { const v = f.querySelector('input').value.trim().slice(0, 24); if (v) dispatch({ t: 'rename', pid: ui.modal.id, name: v }); ui.modal = { type: 'player', id: ui.modal.id }; });
+
+/** Ein Baustein im Editor für eigene Rollen. Feldnamen bk_<Feld>_<Nummer>, damit der Entwurf aus dem Formular gelesen werden kann. */
+function customBlockHtml(b, i) {
+  const B = BLOCKS[b.k] ?? BLOCKS.kill;
+  const sel = (name, cur, opts) => `<select class="inp" name="${name}_${i}">${opts.map(([v, t]) => `<option value="${v}" ${String(cur) === String(v) ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
+  const field = (label, html) => `<label class="col" style="gap:4px"><span class="eyebrow">${label}</span>${html}</label>`;
+  return `<div class="card flat col" style="gap:8px"><div class="row between"><b>Baustein ${i + 1}</b><button type="button" class="btn sm" data-action="custom-block-del" data-i="${i}">${I.close}<span>Entfernen</span></button></div>
+    <select class="inp" id="bk-k-${i}" name="bk_k_${i}" aria-label="Fähigkeit">${Object.entries(BLOCKS).map(([k, x]) => `<option value="${k}" ${b.k === k ? 'selected' : ''}>${x.name}</option>`).join('')}</select>
+    ${B.fixed ? '' : field('Wie viele Personen?', sel('bk_n', b.n, [[1, 'Eine Person'], [2, 'Bis zu zwei Personen'], [3, 'Bis zu drei Personen']]))}
+    ${B.role ? field('In welche Rolle?', sel('bk_role', b.role, ROLES.filter((r) => !r.custom).map((r) => [r.id, esc(r.name)]))) : ''}
+    ${field('Wann?', sel('bk_when', b.when, Object.entries(BLOCK_WHEN)))}
+    ${B.limit1 ? '' : field('Wie oft im Spiel?', sel('bk_limit', b.limit, [[0, 'Unbegrenzt'], [1, 'Nur einmal'], [2, 'Höchstens zweimal'], [3, 'Höchstens dreimal']]))}
+    ${B.dead ? '' : `<label class="row" style="gap:8px;align-items:center"><input type="checkbox" name="bk_self_${i}" ${b.self ? 'checked' : ''}><span>Darf sich selbst wählen</span></label>`}
+    <label class="row" style="gap:8px;align-items:center"><input type="checkbox" name="bk_rep_${i}" ${b.rep ? 'checked' : ''}><span>Nicht zweimal hintereinander dieselbe Person</span></label></div>`;
+}
 
 views.modal = () => {
   const m = ui.modal, g = S.game;
@@ -113,10 +128,14 @@ views.modal = () => {
           <label class="col" style="gap:4px"><span class="eyebrow">Kurzbeschreibung</span><input class="inp" name="sub" value="${esc(d.sub)}" maxlength="60" placeholder="z. B. Sieht, wer nachts wach ist"></label>
           <label class="col" style="gap:4px"><span class="eyebrow">Beschreibung</span><textarea class="inp" name="desc" maxlength="600" placeholder="Was kann die Rolle? Die Regeln führst du selbst durch.">${esc(d.desc)}</textarea></label>
           <div class="col" style="gap:4px"><span class="eyebrow">Symbol</span><div class="chips" style="flex-wrap:wrap;overflow:visible">${['', ...CUSTOM_ICONS].map((ic) => `<label class="chip" style="min-width:42px;justify-content:center"><input type="radio" name="icon" value="${ic}" ${(d.icon || '') === ic ? 'checked' : ''} style="position:absolute;opacity:0;pointer-events:none">${ic || 'Buchstabe'}</label>`).join('')}</div></div>
-          <label class="col" style="gap:4px"><span class="eyebrow">Nächtliche Aktion (Zielperson im Kreis antippen)</span><select class="inp" name="cact">${Object.entries(CUSTOM_ACTS).map(([k, t]) => `<option value="${k}" ${(d.cact || 'none') === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
-          <label class="row" style="gap:8px;align-items:center"><input type="checkbox" name="cself" ${d.cself ? 'checked' : ''}><span>Darf sich selbst wählen</span></label>
-          <label class="col" style="gap:4px"><span class="eyebrow">Wann wird sie nachts aufgerufen?</span><select class="inp" name="wake"><option value="none" ${d.wake === 'none' ? 'selected' : ''}>Gar nicht (bei Aktion: jede Nacht)</option><option value="first" ${d.wake === 'first' ? 'selected' : ''}>Nur in der ersten Nacht</option><option value="every" ${d.wake === 'every' ? 'selected' : ''}>Jede Nacht</option><option value="even" ${d.wake === 'even' ? 'selected' : ''}>Jede zweite Nacht</option><option value="once" ${d.wake === 'once' ? 'selected' : ''}>Aktion nur einmal im Spiel</option></select></label>
+          <div class="col" style="gap:8px"><span class="eyebrow">Nächtliche Fähigkeiten (Bausteine, beliebig kombinierbar)</span>
+            ${(d.blocks ?? []).map(customBlockHtml).join('')}
+            ${(d.blocks ?? []).length < 8 ? `<button type="button" class="btn" data-action="custom-block-add">${I.plus}<span>Baustein hinzufügen</span></button>` : ''}
+            ${(d.blocks ?? []).length ? '' : `<label class="col" style="gap:4px"><span class="eyebrow">Ohne Baustein: nachts nur aufrufen</span><select class="inp" name="wake"><option value="none" ${d.wake === 'none' ? 'selected' : ''}>Gar nicht</option><option value="first" ${d.wake === 'first' ? 'selected' : ''}>Nur in der ersten Nacht</option><option value="every" ${d.wake === 'every' ? 'selected' : ''}>Jede Nacht</option><option value="even" ${d.wake === 'even' ? 'selected' : ''}>Jede zweite Nacht</option></select></label>`}</div>
+          <div class="col" style="gap:4px"><span class="eyebrow">Passive Eigenschaften</span>${Object.entries(PASSIVES).map(([k, t]) => `<label class="row" style="gap:8px;align-items:center"><input type="checkbox" name="pa_${k}" ${(d.passives ?? []).includes(k) ? 'checked' : ''}><span>${t}</span></label>`).join('')}</div>
+          <label class="col" style="gap:4px"><span class="eyebrow">Erbt eine Rolle</span><select class="inp" name="heir"><option value="">Keine</option>${ROLES.filter((r) => !r.custom).map((r) => `<option value="${r.id}" ${d.heir === r.id ? 'selected' : ''}>Übernimmt ${esc(r.name)}, wenn sie stirbt</option>`).join('')}</select></label>
           <label class="col" style="gap:4px"><span class="eyebrow">Siegbedingung</span><select class="inp" name="win">${Object.entries(CUSTOM_WIN).map(([k, t]) => `<option value="${k}" ${(d.win || 'camp') === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+          <label class="row" style="gap:8px;align-items:center"><input type="checkbox" name="needUse" ${d.needUse ? 'checked' : ''}><span>Sieg nur, wenn die Fähigkeit mindestens einmal benutzt wurde</span></label>
           <label class="col" style="gap:4px"><span class="eyebrow">Reihenfolge</span><select class="inp" name="after"><option value="before" ${!d.after ? 'selected' : ''}>Vor den Werwölfen</option><option value="after" ${d.after ? 'selected' : ''}>Nach den Werwölfen, vor der Hexe</option></select></label>
           <label class="col" style="gap:4px"><span class="eyebrow">Ansage zum Vorlesen</span><input class="inp" name="say" value="${esc(d.say)}" maxlength="300" placeholder="Der Nachtwächter erwacht."></label>
           <button class="btn primary" type="submit">Speichern</button>

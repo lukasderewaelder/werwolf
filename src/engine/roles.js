@@ -342,19 +342,80 @@ export function fillVillagers(counts, n) {
 export const isWolfRole = (id) => RM[id]?.camp === 'wolf' || id === 'whitewolf';
 
 /** Aktionen, die eine eigene Rolle nachts ausführen kann (Zielperson wird im Kreis angetippt). */
+/** Bausteine einer eigenen Rolle: jede nächtliche Fähigkeit ist ein Baustein mit eigenen Grenzen.
+ *  short = Name des Schritts, verb = Satzbau („Nachtwächter tötet …“), fixed = feste Zielzahl, dead = Ziel ist eine gestorbene Person. */
+export const BLOCKS = {
+  kill: { name: 'Person töten', short: 'Töten', verb: 'tötet' },
+  protect: { name: 'Person vor den Wölfen schützen', short: 'Schützen', verb: 'beschützt' },
+  mark: { name: 'Person markieren (Hinweis am Morgen)', short: 'Markieren', verb: 'markiert' },
+  peek: { name: 'Erfahren, ob die Person ein Werwolf ist', short: 'Prüfen', verb: 'prüft' },
+  peekrole: { name: 'Die echte Rolle der Person erfahren', short: 'Rolle erfahren', verb: 'prüft die Rolle von' },
+  silence: { name: 'Person stumm schalten (kein Reden, kein Abstimmen am Tag)', short: 'Stumm schalten', verb: 'bringt zum Schweigen' },
+  block: { name: 'Fähigkeit der Person in der nächsten Nacht sperren', short: 'Sperren', verb: 'sperrt' },
+  swap: { name: 'Zwei Personen tauschen ihre Rollen', short: 'Tauschen', verb: 'tauscht', fixed: 2 },
+  love: { name: 'Zwei Personen verlieben (wenn es noch kein Paar gibt)', short: 'Verlieben', verb: 'verliebt', fixed: 2 },
+  turn: { name: 'Person heimlich zum Werwolf machen', short: 'Zum Wolf machen', verb: 'verwandelt in einen Werwolf' },
+  convert: { name: 'Person in eine feste Rolle verwandeln', short: 'Verwandeln', verb: 'verwandelt', role: true },
+  revive: { name: 'Gestorbene Person wiederbeleben', short: 'Wiederbeleben', verb: 'belebt wieder', dead: true },
+  bind: { name: 'Schützling oder Ziel festlegen (einmalig)', short: 'Ziel festlegen', verb: 'bestimmt als Ziel', limit1: true },
+};
+export const BLOCK_WHEN = { every: 'Jede Nacht', first: 'Nur in der ersten Nacht', later: 'Ab der zweiten Nacht', even: 'Jede zweite Nacht' };
+/** Passive Eigenschaften, kombinierbar. */
+export const PASSIVES = {
+  hardy: 'Übersteht den ersten Angriff der Werwölfe',
+  looksWolf: 'Gilt für Fuchs, Bär und Prüfungen als Werwolf (auch für die Seherin im Lager-Modus)',
+  revenge: 'Nimmt beim Tod noch eine Person mit (wie der Jäger)',
+  bondDeath: 'Stirbt, wenn sein festgelegtes Ziel stirbt',
+};
+export const CUSTOM_WIN = {
+  camp: 'Mit seinem Lager',
+  solo: 'Allein als Letzter',
+  survive: 'Überleben (gewinnt mit dem Sieger, wenn er noch lebt)',
+  bound: 'Sein Ziel lebt am Ende (gewinnt mit dem Sieger, wenn er und sein Ziel leben)',
+  hunt: 'Sein Ziel ist ausgeschieden (gewinnt mit dem Sieger, wenn er lebt)',
+  executed: 'Allein, wenn das Dorf ihn hinrichtet (Narr)',
+};
+/** Alte Aktionen (vor den Bausteinen); nur noch zum Umrechnen gespeicherter Rollen. */
 export const CUSTOM_ACTS = { none: 'Keine Aktion', mark: 'Person markieren', kill: 'Person töten', protect: 'Person vor den Wölfen schützen', peek: 'Erfahren, ob die Person ein Werwolf ist' };
-export const CUSTOM_WIN = { camp: 'Mit seinem Lager', solo: 'Allein als Letzter', survive: 'Überleben (gewinnt mit dem Sieger, wenn er noch lebt)' };
 
-/** Eigene Rollen (Name, Lager village|wolf, optionaler Aufruf) in die Rollentabelle eintragen. Ersetzt frühere Einträge gleicher Kennung. */
+export const blankBlock = (k = 'kill') => ({ k, n: 1, when: 'every', limit: 0, self: false, rep: false, role: 'villager' });
+
+/** Zielliste eines Eintrags im Entwurf (früher eine einzelne Kennung). */
+export const targetsOf = (v) => (Array.isArray(v) ? v : v ? [v] : []);
+/** Schlüssel von Schritt und Entwurf: der erste Baustein heißt wie die Rolle. */
+export const custKey = (rid, i) => (i ? `${rid}#${i}` : rid);
+
+/** Bausteine bereinigen; gespeicherte Rollen mit nur `cact` werden in einen Baustein umgerechnet. */
+export function customBlocks(c) {
+  let list = Array.isArray(c.blocks) ? c.blocks : null;
+  if (!list) {
+    const k = c.cact && c.cact !== 'none' && BLOCKS[c.cact] ? c.cact : null;
+    list = k ? [{ k, when: c.wake === 'first' ? 'first' : c.wake === 'even' ? 'even' : 'every', limit: c.wake === 'once' ? 1 : 0, self: !!c.cself }] : [];
+  }
+  const out = list.filter((b) => b && BLOCKS[b.k]).slice(0, 8).map((b) => {
+    const B = BLOCKS[b.k];
+    return {
+      k: b.k, n: B.fixed ?? Math.max(1, Math.min(3, Math.round(+b.n) || 1)), when: BLOCK_WHEN[b.when] ? b.when : 'every',
+      limit: B.limit1 ? 1 : Math.max(0, Math.min(9, Math.round(+b.limit) || 0)), self: !!b.self, rep: !!b.rep, role: b.role || 'villager',
+    };
+  });
+  if ((c.win === 'bound' || c.win === 'hunt') && !out.some((b) => b.k === 'bind')) out.unshift({ ...blankBlock('bind'), when: 'first', limit: 1 });
+  return out;
+}
+
+/** Eigene Rollen (Name, Lager village|wolf, Bausteine, Passive, Sieg) in die Rollentabelle eintragen. Ersetzt frühere Einträge gleicher Kennung. */
 export function registerRoles(list = []) {
   for (const c of list) {
-    const cact = CUSTOM_ACTS[c.cact] ? c.cact : 'none';
-    const win = c.win === 'solo' || c.win === 'survive' ? c.win : 'camp';
-    const wake = cact !== 'none' && (!c.wake || c.wake === 'none') ? 'every' : c.wake;
+    const win = CUSTOM_WIN[c.win] ? c.win : 'camp';
+    const blocks = customBlocks({ ...c, win });
+    const passives = (Array.isArray(c.passives) ? c.passives : []).filter((p) => PASSIVES[p]);
+    const wake = c.wake === 'first' || c.wake === 'even' || c.wake === 'every' ? c.wake : 'none';
+    const order = c.after ? 260 : 115;
+    const night = blocks.length ? { when: 'every', order, act: 'cust' } : wake !== 'none' ? { when: wake, order, act: null } : null;
     const def = {
-      id: c.id, name: c.name, set: 'eigene', camp: c.camp === 'wolf' && win !== 'solo' ? 'wolf' : 'village', color: c.color || (c.camp === 'wolf' ? '#8a2a2a' : '#4a5f8f'),
-      sub: c.sub || 'Eigene Rolle', desc: c.desc || '', say: c.say || '', custom: true, icon: c.icon || '', win, cact, cself: !!c.cself,
-      ...(wake && wake !== 'none' ? { night: { when: wake === 'first' ? 'first' : wake === 'even' ? 'even' : 'every', order: c.after ? 260 : 115, act: cact === 'none' ? null : 'cust', ...(wake === 'once' ? { once: true } : {}) } } : {}),
+      id: c.id, name: c.name, set: 'eigene', camp: c.camp === 'wolf' && win !== 'solo' && win !== 'executed' ? 'wolf' : 'village', color: c.color || (c.camp === 'wolf' ? '#8a2a2a' : '#4a5f8f'),
+      sub: c.sub || 'Eigene Rolle', desc: c.desc || '', say: c.say || '', custom: true, icon: c.icon || '', win, blocks, passives, heir: c.heir && c.heir !== c.id ? c.heir : '', needUse: !!c.needUse,
+      ...(night ? { night } : {}),
     };
     const i = ROLES.findIndex((x) => x.id === c.id);
     if (i >= 0) ROLES[i] = def; else ROLES.push(def);
