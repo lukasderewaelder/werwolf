@@ -51,10 +51,17 @@ test('Assistent: Gruppe anlegen, Namen eintragen, ohne Karten starten, Rollen ze
   await page.context().close();
 });
 
+/** „Weiter“ klicken; fragt der Dialog wegen einer offenen Entscheidung nach, bewusst weitergehen. */
+async function nextStep(page) {
+  await page.click('[data-action=step-next]');
+  const yes = page.locator('[data-action=confirm-yes]');
+  if (await yes.count()) await yes.click();
+}
+
 test('Kartenmodus: Rollen zuordnen, Wolfsopfer, Morgen, Abstimmung, Jäger, Sieg', async () => {
   const { page, problems } = await app.openApp();
   await startGame(page, { names: NAMES, counts: COUNTS8, mode: 'cards' });
-  const next = () => page.click('[data-action=step-next]');
+  const next = () => nextStep(page);
   // Reihenfolge: Seherin, Wölfe, Hexe, dazu stille Rollen (Jäger)
   const stepLabels = await page.locator('.sdot').allInnerTexts();
   assert.ok(stepLabels.some((t) => /Seherin/.test(t)) && stepLabels.some((t) => /Jäger/.test(t)));
@@ -405,20 +412,20 @@ test('Töne: Wolfsheulen beim Erwachen der Werwölfe und aller besonderen Wölfe
   const label = () => page.locator('.rolebox h2').innerText();
   assert.equal(await label(), 'Seherin');
   const before = await howls();
-  await page.click('[data-action=step-next]');                   // Werwolf
+  await nextStep(page);                   // Werwolf
   assert.equal(await label(), 'Werwolf');
   assert.equal(await howls(), before + 1, 'beim Erwachen der Werwölfe');
-  await page.click('[data-action=step-next]');                   // Urwolf
+  await nextStep(page);                   // Urwolf
   assert.equal(await label(), 'Urwolf');
   const atUrwolf = await howls();
   assert.ok(atUrwolf >= before + 2, 'beim Erwachen des Urwolfs');
-  await page.click('[data-action=step-next]');                   // Großer böser Wolf
+  await nextStep(page);                   // Großer böser Wolf
   assert.equal(await label(), 'Großer böser Wolf');
   assert.ok((await howls()) >= atUrwolf + 1, 'beim Erwachen des Großen bösen Wolfs');
   await page.click('[data-action=step-prev]'); await page.click('[data-action=step-prev]'); await page.click('[data-action=step-prev]');
   assert.equal(await label(), 'Seherin');
   const quiet = await howls();
-  await page.click('[data-action=step-next]');
+  await nextStep(page);
   assert.equal(await howls(), quiet + 1);
   assert.deepEqual(problems, []);
   await page.context().close();
@@ -444,7 +451,7 @@ test('Seherin sieht nur Werwolf: kommt nach den Wölfen, Antwort lautet Werwolf 
   await startGame(page, { names: NAMES.slice(0, 6), counts: { wolf: 1, seer: 1, villager: 4 }, rules: { seerSees: 'camp' }, roles: ['wolf', 'seer', 'villager', 'villager', 'villager', 'villager'] });
   const labels = await page.locator('.sdot').allInnerTexts();
   assert.deepEqual(labels.map((l) => l.trim()), ['Werwolf', 'Seherin']);
-  await page.click('[data-action=step-next]');
+  await nextStep(page);
   await tapName(page, 'Anna');
   assert.match(await page.locator('.task .prompt').innerText(), /Anna: Werwolf$/);
   await tapName(page, 'Carla');
@@ -498,7 +505,7 @@ test('Seherin sieht bei einem Infizierten nur die Karte, bei „Werwolf oder nic
     const { page, problems } = await app.openApp();
     await startGame(page, { names: NAMES.slice(0, 6), counts: { wolf: 1, seer: 1, villager: 4 }, rules: { seerSees }, roles: ['wolf', 'seer', 'villager', 'villager', 'villager', 'villager'] });
     await page.evaluate(() => { const w = window.__werwolf; w.S.game.turned.p3 = true; w.render(); });
-    if (seerSees === 'camp') await page.click('[data-action=step-next]');
+    if (seerSees === 'camp') await nextStep(page);
     assert.match(await page.locator('.rolebox h2').innerText(), /Seherin/);
     await tapName(page, 'Carla');
     const text = await page.locator('.task .prompt').innerText();
@@ -931,4 +938,23 @@ test('Mittelkarten von Dieb und Gaukler sind im Menü sichtbar, auch ohne Karten
   await reachable(page, '.modal .mfoot .btn', 'Mitte schließen');
   assert.deepEqual(problems, []);
   await ctx.close();
+});
+
+test('Nacht: Weiter fragt nach, solange eine Pflichtentscheidung fehlt', async () => {
+  const { page, problems } = await app.openApp();
+  await startGame(page, { names: NAMES.slice(0, 6), counts: { wolf: 1, seer: 1, villager: 4 }, roles: ['wolf', 'seer', 'villager', 'villager', 'villager', 'villager'] });
+  assert.match(await page.locator('.rolebox h2').innerText(), /Seherin/);
+  await page.click('[data-action=step-next]');
+  assert.match(await page.locator('.modal').innerText(), /Seherin hat noch niemanden geprüft/);
+  await page.click('.modal [data-action=close-modal]');              // Zurück
+  assert.match(await page.locator('.rolebox h2').innerText(), /Seherin/, 'bleibt beim Schritt');
+  await page.click('.sdot >> nth=1');                                // Sprung nach vorn fragt ebenfalls
+  assert.ok(await page.locator('.modal').count());
+  await page.click('.modal [data-action=close-modal]');
+  await tapName(page, 'Carla');
+  await page.click('[data-action=step-next]');
+  assert.equal(await page.locator('.modal').count(), 0, 'mit Entscheidung kein Dialog');
+  assert.match(await page.locator('.rolebox h2').innerText(), /Werwolf/);
+  assert.deepEqual(problems, []);
+  await page.context().close();
 });

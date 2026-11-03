@@ -8,6 +8,7 @@ import { groupById, defaultSettings, defaultSetup } from '../store.js';
 import { stopMusic } from '../audio.js';
 import { keypad, forgotWait } from './lock.js';
 import { isIOS, isAndroid } from './install.js';
+import { advanceNight } from './game.js';
 import { cardsModal, cardEditModal, variantsModal, evModal } from './cards.js';
 import { townModal, townAssignModal } from './town.js';
 import { BUILDINGS } from '../engine/town.js';
@@ -31,8 +32,9 @@ on('player-open', (el) => { ui.modal = { type: 'player', id: el.dataset.id }; })
 on('end-game', () => { ui.modal = { type: 'confirm', what: 'end-game', title: 'Spiel beenden?', text: 'Das laufende Spiel wird abgebrochen.' }; });
 
 on('confirm-yes', () => {
-  const what = ui.modal?.what, id = ui.modal?.id;
+  const what = ui.modal?.what, id = ui.modal?.id, idx = ui.modal?.idx;
   ui.modal = null;
+  if (what === 'skip-step') { if (idx != null) dispatch({ t: 'goto', idx }, { undoable: false }); else advanceNight(true); return false; }
   if (what === 'save-delete') { S.saves = S.saves.filter((x) => x.id !== id); toast('Spielstand gelöscht.'); }
   if (what === 'end-game') { S.game = null; clearUndo(); stopMusic(); go('home'); }
   if (what === 'group-delete') { S.groups = S.groups.filter((g) => g.id !== S.setup.groupId); S.setup.groupId = null; }
@@ -145,7 +147,7 @@ views.modal = () => {
         : ['Öffne diese Seite in <b>Chrome</b>.', 'Tippe oben rechts auf das Menü <b>⋮</b>.', 'Wähle <b>App installieren</b> (oder <b>Zum Startbildschirm hinzufügen</b>).', 'Starte die App künftig vom Startbildschirm. Sie läuft dann auch ohne Netz.'];
       return sheet(`<h2>App installieren</h2><ol class="col" style="padding-left:20px;margin:0">${steps.map((t) => `<li>${t}</li>`).join('')}</ol>${isAndroid() ? '<p class="muted" style="font-size:13px">Tipp: Erscheint „App installieren“ nicht, ist sie vielleicht schon installiert, oder du bist in einem anderen Browser als Chrome.</p>' : ''}${closeBtn()}`);
     }
-    case 'confirm': return sheet(`<h2>${esc(m.title)}</h2><p>${esc(m.text)}</p><div class="mfoot"><div class="row"><button class="btn" data-action="close-modal" style="flex:1">Abbrechen</button><button class="btn danger" data-action="confirm-yes" style="flex:1">Ja</button></div></div>`);
+    case 'confirm': return sheet(`<h2>${esc(m.title)}</h2><p>${esc(m.text)}</p><div class="mfoot"><div class="row"><button class="btn" data-action="close-modal" style="flex:1">${esc(m.no ?? 'Abbrechen')}</button><button class="btn ${m.plain ? 'primary' : 'danger'}" data-action="confirm-yes" style="flex:1">${esc(m.yes ?? 'Ja')}</button></div></div>`);
     default: return '';
   }
 };

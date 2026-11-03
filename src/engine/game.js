@@ -283,6 +283,28 @@ export function stepContext(g) {
   return { steps, idx, step, r, need, have, complete, mode };
 }
 
+/** Offene Pflichtentscheidung im aktuellen Nachtschritt (Text) oder null. Optionale Aktionen (Hexe, Großer böser Wolf, Rabe …) melden nichts. */
+export function openDecision(g) {
+  const c = stepContext(g);
+  if (!c || c.mode !== 'action') return null;
+  const d = g.draft, who = c.step.label;
+  switch (c.step.act) {
+    case 'kill': return !d.kill && !(g.cfg.rules.noVictimsNight1 && g.night === 1) ? 'Die Werwölfe haben noch kein Opfer gewählt.' : null;
+    case 'check': return d.check ? null : `${who} hat noch niemanden geprüft.`;
+    case 'protect': return d.protect ? null : `${who} hat noch niemanden beschützt.`;
+    case 'lovers': return d.lovers.length < 2 ? `Es sind erst ${d.lovers.length} von 2 Verliebten gewählt.` : null;
+    case 'enchant': {
+      const need = g.cfg.rules.harvest ? 1 : 2;
+      const free = g.cfg.players.filter((p) => alive(g, p.id) && g.roles[p.id] !== 'piper' && !g.enchanted[p.id]).length;
+      return d.enchant.length < Math.min(need, free) ? `Es sind erst ${d.enchant.length} von ${need} Personen verzaubert.` : null;
+    }
+    case 'model': return d.model ? null : 'Das Wilde Kind hat noch kein Vorbild gewählt.';
+    case 'side': return d.side ? null : 'Der Wolfshund hat sich noch nicht für eine Seite entschieden.';
+    case 'fox': return d.fox ? null : 'Der Fuchs hat noch keine Dreiergruppe gewählt.';
+    default: return null;
+  }
+}
+
 /** Im Kartenmodus: übrige Karten nach der letzten Zuordnung als Dorfbewohner eintragen. */
 function reconcileAuto(g) {
   for (const pid of Object.keys(g.auto)) { if (g.roles[pid] === 'villager') delete g.roles[pid]; delete g.auto[pid]; }

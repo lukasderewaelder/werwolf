@@ -73,3 +73,18 @@ test('Eigene Rolle: Überlebender gewinnt mit dem Sieger', () => {
   assert.equal(g.phase, 'ended');
   assert.match(g.winner, /Das Dorf und Nachtwächter P2/);
 });
+
+test('Nacht: offene Pflichtentscheidung wird gemeldet, optionale nicht', async () => {
+  const { openDecision } = await import('../src/engine/game.js');
+  let g = mk(['wolf', 'seer', 'witch', ...V(3)], {});
+  g = goKey(g, 'seer');
+  assert.match(openDecision(g), /noch niemanden geprüft/);
+  g = tap(g, 'p4');
+  assert.equal(openDecision(g), null);
+  g = goKey(g, 'wolf');
+  assert.match(openDecision(g), /kein Opfer/);
+  g = tap(g, 'p4');
+  assert.equal(openDecision(g), null);
+  g = goKey(g, 'witch');
+  assert.equal(openDecision(g), null, 'Hexe darf nichts tun');
+});

@@ -3,7 +3,7 @@ import { S, ui, views, on, go, dispatch, undo, canUndo, toast, buzz, afterRender
 import { esc, art, I, initials, circlePos, tokenSize, roleShort } from './art.js';
 import { RM, CAMP_LABEL, roleName } from '../engine/roles.js';
 import {
-  alive, nm, isWolf, roleLabel, holders, livingHolders, seatNeighbors, stepContext, nightSteps, unknownPool, livingIds, CAUSE, groupNames, powerOn, tally,
+  alive, nm, isWolf, roleLabel, holders, livingHolders, seatNeighbors, stepContext, nightSteps, openDecision, unknownPool, livingIds, CAUSE, groupNames, powerOn, tally,
   eligibleVoters, voucherVictim, voucherStart,
 } from '../engine/game.js';
 import { SPIRIT_CARDS } from '../engine/events.js';
@@ -262,8 +262,11 @@ on('witch-heal', () => { dispatch({ t: 'witch-heal' }); return false; });
 on('witch-poison', () => { dispatch({ t: 'witch-poison' }); return false; });
 on('infect', () => { dispatch({ t: 'infect' }); return false; });
 on('wolfdog', (el) => { dispatch({ t: 'wolfdog', side: el.dataset.side }); return false; });
-on('step-next', () => {
+/** Nächster Nachtschritt. Fehlt noch eine Pflichtentscheidung, fragt ein Dialog nach, statt versehentlich zu überspringen. */
+export function advanceNight(force = false) {
   const g = S.game, c = stepContext(g);
+  const open = force ? null : openDecision(g);
+  if (open) { ui.modal = { type: 'confirm', what: 'skip-step', title: 'Noch nicht entschieden', text: `${open} Trotzdem weiter?`, yes: 'Trotzdem weiter', no: 'Zurück', plain: true }; buzz(30); return; }
   const wasLast = c && c.idx >= c.steps.length - 1;
   if (c && c.step.key === 'wolf') sfx('howl');
   buzz(12); dispatch({ t: 'next' });
@@ -272,10 +275,14 @@ on('step-next', () => {
     // Nach dem Hahn: wenn jemand gestorben ist, ein ernster Ton
     if (S.game?.lastDeaths?.length) setTimeout(() => sfx('death'), 2600);
   }
-  return false;
-});
+}
+on('step-next', () => { advanceNight(); return ui.modal ? undefined : false; });   // mit Dialog neu zeichnen
 on('step-prev', () => { dispatch({ t: 'prev' }, { undoable: false }); return false; });
-on('step-goto', (el) => { dispatch({ t: 'goto', idx: +el.dataset.idx }, { undoable: false }); return false; });
+on('step-goto', (el) => {
+  const idx = +el.dataset.idx, c = stepContext(S.game), open = c && idx > c.idx ? openDecision(S.game) : null;
+  if (open) { ui.modal = { type: 'confirm', what: 'skip-step', title: 'Noch nicht entschieden', text: `${open} Trotzdem weiterspringen?`, yes: 'Trotzdem weiter', no: 'Zurück', plain: true, idx }; buzz(30); return; }
+  dispatch({ t: 'goto', idx }, { undoable: false }); return false;
+});
 
 function nightPanel(g, c) {
   if (!c) return `<div class="card"><p>Keine Rollen in dieser Nacht. Weiter zum Morgen.</p></div>`;
