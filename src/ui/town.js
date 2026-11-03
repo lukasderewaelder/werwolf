@@ -17,7 +17,7 @@ export function townSetupHtml(playerCount) {
       <div class="stepper"><button data-action="town-farm" data-d="-1" aria-label="Weniger" ${sel.farm ? '' : 'disabled'}>${I.minus}</button><span class="val">${sel.farm || 0}</span><button data-action="town-farm" data-d="1" aria-label="Mehr" ${(sel.farm || 0) >= BUILDINGS.farm.max ? 'disabled' : ''}>${I.plus}</button></div></div></div>`;
   const chips = BUILDING_KEYS.filter((k) => k !== 'farm').map((k) => `<button class="chip ${sel[k] ? 'on' : ''}" data-action="town-key" data-key="${k}" title="${esc(BUILDINGS[k].text)}">${esc(BUILDINGS[k].name)}</button>`).join('');
   return `<div class="card flat col"><b>Gebäude der Gemeinde</b>
-    <span class="muted" style="font-size:13px">${total} Gebäude für ${playerCount} Spieler. Wer kein Gebäude bekommt, ist Vagabund. Beim Start verteilt die App sie zufällig, du kannst sie danach ändern.</span>
+    <span class="muted small">${total} Gebäude für ${playerCount} Spieler. Wer kein Gebäude bekommt, ist Vagabund. Beim Start verteilt die App sie zufällig, du kannst sie danach ändern.</span>
     ${farm}<div class="chips" style="flex-wrap:wrap;overflow:visible">${chips}</div>
     ${total > playerCount ? `<div class="problems">Mehr Gebäude als Spieler.</div>` : ''}</div>`;
 }
@@ -44,7 +44,7 @@ on('town-cycle', (el) => {
 export function townAssignModal(g) {
   const map = g.town.b, total = buildingTotal(g.cfg.town), given = Object.keys(map).length;
   const rows = g.cfg.players.map((p) => { const k = map[p.id]; return `<div class="member"><b>${esc(p.name)}</b><button class="btn sm ${k ? 'on' : ''}" data-action="town-cycle" data-pid="${p.id}" style="min-width:150px">${k ? esc(`${BUILDINGS[k].name} · ${BUILDINGS[k].job}`) : 'Vagabund'}</button></div>`; }).join('');
-  return sheet(`<h2>Gebäude verteilen</h2><p class="muted" style="font-size:14px">Tippe eine Person an, um ihr der Reihe nach die Gebäude zu geben. Gebäude sind öffentlich. ${given} von ${total} Gebäuden vergeben, alle anderen sind Vagabunden.</p>
+  return sheet(`<h2>Gebäude verteilen</h2><p class="muted small">Tippe eine Person an, um ihr der Reihe nach die Gebäude zu geben. Gebäude sind öffentlich. ${given} von ${total} Gebäuden vergeben, alle anderen sind Vagabunden.</p>
     <div class="row wrap"><button class="btn sm" data-action="town-random">${I.dice}Zufällig</button><button class="btn sm ghost" data-action="town-clear">Alle Vagabunden</button></div>
     <div class="deaths">${rows}</div>
     <div class="mfoot"><button class="btn primary" data-action="close-modal" ${given < Math.min(total, g.cfg.players.length) ? 'disabled' : ''}>Fertig</button></div>`);
@@ -69,7 +69,7 @@ export function townModal(g) {
   const living = g.cfg.players.filter((p) => alive(g, p.id));
   const vag = living.filter((p) => isVagabond(g, p.id));
   const vogt = townHolders(g, 'vogt')[0];
-  const free = vogt && g.town.free.length ? `<div class="eyebrow">Freie Gebäude (Vogt ${esc(vogt.name)})</div>${g.town.free.map((k, i) => `<div class="card flat col"><b>${esc(BUILDINGS[k].name)}</b><div class="chips" style="flex-wrap:wrap;overflow:visible">${vag.length ? vag.map((p) => `<button class="chip" data-action="vogt-assign" data-pid="${p.id}" data-key="${k}" ${day ? '' : 'disabled'}>${esc(p.name)} zieht ein</button>`).join('') : '<span class="muted">Kein Vagabund</span>'}</div></div>`).join('')}` : (g.town.free.length ? `<p class="muted" style="font-size:13px">${g.town.free.length} Gebäude stehen leer. Ohne Vogt wird nichts mehr zugeteilt.</p>` : '');
+  const free = vogt && g.town.free.length ? `<div class="eyebrow">Freie Gebäude (Vogt ${esc(vogt.name)})</div>${g.town.free.map((k, i) => `<div class="card flat col"><b>${esc(BUILDINGS[k].name)}</b><div class="chips" style="flex-wrap:wrap;overflow:visible">${vag.length ? vag.map((p) => `<button class="chip" data-action="vogt-assign" data-pid="${p.id}" data-key="${k}" ${day ? '' : 'disabled'}>${esc(p.name)} zieht ein</button>`).join('') : '<span class="muted">Kein Vagabund</span>'}</div></div>`).join('')}` : (g.town.free.length ? `<p class="muted small">${g.town.free.length} Gebäude stehen leer. Ohne Vogt wird nichts mehr zugeteilt.</p>` : '');
   const acts = [];
   for (const p of living) {
     const k = buildingOf(g, p.id);
@@ -84,7 +84,7 @@ export function townModal(g) {
   return sheet(`<h2>Die Gemeinde</h2>
     <div class="evlist">${list}</div>${free}
     ${acts.length ? `<div class="eyebrow">Einmalige Fähigkeiten</div><div class="col">${acts.join('')}</div>` : ''}
-    ${day ? '' : '<p class="muted" style="font-size:13px">Die Fähigkeiten gelten nur am Tag.</p>'}
+    ${day ? '' : '<p class="muted small">Die Fähigkeiten gelten nur am Tag.</p>'}
     <div class="row wrap"><button class="btn sm" data-action="town-assign-open">Gebäude neu verteilen</button></div>${closeBtn()}`);
 }
 

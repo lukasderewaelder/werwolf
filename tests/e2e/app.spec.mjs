@@ -999,16 +999,47 @@ test('Nacht: Weiter fragt nach, solange eine Pflichtentscheidung fehlt', async (
   await page.context().close();
 });
 
-test('Anleitung: Kapitel lassen sich aufklappen und passen aufs Handy', async () => {
+test('Anleitung: Installationskapitel, bündige Texte, aufklappen am Handy', async () => {
   const { context, page, problems } = await app.openApp({ viewport: PHONE });
   await page.click('[data-action=go][data-view=guide]');
   await page.waitForSelector('[data-action=guide-open]');
-  assert.equal(await page.locator('[data-action=guide-open]').count(), 7);
+  assert.equal(await page.locator('[data-action=guide-open]').count(), 8);
   assert.equal(await page.locator('[data-action=guide-open][aria-expanded=true]').count(), 1);
-  await page.click('[data-action=guide-open][data-i="3"]');
+  assert.match(await page.locator('.gch-head .tt').first().innerText(), /App installieren/);
+  assert.ok(await page.locator('text=Zum Home-Bildschirm').first().isVisible(), 'iOS-Schritte');
+  assert.ok(await page.locator('.gch-body h3:has-text("Android")').count(), 'Android-Schritte');
+  // Text beginnt bündig mit dem Kapiteltitel
+  const [tx, bx] = await page.evaluate(() => [document.querySelector('.gch-head .tt').getBoundingClientRect().left, document.querySelector('.gch-body h3').getBoundingClientRect().left]);
+  assert.ok(Math.abs(tx - bx) <= 2, `Titel ${tx}, Text ${bx}`);
+  await page.click('[data-action=guide-open][data-i="4"]');
   assert.equal(await page.locator('[data-action=guide-open][aria-expanded=true]').count(), 1);
   assert.ok(await page.locator('text=Dieb und Gaukler').first().isVisible());
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  assert.deepEqual(problems, []);
+  await context.close();
+});
+
+test('Gestaltung am Handy: Knöpfe kompakt, Schrift nur aus der Skala, keine Inline-Größen', async () => {
+  const { context, page, problems } = await app.openApp({ viewport: PHONE });
+  const check = async (where) => {
+    const r = await page.evaluate(() => {
+      const ok = new Set(['10px', '12px', '14px', '15px', '16px', '17px', '21px', '30px']);
+      const bad = [];
+      for (const el of document.querySelectorAll('#app *')) {
+        if (!el.getClientRects().length || el.closest('.tok,.st,.home-hero,.rbg,.pin-pad')) continue;
+        if (![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+        const fs = getComputedStyle(el).fontSize;
+        if (!ok.has(fs)) bad.push(`${el.tagName}.${el.className}: ${fs}`);
+      }
+      const tall = [...document.querySelectorAll('#app .btn')].filter((b) => b.getClientRects().length && b.getBoundingClientRect().height > 48.5).map((b) => b.textContent.trim());
+      return { bad: bad.slice(0, 5), tall, inline: document.querySelectorAll('#app [style*="font-size"]').length };
+    });
+    assert.deepEqual(r, { bad: [], tall: [], inline: 0 }, where);
+  };
+  await check('Startseite');
+  await page.click('[data-action=go][data-view=guide]'); await page.waitForSelector('.gch'); await check('Anleitung');
+  await startGame(page, { names: NAMES.slice(0, 8) });
+  await check('Nacht');
   assert.deepEqual(problems, []);
   await context.close();
 });

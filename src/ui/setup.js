@@ -37,7 +37,7 @@ export function rulesHtml(rules) {
   const row = ([k, t, s]) => `<button class="opt" data-action="rule-toggle" data-key="${k}"><span class="t"><b>${t}</b><span>${s}</span></span><span class="toggle ${rules[k] ? 'on' : ''}"><i></i></span></button>`;
   const cards = rules.events ? `<div class="card flat col"><b>Ereigniskarten</b>
       <div class="seg">${[1, 2, 3].map((n) => `<button class="${(+rules.eventEvery || 1) === n ? 'on' : ''}" data-action="rule-set" data-key="eventEvery" data-v="${n}">${n === 1 ? 'Jeden Morgen' : `Jeden ${n}. Morgen`}</button>`).join('')}</div>
-      <span class="muted" style="font-size:13px">Für Runden, die Neumond noch nicht kennen: lieber seltener ziehen. ${activeCards().length} Karten im Stapel.</span>
+      <span class="muted small">Für Runden, die Neumond noch nicht kennen: lieber seltener ziehen. ${activeCards().length} Karten im Stapel.</span>
       <div class="row wrap"><button class="btn sm" data-action="cards-open">${I.list}Karten und Büttel</button></div></div>` : '';
   return `<div class="col"><div class="card flat col">
       <b>Die Seherin sieht</b>
@@ -190,7 +190,7 @@ function rolesStep() {
       <div class="s ${total === need ? 'ok' : 'bad'}"><b>${total}/${need}</b><span>Karten</span></div>
       <div class="s"><b>${camp.wolf}</b><span>Werwölfe</span></div>
       <div class="s"><b>${camp.village}</b><span>Dorf</span></div>
-      <div class="s"><b>${camp.twofold + camp.solo}</b><span>Zweideutig / allein</span></div></div>
+      <div class="s"><b>${camp.twofold + camp.solo}</b><span>Andere</span></div></div>
     ${probs.length ? `<div class="problems">${probs.map(esc).join(' ')}</div>` : ''}
     <div class="row wrap"><button class="btn sm" data-action="roles-recommend">${I.dice}Empfehlung für ${n} Spieler</button><button class="btn sm ghost" data-action="roles-clear">Zurücksetzen</button></div>
     <div class="chips">${sets.map((s) => `<button class="chip ${s === cur ? 'on' : ''}" data-action="lib-set-setup" data-set="${s}">${SETS[s]}${setBadge(s) ? `<em>${setBadge(s)}</em>` : ''}</button>`).join('')}</div>
@@ -201,7 +201,7 @@ function whoStep() {
   const present = presentPlayers(S);
   const tab = ui.seatTab === 'order' ? 'order' : 'who';
   const seg = `<div class="seg"><button class="${tab === 'who' ? 'on' : ''}" data-action="seat-tab" data-v="who">Wer ist da?</button><button class="${tab === 'order' ? 'on' : ''}" data-action="seat-tab" data-v="order">Sitzordnung</button></div>`;
-  if (tab === 'who') return `${groupChips()}${seg}${rosterHtml({ attendance: true })}<p class="muted" style="font-size:13px">${present.length} Spieler. Tippe das Häkchen, um jemanden aus dieser Runde zu nehmen.</p>`;
+  if (tab === 'who') return `${groupChips()}${seg}${rosterHtml({ attendance: true })}<p class="muted small">${present.length} Spieler. Tippe das Häkchen, um jemanden aus dieser Runde zu nehmen.</p>`;
   const rows = present.map((p, i) => `<div class="member"><span class="no">${i + 1}</span><b>${esc(p.name)}</b>
       <button class="mini" data-action="seat-up" data-id="${p.id}" aria-label="Nach oben" ${i === 0 ? 'disabled' : ''}>${I.up}</button>
       <button class="mini" data-action="seat-down" data-id="${p.id}" aria-label="Nach unten" ${i === present.length - 1 ? 'disabled' : ''}>${I.down}</button></div>`).join('');

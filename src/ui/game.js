@@ -298,7 +298,7 @@ function nightPanel(g, c) {
   if (!c) return `<div class="card"><p>Keine Rollen in dieser Nacht. Weiter zum Morgen.</p></div>`;
   const { step, r, steps, idx } = c;
   const strip = steps.map((s, i) => `<button class="sdot ${i === idx ? 'cur' : i < idx ? 'done' : ''} ${s.gone ? 'gone' : ''}" data-action="step-goto" data-idx="${i}">${s.role ? art(s.role) : ''}${esc(s.label)}</button>`).join('');
-  const rolebox = r ? `<div class="rolebox">${art(r.id)}<div class="t"><span class="camp ${r.camp}">${CAMP_LABEL[r.camp]}</span><h2>${esc(step.label)}</h2><div class="muted" style="font-size:13px">${esc(r.sub)}</div></div></div>`
+  const rolebox = r ? `<div class="rolebox">${art(r.id)}<div class="t"><span class="camp ${r.camp}">${CAMP_LABEL[r.camp]}</span><h2>${esc(step.label)}</h2><div class="muted small">${esc(r.sub)}</div></div></div>`
     : `<div class="rolebox"><div class="t"><h2>${esc(step.label)}</h2></div></div>`;
   const say = step.say ? `<div class="say">${esc(step.say)}</div>` : '';
   const last = idx >= steps.length - 1;
@@ -492,7 +492,7 @@ on('deal-next', () => { dispatch({ t: 'deal-next' }, { undoable: false }); retur
 function endView(g) {
   const rows = g.cfg.players.map((p) => `<div class="death">${art(g.roles[p.id])}<div><b>${esc(p.name)}</b><small>${esc(roleLabel(g, p.id))} · ${alive(g, p.id) ? 'überlebt' : esc(CAUSE[g.dead[p.id].cause] ?? g.dead[p.id].cause)}</small></div></div>`).join('');
   return `<div class="view">${header(g, 'Spielende', `Nach ${g.night} Nächten`)}
-    <div class="page"><div class="card col" style="text-align:center;padding:22px"><div class="eyebrow">Sieg</div><h1 style="font-family:var(--serif);font-size:clamp(30px,6vw,52px);line-height:1.05">${esc(g.winner)}</h1></div>
+    <div class="page"><div class="card col" style="text-align:center;padding:22px"><div class="eyebrow">Sieg</div><h1 class="win-title">${esc(g.winner)}</h1></div>
     <div class="deaths scroll" style="flex:1;min-height:0" data-keep="end">${rows}</div>
     <div class="foot"><button class="btn" data-action="show-log">${I.list}<span>Protokoll</span></button><button class="btn" data-action="again">${I.dice}<span>Neue Rollen, gleiche Runde</span></button><button class="btn primary" data-action="new-game">${I.moon}<span>Neues Spiel</span></button></div></div></div>`;
 }

@@ -62,7 +62,7 @@ export function cardsModal() {
       ${c.sample ? '' : `<button class="mini" data-action="card-edit" data-id="${c.id}" aria-label="Bearbeiten">${I.menu}</button>`}</div>`;
   }).join('');
   return sheet(`<h2>Ereigniskarten</h2>
-    <p class="muted" style="font-size:14px">${activeCards().length} Karten im Stapel, ${bd.filter((id) => activeCards().some((c) => c.id === id)).length} beim Büttel (höchstens ${MAX_BEADLE}). Die Karten des Büttels liegen nicht im Stapel. Die Beispielkarten sind eigene Texte; die Originalkarten kannst du als eigene Karten eintragen.</p>
+    <p class="muted small">${activeCards().length} Karten im Stapel, ${bd.filter((id) => activeCards().some((c) => c.id === id)).length} beim Büttel (höchstens ${MAX_BEADLE}). Die Karten des Büttels liegen nicht im Stapel. Die Beispielkarten sind eigene Texte; die Originalkarten kannst du als eigene Karten eintragen.</p>
     <div class="row wrap"><button class="btn sm" data-action="card-new">${I.plus}Neue Karte</button><button class="btn sm ghost" data-action="card-all">Alle in den Stapel</button></div>
     <div class="evlist">${rows}</div>${closeBtn('Fertig')}`, true);
 }
@@ -80,8 +80,8 @@ export function cardEditModal(m) {
 }
 
 export function variantsModal() {
-  return sheet(`<h2>Weitere Varianten</h2><p class="muted" style="font-size:14px">Diese Varianten spielt ihr am Tisch. Die App rechnet hier nichts, du führst sie nach dem Regelheft.</p>
-    <div class="col">${VARIANT_INFO.map(([t, x]) => `<div class="card flat col"><b>${esc(t)}</b><span class="muted" style="font-size:14px">${esc(x)}</span></div>`).join('')}</div>${closeBtn()}`);
+  return sheet(`<h2>Weitere Varianten</h2><p class="muted small">Diese Varianten spielt ihr am Tisch. Die App rechnet hier nichts, du führst sie nach dem Regelheft.</p>
+    <div class="col">${VARIANT_INFO.map(([t, x]) => `<div class="card flat col"><b>${esc(t)}</b><span class="muted small">${esc(x)}</span></div>`).join('')}</div>${closeBtn()}`);
 }
 
 /* ---------- Im Spiel ---------- */
@@ -118,14 +118,14 @@ export function evModal(g) {
   const beadle = ev.beadle
     ? `<div class="evrow"><div class="evtxt"><b>Büttel: ${esc(nm(g, ev.beadle))}</b><small>${ev.hand.length ? `${ev.hand.length} Karte${ev.hand.length === 1 ? '' : 'n'} auf der Hand` : 'Keine Karten mehr auf der Hand'}</small></div><button class="btn sm" data-action="beadle-clear">Absetzen</button></div>
        ${ev.hand.map((c) => `<button class="opt" data-action="beadle-announce" data-id="${c.id}" ${day ? '' : 'disabled'}><span class="t"><b>${esc(c.title)}</b><span>${esc(c.text)}</span></span>${kindBadge(c.kind)}</button>`).join('')}
-       ${day ? '' : '<p class="muted" style="font-size:13px">Der Büttel verkündet nur am Tag.</p>'}`
-    : `<p class="muted" style="font-size:14px">Der Hauptmann ernennt einen Büttel (nicht sich selbst). Er bekommt ${ev.hand.length} vorbereitete Karte${ev.hand.length === 1 ? '' : 'n'} und darf jeden Morgen eine verkünden.</p>
+       ${day ? '' : '<p class="muted small">Der Büttel verkündet nur am Tag.</p>'}`
+    : `<p class="muted small">Der Hauptmann ernennt einen Büttel (nicht sich selbst). Er bekommt ${ev.hand.length} vorbereitete Karte${ev.hand.length === 1 ? '' : 'n'} und darf jeden Morgen eine verkünden.</p>
        <div class="chips" style="flex-wrap:wrap;overflow:visible">${cands.map((p) => `<button class="chip" data-action="beadle-set" data-pid="${p.id}" ${g.captain ? '' : ''}>${esc(p.name)}</button>`).join('')}</div>`;
   return sheet(`<h2>Ereigniskarten</h2>
     <div class="eyebrow">Stapel</div>
     <div class="row wrap"><span class="muted">${ev.deck.length} Karten im Stapel, ${ev.drawn} gezogen</span><span class="spacer"></span><button class="btn sm" data-action="ev-draw" ${day && ev.deck.length ? '' : 'disabled'}>Jetzt eine Karte ziehen</button></div>
     <div class="eyebrow">Was gerade wirkt</div><div class="evlist">${active}</div>
     <div class="eyebrow">Büttel</div><div class="evlist">${beadle}</div>
-    ${g.cfg.counts.medium ? `<div class="eyebrow">Spiritismus</div><p class="muted" style="font-size:14px">${ev.spirit.length} von ${SPIRIT_CARDS.length} Spiritismus-Karten sind noch nicht benutzt.</p>` : ''}
+    ${g.cfg.counts.medium ? `<div class="eyebrow">Spiritismus</div><p class="muted small">${ev.spirit.length} von ${SPIRIT_CARDS.length} Spiritismus-Karten sind noch nicht benutzt.</p>` : ''}
     ${closeBtn()}`);
 }

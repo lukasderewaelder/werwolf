@@ -121,7 +121,7 @@ views.groups = () => {
       <div class="row"><span class="eyebrow">${esc(grp.name)}</span><span class="spacer"></span>
         <button class="btn sm" data-action="group-rename">Umbenennen</button><button class="btn sm danger" data-action="group-delete">Löschen</button></div>
       ${rosterHtml({ attendance: false })}
-      <p class="muted" style="font-size:13px">Die Reihenfolge ist später die Sitzordnung am Tisch (im Uhrzeigersinn). Sie lässt sich beim Start eines Spiels ändern.</p>
+      <p class="muted small">Die Reihenfolge ist später die Sitzordnung am Tisch (im Uhrzeigersinn). Sie lässt sich beim Start eines Spiels ändern.</p>
     </div></div>`;
 };
 

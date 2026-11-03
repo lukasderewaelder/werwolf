@@ -79,6 +79,6 @@ export const forgotWait = (m) => Math.max(0, Math.ceil((WAIT_FORGOT - (Date.now(
 export function lockCard() {
   const has = !!S.settings.lockPin;
   return `<div class="card flat col"><b>Sperre</b>
-    <span class="muted" style="font-size:13px">Sperrt den Bildschirm mit einer PIN, wenn das Gerät offen liegt. Sie ist nur ein Sichtschutz und liegt nur auf diesem Gerät.</span>
+    <span class="muted small">Sperrt den Bildschirm mit einer PIN, wenn das Gerät offen liegt. Sie ist nur ein Sichtschutz und liegt nur auf diesem Gerät.</span>
     <div class="row wrap"><button class="btn sm" data-action="lock-now">${I.lock}Jetzt sperren</button><button class="btn sm" data-action="pin-set">${has ? 'PIN ändern' : 'PIN festlegen'}</button>${has ? '<button class="btn sm danger" data-action="pin-remove">PIN entfernen</button>' : ''}</div></div>`;
 }

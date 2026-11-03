@@ -5,7 +5,7 @@ import { topBar } from './home.js';
 import { rulesHtml } from './setup.js';
 import { ROLES, RM, SETS, CAMP_LABEL, CUSTOM_WIN, findRoles } from '../engine/roles.js';
 import { exportBackup, importBackup, defaultSettings } from '../store.js';
-import { installButton, isStandalone } from './install.js';
+import { installButton, isStandalone, isIOS, isAndroid, INSTALL } from './install.js';
 import { setVolume } from '../audio.js';
 import { lockCard } from './lock.js';
 
@@ -35,51 +35,98 @@ export function roleDetailHtml(id) {
     <p>${esc(r.desc)}</p>${r.say ? `<div class="say">${esc(r.say)}</div>` : ''}`;
 }
 
+/** Kapitel der Anleitung. Abschnitte: h (Zwischentitel), steps (nummeriert), dots (Aufzählung), tip (Hinweiskasten). Feste Texte, <b> erlaubt. */
 const GUIDE = [
-  ['Spiel vorbereiten', [
-    'Auf der Startseite „Neues Spiel“ wählen. Zuerst kommen die Spieler: Namen eintippen oder aus einer Gruppe (z. B. Klasse 7a) übernehmen. Gruppen merken sich die Namen für das nächste Mal.',
-    'Danach werden die Rollen gewählt. Die App schlägt eine passende Verteilung vor; mit Plus und Minus änderst du sie. Unter „Rollen“ auf der Startseite kannst du jede Karte nachschlagen.',
-    'Zum Schluss die Regeln und Hausregeln einstellen. Im Kartenmodus teilt die App die Karten verdeckt aus; sonst gibst du die Rollen selbst aus und trägst sie in Nacht 1 ein.',
-  ]],
-  ['Die Nacht', [
-    'Oben zeigt das Schrittband, welche Rolle gerade dran ist. Lies die kursive Ansage laut vor. Die Reihenfolge entspricht dem Regelheft.',
-    'Tippe die Spieler im Kreis an, um Opfer, Verliebte oder geprüfte Personen zu wählen. Mit „Weiter“ geht es zum nächsten Schritt.',
-    'Fehlt eine Pflichtentscheidung (zum Beispiel das Opfer der Werwölfe), fragt die App nach, bevor sie weitergeht. Mit „Zurück“ holst du sie nach. Optionale Aktionen wie die der Hexe darfst du überspringen.',
-    'Im Schrittband kannst du auf einen Schritt tippen, um dorthin zu springen. Nach vorn fragt die App bei offenen Entscheidungen nach, zurück geht immer.',
-  ]],
-  ['Der Tag', [
-    'Am Morgen nennt die App die Toten und die Nachrichten der Nacht. Besondere Folgen wie Jäger oder Verliebte löst die App Schritt für Schritt aus.',
-    'Starte den Timer für die Diskussion. Wähle den Hauptmann, wenn die Regel aktiv ist. Danach tippst du an, wen das Dorf hinrichtet.',
-    'Nach jeder Phase prüft die App, ob eine Seite gewonnen hat, und zeigt dann den Endbildschirm.',
-  ]],
-  ['Besondere Rollen und Karten', [
-    'Dieb und Gaukler haben Karten in der Mitte. Du findest sie im Menü unter „Karten in der Mitte“.',
-    'Die Gemeinde, Ereigniskarten und die Gruppen des Greises erscheinen im Menü nur, wenn sie im Spiel aktiv sind.',
-    'Eigene Rollen legst du bei der Rollenwahl im Reiter „Eigene“ an. Eine Rolle besteht aus Bausteinen: beliebig viele nächtliche Fähigkeiten (töten, schützen, prüfen, stumm schalten, sperren, tauschen, verlieben, verwandeln, wiederbeleben, als Leibwächter schützen, in eine Sekte anwerben, Besucher beobachten, wachsam sein …) mit eigenen Grenzen und auf Wunsch einer Erfolgschance, die die App würfelt. Fähigkeiten wie Schuss oder Einsperren setzt du am Tag in der Karte „Fähigkeiten am Tag“ ein. Dazu kommen passive Eigenschaften und eine Siegbedingung (auch: gewinnt, wenn er stirbt, oder wenn alle Lebenden zu seiner Sekte gehören).',
-  ]],
-  ['Fehler korrigieren', [
-    'Der Pfeil oben macht die letzte Aktion rückgängig, beliebig oft.',
-    'Im Menü unter „Wer ist wer“ siehst du Rollen und Status aller Spieler und kannst sie korrigieren.',
-    'Das Protokoll im Menü zeigt, was bisher passiert ist. Du kannst es teilen, als Datei speichern oder kopieren.',
-  ]],
-  ['Geheim halten', [
-    'Mit dem Auge-Knopf blendest du die Rollen auf den Spielersteinen aus, falls jemand mitschaut.',
-    '„Bildschirm sperren“ im Menü sichert die App mit einer PIN, falls das Gerät offen liegt. Die PIN legst du in den Optionen fest.',
-  ]],
-  ['Pause, Sichern und Teilen', [
-    'Mit „Pausieren und später weiterspielen“ wird das Spiel gespeichert. Du setzt es von der Startseite aus fort.',
-    'In den Optionen speicherst du eine Sicherung als Datei (Gruppen, Einstellungen, eigene Karten) und lädst sie auf einem anderen Gerät wieder. So ziehst du auch auf ein neues Gerät um.',
-    'Mit „Installieren“ liegt die App wie eine normale App auf dem Startbildschirm und läuft danach auch ohne Internet.',
-  ]],
+  { t: 'App installieren', install: true },
+  { t: 'Spiel vorbereiten', parts: [
+    { steps: [
+      'Tippe auf der Startseite auf <b>Neues Spiel</b>.',
+      'Trage die Spieler ein oder übernimm eine gespeicherte Gruppe, etwa „Klasse 7a“.',
+      'Wähle die Rollen. Die App schlägt eine Verteilung vor, mit Plus und Minus passt du sie an.',
+      'Stelle Regeln und Hausregeln ein und starte das Spiel.',
+    ] },
+    { tip: 'Mit Karten teilst du die Rollen selbst aus und trägst sie in Nacht 1 ein. Ohne Karten zeigt die App jedem Spieler seine Rolle verdeckt an.' },
+  ] },
+  { t: 'Die Nacht', parts: [
+    { steps: [
+      'Das Schrittband oben zeigt, welche Rolle dran ist. Die Reihenfolge folgt dem Regelheft.',
+      'Lies die kursive Ansage vor.',
+      'Tippe im Kreis die Person an, die die Rolle wählt: Opfer, Verliebte, geprüfte Person.',
+      'Mit <b>Weiter</b> kommt der nächste Schritt.',
+    ] },
+    { tip: 'Fehlt eine Pflichtentscheidung, etwa das Opfer der Werwölfe, fragt die App vor dem Weitergehen nach. Freiwillige Aktionen wie die der Hexe darfst du überspringen.' },
+    { dots: ['Ein Tipp auf einen Schritt im Schrittband springt dorthin.'] },
+  ] },
+  { t: 'Der Tag', parts: [
+    { steps: [
+      'Der Morgen zeigt, wer gestorben ist und was die Nacht gebracht hat.',
+      'Folgen wie der Schuss des Jägers oder Liebeskummer fragt die App einzeln ab.',
+      'Starte den Timer für die Diskussion. Ist die Regel an, wählt das Dorf zuerst den Hauptmann.',
+      'Zähle die Stimmen im Kreis oder tippe die Person direkt an. Dann <b>Hinrichten</b>.',
+    ] },
+    { tip: 'Nach jeder Phase prüft die App, ob eine Seite gewonnen hat.' },
+  ] },
+  { t: 'Eigene Rollen und Sonderkarten', parts: [
+    { h: 'Eigene Rollen', steps: [
+      'Öffne bei der Rollenwahl den Reiter <b>Eigene</b> und tippe auf <b>Eigene Rolle anlegen</b>.',
+      'Füge Bausteine hinzu: jede Fähigkeit ist ein Baustein mit eigenen Grenzen.',
+      'Lege fest, wann und wie oft sie wirkt und ob sie nur mit einer Chance gelingt.',
+      'Ergänze passive Eigenschaften und eine Siegbedingung.',
+    ] },
+    { dots: [
+      'Nachts: töten, schützen, prüfen, Rolle erfahren, stumm schalten, sperren, tauschen, verlieben, verwandeln, wiederbeleben.',
+      'Neu: Leibwächter, Sekte anwerben, Besucher beobachten, wachsam sein.',
+      'Am Tag: Schuss, Einsperren, Hinrichten. Du findest sie in der Karte <b>Fähigkeiten am Tag</b>.',
+    ] },
+    { h: 'Sonderkarten', dots: [
+      'Dieb und Gaukler: Karten in der Mitte stehen im Menü.',
+      'Gemeinde, Ereigniskarten und die Gruppen des Greises erscheinen im Menü, wenn sie im Spiel sind.',
+    ] },
+  ] },
+  { t: 'Fehler korrigieren', parts: [
+    { dots: [
+      'Der Pfeil oben macht die letzte Aktion rückgängig, beliebig oft.',
+      'Im Menü unter <b>Wer ist wer</b> siehst und korrigierst du alle Rollen.',
+      'Das <b>Protokoll</b> im Menü zeigt den Verlauf. Du kannst es teilen oder speichern.',
+    ] },
+  ] },
+  { t: 'Geheim halten', parts: [
+    { dots: [
+      'Das Auge oben blendet die Rollen auf den Spielersteinen aus.',
+      '<b>Bildschirm sperren</b> im Menü schützt die App mit einer PIN. Die PIN legst du in den Optionen fest.',
+    ] },
+  ] },
+  { t: 'Pause, Sichern und Umziehen', parts: [
+    { dots: [
+      '<b>Pausieren</b> speichert das Spiel. Du setzt es auf der Startseite fort.',
+      'In den Optionen sicherst du Gruppen, Einstellungen und eigene Rollen als Datei.',
+      'Auf einem neuen Gerät lädst du diese Datei wieder ein.',
+    ] },
+  ] },
 ];
+
+function guidePart(p) {
+  return `${p.h ? `<h3>${p.h}</h3>` : ''}${p.steps ? `<ol class="gsteps">${p.steps.map((x) => `<li>${x}</li>`).join('')}</ol>` : ''}${p.dots ? `<ul class="gsteps dots">${p.dots.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}${p.tip ? `<div class="hint">${I.book}<span>${p.tip}</span></div>` : ''}`;
+}
+/** Installationskapitel: das erkannte Gerät zuerst, installiert mit Haken. */
+function installParts() {
+  const order = isAndroid() && !isIOS() ? ['android', 'ios'] : ['ios', 'android'];
+  return [
+    ...(isStandalone() ? [{ ok: true }] : []),
+    ...order.map((k) => ({ h: INSTALL[k].title, steps: INSTALL[k].steps, tip: INSTALL[k].tip })),
+    { h: 'Danach', dots: INSTALL.after },
+  ];
+}
 
 on('guide-open', (el) => { const i = +el.dataset.i; ui.guideOpen = ui.guideOpen === i ? -1 : i; });
 views.guide = () => {
-  const open = ui.guideOpen ?? 0;
-  const chapter = ([t, ps], i) => `<div class="card flat" style="padding:0"><button class="opt" data-action="guide-open" data-i="${i}" aria-expanded="${open === i}" style="width:100%"><span class="t"><b style="font-family:var(--serif);font-size:19px">${i + 1}. ${esc(t)}</b></span>${open === i ? '–' : '+'}</button>${open === i ? `<div class="col" style="padding:0 16px 14px">${ps.map((p) => `<p class="muted" style="margin:0">${esc(p)}</p>`).join('')}</div>` : ''}</div>`;
+  const open = ui.guideOpen ?? (isStandalone() ? 1 : 0);
+  const chapter = (c, i) => {
+    const parts = c.install ? installParts() : c.parts;
+    return `<section class="gch"><button class="gch-head" data-action="guide-open" data-i="${i}" aria-expanded="${open === i}"><span class="no">${i + 1}</span><span class="tt">${c.t}</span>${I.right}</button>${open === i ? `<div class="gch-body">${parts.map((p) => (p.ok ? `<span class="gok">${I.check}Auf diesem Gerät bereits installiert</span>` : guidePart(p))).join('')}</div>` : ''}</section>`;
+  };
   return `<div class="view">${topBar('Anleitung', 'So funktioniert die App')}
-    <div class="page"><div class="col scroll" style="flex:1;min-height:0" data-keep="guide">${GUIDE.map(chapter).join('')}</div>
-      <div class="foot"><button class="btn primary" data-action="new-game">${I.moon}<span>Neues Spiel</span></button></div></div></div>`;
+    <div class="page"><div class="guide scroll" style="flex:1;min-height:0" data-keep="guide">${GUIDE.map(chapter).join('')}</div></div></div>`;
 };
 
 /* ---------- Optionen ---------- */
@@ -108,7 +155,7 @@ views.settings = () => {
     <div class="page"><div class="col scroll" style="flex:1;min-height:0;padding-bottom:12px" data-keep="settings">
       <div class="card flat col"><b>Aussehen</b>
         <div class="seg"><button class="${s.theme === 'auto' ? 'on' : ''}" data-action="set-theme" data-v="auto">${I.moon}${I.sun}Automatisch</button><button class="${s.theme === 'night' ? 'on' : ''}" data-action="set-theme" data-v="night">${I.moon}Immer Nacht</button><button class="${s.theme === 'day' ? 'on' : ''}" data-action="set-theme" data-v="day">${I.sun}Immer Tag</button></div>
-        <span class="muted" style="font-size:13px">Automatisch: dunkel in der Nacht, hell am Tag.</span></div>
+        <span class="muted small">Automatisch: dunkel in der Nacht, hell am Tag.</span></div>
       ${soundCard()}
       ${optRow('haptics', 'Vibration', 'Kurzes Feedback bei Aktionen')}
       ${optRow('wakeLock', 'Bildschirm anlassen', 'Das Display geht im Spiel nicht aus')}
@@ -116,9 +163,9 @@ views.settings = () => {
       <div class="card flat col"><b>Diskussionszeit</b><div class="seg">${timers.map((t) => `<button class="${s.timer === t ? 'on' : ''}" data-action="set-timer" data-v="${t}">${t / 60} min</button>`).join('')}</div></div>
       <div class="eyebrow" style="margin-top:6px">Hausregeln für neue Spiele</div>
       ${rulesHtml(s.rules)}
-      ${installButton() ? `<div class="eyebrow" style="margin-top:6px">App</div><div class="card flat col"><span class="muted" style="font-size:14px">Installiert läuft die App im Vollbild und ohne Netz.</span>${installButton()}</div>` : (isStandalone() ? '<div class="hint">' + I.check + '<span>Du nutzt die installierte App.</span></div>' : '')}
+      ${installButton() ? `<div class="eyebrow" style="margin-top:6px">App</div><div class="card flat col"><span class="muted small">Installiert läuft die App im Vollbild und ohne Netz.</span>${installButton()}</div>` : (isStandalone() ? '<div class="hint">' + I.check + '<span>Du nutzt die installierte App.</span></div>' : '')}
       <div class="eyebrow" style="margin-top:6px">Sicherung</div>
-      <div class="card flat col"><span class="muted" style="font-size:14px">Gruppen und Einstellungen liegen nur auf diesem Gerät. Die installierte App auf dem iPad hat einen eigenen Speicher, getrennt von Safari. Mit einer Sicherungsdatei ziehst du um.</span>
+      <div class="card flat col"><span class="muted small">Gruppen und Einstellungen liegen nur auf diesem Gerät. Die installierte App auf dem iPad hat einen eigenen Speicher, getrennt von Safari. Mit einer Sicherungsdatei ziehst du um.</span>
         <div class="row wrap"><button class="btn" data-action="backup-export">${I.download}Sicherung speichern</button><label class="btn" for="backup-file" style="cursor:pointer">Sicherung laden</label><input type="file" id="backup-file" accept="application/json,.json" hidden></div>
         <button class="btn danger" data-action="reset-all">${I.reset}Alles zurücksetzen</button></div>
       <div class="eyebrow" style="margin-top:6px">Schutz</div>
@@ -126,7 +173,7 @@ views.settings = () => {
       <div class="eyebrow" style="margin-top:6px">Hilfe</div>
       <button class="opt" data-action="open-diagnose"><span class="t"><b>Diagnose</b><span>Prüft Offlinebetrieb, Speicher und Ton auf diesem Gerät</span></span>${I.right}</button>
       <div class="eyebrow" style="margin-top:6px">Quellen</div>
-      <div class="card flat col"><span class="muted" style="font-size:13px">Musik: congusbongus, SubspaceAudio (Juhani Junkala), RandomMind. Töne: NaturesTemper, BenjaminNelan, BOSS MUSIC, Audeption, Aeonemi, cynicmusic. Alles CC0 von OpenGameArt und Freesound, Details in docs/QUELLEN.md. Rollenbilder aus der bisherigen App.</span></div>
+      <div class="card flat col"><span class="muted small">Musik: congusbongus, SubspaceAudio (Juhani Junkala), RandomMind. Töne: NaturesTemper, BenjaminNelan, BOSS MUSIC, Audeption, Aeonemi, cynicmusic. Alles CC0 von OpenGameArt und Freesound, Details in docs/QUELLEN.md. Rollenbilder aus der bisherigen App.</span></div>
     </div></div></div>`;
 };
 

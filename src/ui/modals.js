@@ -7,7 +7,7 @@ import { nm, alive, roleLabel, CAUSE } from '../engine/game.js';
 import { groupById, defaultSettings, defaultSetup } from '../store.js';
 import { stopMusic } from '../audio.js';
 import { keypad, forgotWait } from './lock.js';
-import { isIOS, isAndroid } from './install.js';
+import { isIOS, INSTALL } from './install.js';
 import { advanceNight } from './game.js';
 import { cardsModal, cardEditModal, variantsModal, evModal } from './cards.js';
 import { townModal, townAssignModal } from './town.js';
@@ -107,7 +107,7 @@ views.modal = () => {
         <div class="chips" style="flex-wrap:wrap;overflow:visible">${roles.map((r) => `<button class="chip ${g.roles[p.id] === r.id ? 'on' : ''}" data-action="player-role" data-role="${r.id}">${esc(r.short ?? r.name)}</button>`).join('')}</div>
         <div class="row wrap"><button class="btn" data-action="player-captain" ${alive(g, p.id) ? '' : 'disabled'}>${I.crown}Zum Hauptmann machen</button>
         <button class="btn danger" data-action="player-kill" ${alive(g, p.id) && g.phase === 'day' ? '' : 'disabled'}>${I.skull}Als tot markieren</button></div>
-        ${g.phase !== 'day' ? '<span class="muted" style="font-size:13px">„Als tot markieren“ geht nur am Tag.</span>' : ''}
+        ${g.phase !== 'day' ? '<span class="muted small">„Als tot markieren“ geht nur am Tag.</span>' : ''}
         <button class="btn" data-action="show-who">Zurück</button>`);
     }
     case 'member': {
@@ -162,10 +162,8 @@ views.modal = () => {
         <div class="deaths">${rows}</div><div class="mfoot"><button class="btn primary" data-action="close-modal">Fertig</button></div>`);
     }
     case 'install-help': {
-      const steps = isIOS()
-        ? ['Öffne diese Seite in <b>Safari</b> (nicht in einer anderen App).', 'Tippe unten oder oben auf <b>Teilen</b> (Quadrat mit Pfeil).', 'Wähle <b>Zum Home-Bildschirm</b> und dann <b>Hinzufügen</b>.', 'Starte die App künftig vom Home-Bildschirm. Sie läuft dann auch ohne Netz.']
-        : ['Öffne diese Seite in <b>Chrome</b>.', 'Tippe oben rechts auf das Menü <b>⋮</b>.', 'Wähle <b>App installieren</b> (oder <b>Zum Startbildschirm hinzufügen</b>).', 'Starte die App künftig vom Startbildschirm. Sie läuft dann auch ohne Netz.'];
-      return sheet(`<h2>App installieren</h2><ol class="col" style="padding-left:20px;margin:0">${steps.map((t) => `<li>${t}</li>`).join('')}</ol>${isAndroid() ? '<p class="muted" style="font-size:13px">Tipp: Erscheint „App installieren“ nicht, ist sie vielleicht schon installiert, oder du bist in einem anderen Browser als Chrome.</p>' : ''}${closeBtn()}`);
+      const p = INSTALL[isIOS() ? 'ios' : 'android'];
+      return sheet(`<h2>App installieren</h2><ol class="gsteps">${p.steps.map((t) => `<li>${t}</li>`).join('')}</ol><div class="hint">${I.book}<span>${p.tip}</span></div><ul class="gsteps dots">${INSTALL.after.map((t) => `<li>${t}</li>`).join('')}</ul>${closeBtn()}`);
     }
     case 'confirm': return sheet(`<h2>${esc(m.title)}</h2><p>${esc(m.text)}</p><div class="mfoot"><div class="row"><button class="btn" data-action="close-modal" style="flex:1">${esc(m.no ?? 'Abbrechen')}</button><button class="btn ${m.plain ? 'primary' : 'danger'}" data-action="confirm-yes" style="flex:1">${esc(m.yes ?? 'Ja')}</button></div></div>`);
     default: return '';

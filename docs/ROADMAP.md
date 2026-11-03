@@ -127,6 +127,11 @@ Abnahme: Eine Rolle mit zwei Bausteinen und einer passiven Eigenschaft funktioni
 Neu: Leibwächter (stirbt an Stelle des Schützlings), Erfolgschance an jedem Baustein (die App würfelt, Ergebnis nur für den Spielleiter), Siegbedingungen „stirbt“ und „von den Wölfen getötet“, Sektenführer (Anwerben, Sieg wenn alle Lebenden dazugehören), Beobachter (wer hat das Ziel besucht), Wachsam (unangreifbar, Besucher sterben), Tagesfähigkeiten Schuss, Einsperren und Hinrichten über die Karte „Fähigkeiten am Tag“.
 Grenzen: Besucher zählen die Wölfe, Seherin, Heiler, Hexe, Rabe und alle eigenen Bausteine; Sektenmitglieder stehen nur im Verlauf und in den Morgenhinweisen; Brandstifter mit verzögertem Entflammen und Zylinderwolf sind nicht umgesetzt.
 
+## M14d Einheitliches Erscheinungsbild und neue Anleitung (umgesetzt, wartet auf deine Abnahme)
+Umgesetzt: Schriftskala mit sechs Stufen (am Handy kleiner), Serifenschrift nur für Titel, Namen und Ansagen, keine festen Inline-Größen mehr, einheitliche Rundungen. Am Handy kompaktere Knöpfe (44 px, Hauptknopf 48 px), Chips, Eingaben und Kacheln. Anleitung neu: acht Kapitel mit nummerierten Schritten und Hinweiskästen, bündiger Text, neues Kapitel „App installieren“ für iPhone/iPad und Android (erkanntes Gerät zuerst), derselbe Text im Installationsdialog.
+
+Abnahme: Anleitung und die Hauptansichten wirken am Handy aus einem Guss.
+
 ## M15 Daten und Pflege
 - Sicherungserinnerung, Gruppen per QR-Code oder Datei übertragen.
 - Automatische Tests bei jedem Push (GitHub Actions).
