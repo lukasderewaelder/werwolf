@@ -3,8 +3,8 @@
 import { S, ui, views, on, go, toast } from './core.js';
 import { esc, art, I } from './art.js';
 import { topBar } from './home.js';
-import { ROLES, RM, CAMP_LABEL, CUSTOM_WIN, PASSIVES, BLOCKS, BLOCK_WHEN, BLOCK_WHEN_DAY, BLOCK_CHANCE, registerRoles, customBlocks, blankBlock, fillVillagers, TRIG_TARGETS, isTrigOnly, registerItems, itemRid } from '../engine/roles.js';
-import { asText, ITEM_TEMPLATES, itemName } from '../engine/rules.js';
+import { ROLES, RM, CAMP_LABEL, CUSTOM_WIN, PASSIVES, BLOCKS, BLOCK_WHEN, BLOCK_WHEN_DAY, BLOCK_CHANCE, registerRoles, customBlocks, blankBlock, fillVillagers, TRIG_TARGETS, isTrigOnly, registerItems, itemRid, registerParties, PM, PARTY_WIN, WIN_N } from '../engine/roles.js';
+import { asText, ITEM_TEMPLATES, itemName, partyName } from '../engine/rules.js';
 import { CONDS, COND_GROUPS, MAX_DEPTH, THENS, EFFECT_GROUPS, EFFECT_HINT, PHRASE, CUSTOM_TEMPLATES, describeRule, condText, condCount, targetText, whenText, sanitizeCond, TRIGGERS, TGT_TXT, POWER_TXT, PROTECT_TXT, powerText } from '../engine/rules.js';
 
 const WHO = { any: 'Alle', ownCamp: 'Eigene Partei', otherCamp: 'Andere Partei', withAbility: 'Mit Nachtfähigkeit', noAbility: 'Ohne Nachtfähigkeit' };
@@ -15,7 +15,9 @@ export const CUSTOM_ICONS = ['🔮', '🗡️', '🛡️', '👁️', '🔥', '�
 const TABS = [['basis', 'Grundlagen'], ['rules', 'Fähigkeiten'], ['traits', 'Eigenschaften'], ['win', 'Sieg']];
 const ITEM_TABS = [['basis', 'Grundlagen'], ['rules', 'Fähigkeiten']];
 const isItem = () => ui.re?.kind === 'item';
-const WIN_GROUPS = [['Mit dem Lager', ['camp']], ['Gewinnt mit dem Sieger', ['survive', 'bound', 'hunt']], ['Gewinnt allein', ['solo', 'executed', 'dies', 'killed', 'cult']]];
+const isParty = () => ui.re?.kind === 'party';
+const PARTY_COLORS = ['#b07cff', '#ff7aa8', '#4fc3f7', '#ffb74d', '#81c784', '#e57373'];
+const WIN_GROUPS = [['Mit dem Lager', ['camp']], ['Gewinnt mit dem Sieger', ['survive', 'bound', 'hunt']], ['Gewinnt allein', ['solo', 'executed', 'dies', 'killed', 'cult']], ['Gewinnt allein nach Zähler oder Ziel', ['kills', 'turned', 'nights', 'successes', 'killBound', 'allItem']]];
 const WAKE = [['none', 'Nie'], ['first', 'Nacht 1'], ['every', 'Jede Nacht'], ['even', 'Jede 2.']];
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
@@ -25,6 +27,7 @@ const blankDraft = () => ({ name: '', camp: 'village', sub: '', desc: '', say: '
 export function openRoleEditor(id = null) {
   const r = id ? S.customRoles.find((x) => x.id === id) : null;
   const draft = r ? { ...blankDraft(), ...clone(r), rules: customBlocks(r) } : blankDraft();
+  draft.winN ??= 3; draft.winItem ??= ''; draft.party ??= '';
   delete draft.blocks;
   ui.re = { id: r?.id ?? null, draft, tab: 'basis', sheet: null, lastDel: null, from: ui.view };
   go('roleeditor');
@@ -35,6 +38,13 @@ export function openItemEditor(id = null) {
   const it = id ? (S.customItems ?? []).find((x) => x.id === id) : null;
   const draft = { name: '', icon: '🎒', hidden: false, bad: false, charges: 1, ...(it ? clone(it) : {}), rules: it ? customBlocks({ rules: it.rules ?? [] }) : [] };
   ui.re = { kind: 'item', id: it?.id ?? null, draft, tab: 'basis', sheet: null, lastDel: null, from: ui.view };
+  go('roleeditor');
+}
+/** Partei bearbeiten: Name, Farbe, Siegbedingung. */
+export function openPartyEditor(id = null) {
+  const p = id ? (S.customParties ?? []).find((x) => x.id === id) : null;
+  const draft = { name: '', color: PARTY_COLORS[(S.customParties ?? []).length % PARTY_COLORS.length], block: true, ...(p ? clone(p) : {}), win: { k: 'all', n: 3, item: '', ...(p?.win ?? {}) }, rules: [] };
+  ui.re = { kind: 'party', id: p?.id ?? null, draft, tab: 'basis', sheet: null, lastDel: null, from: ui.view };
   go('roleeditor');
 }
 /** Vorlagen-Gegenstand anlegen, falls er noch fehlt (für Rollen-Vorlagen wie den Schmied). Liefert die Kennung. */
@@ -48,6 +58,10 @@ function ensureItem(key) {
 
 /* ---------- Vorschau ---------- */
 function previewHtml(d) {
+  if (isParty()) {
+    const win = d.win.k === 'members' ? `Sieg: mindestens ${d.win.n} Mitglieder leben.` : d.win.k === 'item' ? `Sieg: alle Lebenden tragen „${itemName(d.win.item)}“.` : 'Sieg: alle Lebenden gehören zur Partei.';
+    return `<div class="re-prev card flat"><div class="re-prev-head"><span class="re-ic" style="background:${esc(d.color)}"></span><div class="t"><b>${esc(d.name.trim() || 'Neue Partei')}</b><span class="camp">Partei</span></div></div><ul class="re-lines"><li>${esc(win)}</li><li>${d.block ? 'Solange ein Mitglied lebt, kann das Dorf nicht gewinnen.' : 'Das Dorf kann trotzdem gewinnen.'}</li></ul></div>`;
+  }
   if (isItem()) {
     const lines = [...d.rules.map((b) => describeRule(b)), d.charges ? `Hält ${d.charges} ${d.charges === 1 ? 'Einsatz' : 'Einsätze'}, dann ist er weg.` : 'Hält unbegrenzt.', d.hidden ? 'Verdeckt: Der Träger weiß nichts davon.' : '', d.bad ? 'Schlechter Gegenstand (Reinigen entfernt ihn).' : ''].filter(Boolean);
     return `<div class="re-prev card flat"><div class="re-prev-head"><span class="re-ic">${esc(d.icon || '🎒')}</span><div class="t"><b>${esc(d.name.trim() || 'Neuer Gegenstand')}</b><span class="camp">Gegenstand</span></div></div><ul class="re-lines" data-keep="re-prev">${lines.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
@@ -80,10 +94,11 @@ function ruleCard(b, ri, n) {
   const then = (b.then ?? []).length ? b.then.map((t) => THENS[t.k].name).join(', ') : 'nichts';
   // Satzbaustein in Text und Lücken zerlegen: der erste Text ist die Wirkung, {t} Ziel, {r} Rolle, {a} Erscheinen als, {x} Hinweistext
   let first = true;
-  const sent = PHRASE[b.k].split(/(\{[traxi]\})/).filter((p) => p.trim()).map((p) => {
+  const sent = PHRASE[b.k].split(/(\{[traxip]\})/).filter((p) => p.trim()).map((p) => {
     if (p === '{t}') return tt ? gap(ri, 'target', tt) : b.k === 'strike' ? gap(ri, 'target', 'niemanden', 'empty') : esc('sich');
     if (p === '{r}') return gap(ri, 'role', RM[b.role]?.name ?? '?');
     if (p === '{a}') return gap(ri, 'as', asText(b));
+    if (p === '{p}') return gap(ri, 'party', b.party ? `die Partei „${partyName(b.party)}“` : 'die Sekte');
     if (p === '{i}') return gap(ri, 'item', b.item ? `„${itemName(b.item)}“` : 'Gegenstand wählen', b.item ? '' : 'empty');
     if (p === '{x}') return gap(ri, 'text', b.text ? `„${b.text}“` : 'Text eingeben', b.text ? '' : 'empty');
     const t = p.replace(/[„“]/g, '').trim();
@@ -105,6 +120,14 @@ function ruleCard(b, ri, n) {
 
 function tabHtml(re) {
   const d = re.draft;
+  if (isParty()) return `
+      <label class="re-sec"><span class="eyebrow">Name</span><input class="inp" id="re-name" value="${esc(d.name)}" maxlength="28" placeholder="z. B. Bruderschaft" autocomplete="off"></label>
+      <div class="re-sec"><span class="eyebrow">Farbe</span><div class="chips wrap">${PARTY_COLORS.map((c) => `<button type="button" class="chip ${d.color === c ? 'on' : ''}" data-action="re-pcolor" data-v="${c}" aria-label="Farbe ${c}"><span class="re-dot" style="background:${c}"></span></button>`).join('')}</div></div>
+      <div class="re-sec"><span class="eyebrow">Sieg der Partei</span>${Object.entries(PARTY_WIN).map(([k, t]) => pickRow('re-pwin', esc(t), '', d.win.k === k, `data-k="${k}"`)).join('')}
+        ${d.win.k === 'members' ? stepper('re-pn', d.win.n, `${d.win.n} Mitglieder`) : ''}
+        ${d.win.k === 'item' ? `<div class="chips wrap">${(S.customItems ?? []).map((it) => chip('re-pitem', `${esc(it.icon || '🎒')} ${esc(it.name)}`, d.win.item === it.id, `data-v="${it.id}"`)).join('') || '<span class="muted small">Erst einen Gegenstand anlegen.</span>'}</div>` : ''}</div>
+      ${toggleRow('re-pblock', 'Eigenständige Partei', 'Solange ein Mitglied lebt, kann das Dorf nicht gewinnen.', !!d.block)}
+      ${re.id ? `<button type="button" class="btn danger" data-action="re-delete">${I.close}<span>Partei löschen</span></button>` : ''}`;
   if (isItem() && re.tab === 'basis') return `
       <div class="re-sec"><div class="eyebrow">Mit Vorlage beginnen</div><div class="chips">${ITEM_TEMPLATES.map((t) => chip('re-itpl', `${t.icon} ${esc(t.name)}`, false, `data-k="${t.key}"`)).join('')}</div></div>
       <label class="re-sec"><span class="eyebrow">Name</span><input class="inp" id="re-name" value="${esc(d.name)}" maxlength="28" placeholder="z. B. Rüstung" autocomplete="off"></label>
@@ -132,11 +155,14 @@ function tabHtml(re) {
       <p class="muted small">Die App wertet die Nacht in festen Stufen aus: erst Sperren, dann Schutz, dann Angriffe, dann Folgen und Informationen.</p>`;
     case 'traits': return `
       <div class="re-sec"><span class="eyebrow">Dauerhafte Eigenschaften</span>${Object.entries(PASSIVES).map(([k, t]) => toggleRow('re-passive', esc(t), '', d.passives.includes(k), `data-k="${k}"`)).join('')}</div>
+      <div class="re-sec"><span class="eyebrow">Gehört zur Partei</span><div class="chips wrap">${chip('re-party', 'Keine', !d.party, 'data-v=""')}${(S.customParties ?? []).map((p) => chip('re-party', `<span class="re-dot" style="background:${esc(p.color)}"></span>${esc(p.name)}`, d.party === p.id, `data-v="${p.id}"`)).join('')}</div>${(S.customParties ?? []).length ? '' : '<span class="muted small">Parteien legst du unter „Eigene“ → „Parteien“ an.</span>'}</div>
       <div class="re-sec"><span class="eyebrow">Erbt eine Rolle</span><button type="button" class="opt" data-action="re-gap" data-ri="-1" data-f="heir">${d.heir ? art(d.heir) : ''}<span class="t"><b>${d.heir ? `Übernimmt ${esc(RM[d.heir]?.name ?? '?')}` : 'Keine'}</b><span>Stirbt diese Rolle, wird die eigene Rolle zu ihr.</span></span>${I.right}</button></div>`;
     case 'win': {
       const needsBind = (d.win === 'bound' || d.win === 'hunt') && !d.rules.some((b) => b.k === 'bind');
       return `${WIN_GROUPS.map(([t, ks]) => `<div class="re-sec"><span class="eyebrow">${t}</span>${ks.map((k) => pickRow('re-win', esc(CUSTOM_WIN[k]), '', (d.win || 'camp') === k, `data-k="${k}"`)).join('')}</div>`).join('')}
         ${needsBind ? `<div class="hint ok">${I.check}<span>Beim Speichern ergänzt die App die Fähigkeit „Ziel festlegen“ in der ersten Nacht.</span></div>` : ''}
+        ${WIN_N.includes(d.win) ? `<div class="re-sec"><span class="eyebrow">Wie viele?</span>${stepper('re-winn', d.winN ?? 3, String(d.winN ?? 3))}</div>` : ''}
+        ${d.win === 'allItem' ? `<div class="re-sec"><span class="eyebrow">Welcher Gegenstand?</span><div class="chips wrap">${(S.customItems ?? []).map((it) => chip('re-winitem', `${esc(it.icon || '🎒')} ${esc(it.name)}`, d.winItem === it.id, `data-v="${it.id}"`)).join('') || '<span class="muted small">Erst einen Gegenstand anlegen.</span>'}</div></div>` : ''}
         ${toggleRow('re-needuse', 'Nur nach eigenem Einsatz', 'Der Sieg zählt nur, wenn die Rolle ihre Fähigkeit mindestens einmal benutzt hat.', d.needUse)}`;
     }
     default: return '';
@@ -178,7 +204,8 @@ function sheetHtml(re) {
       title = 'Wann?';
       const mode = B.trig && !trigOnly ? `<div class="seg">${[['', 'Zu einer Zeit'], [B.trig[0], 'Bei einem Ereignis']].map(([v, t]) => `<button type="button" class="${!!b.on === !!v ? 'on' : ''}" data-action="re-set" data-key="on" data-v="${v}">${t}</button>`).join('')}</div>` : '';
       const list = b.on ? B.trig.map((k) => pickRow('re-set', esc(TRIGGERS[k]), '', b.on === k, `data-key="on" data-v="${k}"`)) : Object.entries(W).map(([k, t]) => pickRow('re-set', esc(t), '', b.when === k, `data-key="when" data-v="${k}"`));
-      body = `${mode}${b.on ? '<p class="muted small">Die Regel wirkt automatisch, ohne Nachtschritt.</p>' : ''}<div class="re-tiles one">${list.join('')}</div>`;
+      const ghost = !b.on && !B.day && !trigOnly ? `${toggleRow('re-flag', 'Als Geist (nach dem Tod)', 'Die tote Person wird nachts weiter geweckt und nutzt nur diese Fähigkeit.', !!b.ghost, 'data-key="ghost"')}${b.ghost ? `<div class="re-sec"><span class="eyebrow">Wie lange nach dem Tod?</span>${stepper('re-num', b.ghostNights, b.ghostNights ? `${b.ghostNights} ${b.ghostNights === 1 ? 'Nacht' : 'Nächte'}` : 'immer', 'data-key="ghostNights" data-min="0" data-max="5"')}</div>` : ''}` : '';
+      body = `${mode}${b.on ? '<p class="muted small">Die Regel wirkt automatisch, ohne Nachtschritt.</p>' : ''}<div class="re-tiles one">${list.join('')}</div>${ghost}`;
       break;
     }
     case 'as': {
@@ -241,6 +268,10 @@ function sheetHtml(re) {
       title = 'Bedingung wählen';
       body = COND_GROUPS.filter(([, ks]) => b.on || !CONDS[ks[0]].ctx).map(([t, ks]) => `<div class="eyebrow">${t}</div><div class="re-tiles">${ks.map((k) => `<button type="button" class="re-tile" data-action="re-cadd" data-k="${k}"><b>${esc(CONDS[k].name)}</b></button>`).join('')}</div>`).join('');
       break;
+    case 'party':
+      title = 'In welche Gruppe?';
+      body = `<div class="re-tiles one">${pickRow('re-set', 'Die Sekte der Rolle', 'Wie beim Sektenführer: Sieg „alle Lebenden gehören zur Sekte“.', !b.party, 'data-key="party" data-v=""')}${(S.customParties ?? []).map((p) => pickRow('re-set', esc(p.name), 'Eigene Partei', b.party === p.id, `data-key="party" data-v="${p.id}"`)).join('')}</div>`;
+      break;
     case 'item': case 'condItem': {
       title = 'Welcher Gegenstand?';
       const cur = sh.f === 'item' ? b.item : condAt(b.if, sh.path).item, list = S.customItems ?? [];
@@ -270,9 +301,9 @@ function sheetHtml(re) {
 views.roleeditor = () => {
   const re = ui.re;
   if (!re) return views.home();
-  return `<div class="view re">${topBar(isItem() ? (re.id ? 'Gegenstand bearbeiten' : 'Neuer Gegenstand') : re.id ? 'Rolle bearbeiten' : 'Neue Rolle', 'Rollen-Werkstatt', { back: 're-back', right: '<button class="btn primary sm" data-action="re-save">Speichern</button>' })}
+  return `<div class="view re">${topBar(isParty() ? (re.id ? 'Partei bearbeiten' : 'Neue Partei') : isItem() ? (re.id ? 'Gegenstand bearbeiten' : 'Neuer Gegenstand') : re.id ? 'Rolle bearbeiten' : 'Neue Rolle', 'Rollen-Werkstatt', { back: 're-back', right: '<button class="btn primary sm" data-action="re-save">Speichern</button>' })}
     <div class="page re-page"><div id="re-preview">${previewHtml(re.draft)}</div>
-      <div class="seg re-tabs" role="tablist">${(isItem() ? ITEM_TABS : TABS).map(([k, t]) => `<button type="button" role="tab" class="${re.tab === k ? 'on' : ''}" data-action="re-tab" data-k="${k}" aria-selected="${re.tab === k}">${t}${k === 'rules' && re.draft.rules.length ? ` <em>${re.draft.rules.length}</em>` : ''}</button>`).join('')}</div>
+      <div class="seg re-tabs" role="tablist">${(isParty() ? [['basis', 'Partei']] : isItem() ? ITEM_TABS : TABS).map(([k, t]) => `<button type="button" role="tab" class="${re.tab === k ? 'on' : ''}" data-action="re-tab" data-k="${k}" aria-selected="${re.tab === k}">${t}${k === 'rules' && re.draft.rules.length ? ` <em>${re.draft.rules.length}</em>` : ''}</button>`).join('')}</div>
       <div class="re-scroll scroll" data-keep="re-${re.tab}">${tabHtml(re)}</div></div>${re.sheet ? sheetHtml(re) : ''}</div>`;
 };
 
@@ -300,6 +331,14 @@ on('re-itpl', (el) => {
   Object.assign(D(), { name: D().name.trim() ? D().name : t.name, icon: t.icon, charges: t.charges ?? 0, hidden: !!t.hidden, bad: !!t.bad, rules: customBlocks({ rules: clone(t.rules) }), tpl: t.key });
   toast(`Vorlage „${t.name}“ übernommen.`);
 });
+on('re-pcolor', (el) => { D().color = el.dataset.v; });
+on('re-pwin', (el) => { D().win.k = el.dataset.k; });
+on('re-pn', (el) => { D().win.n = Math.max(1, Math.min(20, D().win.n + +el.dataset.d)); });
+on('re-pitem', (el) => { D().win.item = el.dataset.v; });
+on('re-pblock', () => { D().block = !D().block; });
+on('re-party', (el) => { D().party = el.dataset.v; });
+on('re-winn', (el) => { D().winN = Math.max(1, Math.min(20, (D().winN ?? 3) + +el.dataset.d)); });
+on('re-winitem', (el) => { D().winItem = el.dataset.v; });
 on('re-icharge', (el) => { D().charges = Math.max(0, Math.min(9, (D().charges ?? 0) + +el.dataset.d)); });
 on('re-iflag', (el) => { D()[el.dataset.k] = !D()[el.dataset.k]; });
 on('re-item', (el) => { const sh = ui.re.sheet, b = R(); if (sh.f === 'item') { b.item = el.dataset.v; ui.re.sheet = null; } else { condAt(condRoot(), sh.path).item = el.dataset.v; ui.re.sheet = { ...sh, f: 'cond', path: '' }; } });
@@ -322,7 +361,7 @@ on('re-effect', (el) => {
   d.rules[sh.ri] = fix({ ...d.rules[sh.ri], k });
   ui.re.sheet = null;
 });
-on('re-set', (el) => { const b = R(); if (!b) return false; const k = el.dataset.key, v = el.dataset.v; b[k] = ['limit', 'chance', 'power', 'n', 'mult'].includes(k) ? +v : k === 'keep' ? v === '1' : v; D().rules[ui.re.sheet.ri] = fix(b); });
+on('re-set', (el) => { const b = R(); if (!b) return false; const k = el.dataset.key, v = el.dataset.v; b[k] = ['limit', 'chance', 'power', 'n', 'mult', 'ghostNights'].includes(k) ? +v : k === 'keep' ? v === '1' : v; D().rules[ui.re.sheet.ri] = fix(b); });
 on('re-num', (el) => { const b = R(); if (!b) return false; const k = el.dataset.key || 'n'; b[k] = Math.max(+el.dataset.min, Math.min(+el.dataset.max, (b[k] ?? 0) + +el.dataset.d)); D().rules[ui.re.sheet.ri] = fix(b); });
 on('re-flag', (el) => { const b = R(); if (!b) return false; b[el.dataset.key] = !b[el.dataset.key]; D().rules[ui.re.sheet.ri] = fix(b); });
 on('re-role', (el) => { const b = R(); if (b) b.role = el.dataset.v; ui.re.sheet = BLOCKS[b?.k]?.as ? { ...ui.re.sheet, f: 'as' } : null; });
@@ -355,6 +394,15 @@ on('re-tdel', (el) => { R().then.splice(+el.dataset.i, 1); });
 on('re-save', () => {
   const re = ui.re, d = re.draft;
   if (!d.name.trim()) { re.tab = 'basis'; toast('Bitte einen Namen eingeben.'); return; }
+  if (isParty()) {
+    const p = { ...clone(d), name: d.name.trim(), id: re.id ?? uid('p') };
+    delete p.rules;
+    S.customParties ??= [];
+    const j = S.customParties.findIndex((x) => x.id === p.id);
+    if (j >= 0) S.customParties[j] = p; else S.customParties.push(p);
+    registerParties([p]); ui.ownTab = 'parties';
+    const from = re.from ?? 'setup'; ui.re = null; toast(`„${p.name}“ gespeichert.`); go(from); return false;
+  }
   if (isItem()) {
     const it = { ...clone(d), name: d.name.trim(), id: re.id ?? uid('t'), rules: customBlocks({ rules: d.rules }) };
     S.customItems ??= [];
@@ -376,6 +424,7 @@ on('re-save', () => {
 });
 on('re-delete', () => {
   const id = ui.re.id;
+  if (isParty()) { S.customParties = (S.customParties ?? []).filter((x) => x.id !== id); delete PM[id]; const from = ui.re.from ?? 'setup'; ui.re = null; go(from); return false; }
   if (isItem()) { S.customItems = (S.customItems ?? []).filter((x) => x.id !== id); const k = ROLES.findIndex((x) => x.id === itemRid(id)); if (k >= 0) ROLES.splice(k, 1); delete RM[itemRid(id)]; const from = ui.re.from ?? 'setup'; ui.re = null; go(from); return false; }
   S.customRoles = S.customRoles.filter((x) => x.id !== id);
   const i = ROLES.findIndex((x) => x.id === id); if (i >= 0) ROLES.splice(i, 1);

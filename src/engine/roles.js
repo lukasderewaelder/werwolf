@@ -360,7 +360,8 @@ export const BLOCKS = {
   revive: { name: 'Gestorbene Person wiederbeleben', short: 'Wiederbeleben', verb: 'belebt wieder', dead: true },
   bind: { name: 'Schützling oder Ziel festlegen (einmalig)', short: 'Ziel festlegen', verb: 'bestimmt als Ziel', limit1: true },
   guard: { name: 'Person vor den Wölfen schützen und selbst an ihrer Stelle sterben (Leibwächter)', short: 'Leibwächter', verb: 'bewacht' },
-  recruit: { name: 'Person in die Sekte aufnehmen (Sektenführer)', short: 'Anwerben', verb: 'wirbt an' },
+  recruit: { name: 'Person in die Sekte oder eine Partei aufnehmen', short: 'Anwerben', verb: 'wirbt an', party: true },
+  leaveParty: { name: 'Person verlässt ihre Partei', short: 'Austreiben', verb: 'treibt aus' },
   watch: { name: 'Erfahren, wer die Person in dieser Nacht besucht hat (Beobachter)', short: 'Beobachten', verb: 'beobachtet' },
   alert: { name: 'Wachsam sein: unangreifbar, jeder Besucher stirbt (Veteran). Eigene Person antippen', short: 'Wachsam', verb: 'ist wachsam', fixed: 1, selfOnly: true },
   shoot: { name: 'Am Tag: Person erschießen (Schütze)', short: 'Schuss', verb: 'erschießt', day: true },
@@ -449,9 +450,16 @@ export const CUSTOM_WIN = {
   dies: 'Allein, wenn er stirbt – egal wie',
   killed: 'Allein, wenn die Werwölfe ihn nachts töten',
   cult: 'Allein, wenn alle Lebenden zu seiner Sekte gehören (Sektenführer)',
+  kills: 'Allein, wenn er selbst n Personen getötet hat',
+  turned: 'Allein, wenn er n Personen verwandelt oder angeworben hat',
+  nights: 'Allein, wenn er n Nächte überlebt',
+  successes: 'Allein, wenn er seine Fähigkeiten n-mal eingesetzt hat',
+  killBound: 'Allein, wenn er sein festgelegtes Ziel selbst tötet',
+  allItem: 'Allein, wenn alle anderen Lebenden einen bestimmten Gegenstand tragen',
 };
 /** Siegbedingungen, bei denen die Rolle allein gewinnt und deshalb immer zum Dorf-Lager zählt. */
-export const SOLO_WINS = ['solo', 'executed', 'dies', 'killed', 'cult'];
+export const SOLO_WINS = ['solo', 'executed', 'dies', 'killed', 'cult', 'kills', 'turned', 'nights', 'successes', 'killBound', 'allItem'];
+export const WIN_N = ['kills', 'turned', 'nights', 'successes'];
 /** Alte Aktionen (vor den Bausteinen); nur noch zum Umrechnen gespeicherter Rollen. */
 export const CUSTOM_ACTS = { none: 'Keine Aktion', mark: 'Person markieren', kill: 'Person töten', protect: 'Person vor den Wölfen schützen', peek: 'Erfahren, ob die Person ein Werwolf ist' };
 
@@ -479,7 +487,7 @@ export function customBlocks(c) {
       ...ruleExtras(b, B),
     };
   });
-  if ((c.win === 'bound' || c.win === 'hunt') && !out.some((b) => b.k === 'bind')) out.unshift({ ...blankBlock('bind'), when: 'first', limit: 1 });
+  if ((c.win === 'bound' || c.win === 'hunt' || c.win === 'killBound') && !out.some((b) => b.k === 'bind')) out.unshift({ ...blankBlock('bind'), when: 'first', limit: 1 });
   return out;
 }
 
@@ -493,6 +501,8 @@ function ruleExtras(b, B) {
   if (!on) { out.who = ['any', 'ownCamp', 'otherCamp', 'withAbility', 'noAbility'].includes(b.who) ? b.who : 'any'; out.once = !!b.once; }
   if (B.as) { out.as = ['village', 'wolf', 'role', 'random'].includes(b.as) ? b.as : 'village'; if (b.k === 'frame') out.nights = Math.max(1, Math.min(3, Math.round(+b.nights) || 1)); if (b.k === 'appear') out.scope = ['checks', 'death', 'both'].includes(b.scope) ? b.scope : 'checks'; }
   if (B.keep) out.keep = !!b.keep;
+  if (B.party) out.party = typeof b.party === 'string' ? b.party : '';
+  if (!on && !B.day && !isTrigOnly(b.k)) { out.ghost = !!b.ghost; out.ghostNights = Math.max(0, Math.min(5, Math.round(+b.ghostNights) || 0)); if (out.ghost && out.power === 3) out.power = 2; }
   if (b.k === 'voteBoost') out.mult = [2, 0.5, 0].includes(+b.mult) ? +b.mult : 2;
   if (b.k === 'selfVote') { out.mult = [2, 3].includes(+b.mult) ? +b.mult : 2; out.even = !!b.even; }
   if (B.item) out.item = typeof b.item === 'string' ? b.item : '';
@@ -518,7 +528,7 @@ export function registerRoles(list = []) {
     const night = blocks.some((b) => !BLOCKS[b.k].day) ? { when: 'every', order, act: 'cust' } : wake !== 'none' ? { when: wake, order, act: null } : null;
     const def = {
       id: c.id, name: c.name, set: 'eigene', camp: c.camp === 'wolf' && !SOLO_WINS.includes(win) ? 'wolf' : 'village', color: c.color || (c.camp === 'wolf' ? '#8a2a2a' : '#4a5f8f'),
-      sub: c.sub || 'Eigene Rolle', desc: c.desc || '', say: c.say || '', custom: true, icon: c.icon || '', win, blocks, rules: blocks, passives, heir: c.heir && c.heir !== c.id ? c.heir : '', needUse: !!c.needUse,
+      sub: c.sub || 'Eigene Rolle', desc: c.desc || '', say: c.say || '', custom: true, icon: c.icon || '', win, blocks, rules: blocks, passives, heir: c.heir && c.heir !== c.id ? c.heir : '', needUse: !!c.needUse, winN: Math.max(1, Math.min(20, Math.round(+c.winN) || 3)), winItem: c.winItem || '', party: c.party || '',
       ...(night ? { night } : {}),
     };
     const i = ROLES.findIndex((x) => x.id === c.id);
@@ -539,4 +549,11 @@ export function registerItems(list = []) {
     if (i >= 0) ROLES[i] = def; else ROLES.push(def);
     RM[rid] = def;
   }
+}
+
+/** Eigene Parteien: Name, Farbe, Siegbedingung. Mitglieder stehen im Spiel in g.party. */
+export const PM = {};
+export const PARTY_WIN = { all: 'Alle Lebenden gehören zur Partei', members: 'Mindestens n Mitglieder leben', item: 'Alle Lebenden tragen einen bestimmten Gegenstand' };
+export function registerParties(list = []) {
+  for (const p of list) PM[p.id] = { id: p.id, name: p.name || 'Partei', color: p.color || '#b07cff', win: { k: PARTY_WIN[p.win?.k] ? p.win.k : 'all', n: Math.max(1, Math.min(20, Math.round(+p.win?.n) || 3)), item: p.win?.item || '' }, block: p.block !== false };
 }

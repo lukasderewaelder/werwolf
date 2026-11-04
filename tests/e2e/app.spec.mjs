@@ -368,6 +368,42 @@ test('Werkstatt E6: Gegenstand anlegen, Schmied-Vorlage verweist darauf, Spieler
   await page.context().close();
 });
 
+test('Werkstatt E7: Partei anlegen, Rolle gehört dazu, Geist-Fähigkeit, Zähler-Sieg', async () => {
+  const { page, problems } = await app.openApp({ viewport: PHONE });
+  await openWorkshop(page);
+  await page.click('[data-action=re-back]');
+  await page.click('[data-action=own-tab][data-k=parties]');
+  await page.click('[data-action=party-new]');
+  await page.fill('#re-name', 'Bruderschaft');
+  await page.click('[data-action=re-pwin][data-k=members]');
+  await page.click('[data-action=re-pn][data-d="1"]');
+  assert.ok((await page.locator('#re-preview').innerText()).includes('mindestens 4 Mitglieder'));
+  await page.click('[data-action=re-save]');
+  await page.click('[data-action=own-tab][data-k=roles]');
+  await page.click('[data-action=custom-new]');
+  await page.fill('#re-name', 'Mönch');
+  await page.click('[data-action=re-tab][data-k=traits]');
+  await page.click('[data-action=re-party] >> text=Bruderschaft');
+  await page.click('[data-action=re-tab][data-k=rules]');
+  await page.click('[data-action=re-gap][data-ri="-1"]');
+  await page.click('[data-action=re-effect][data-k=peek]');
+  await page.click('[data-action=re-gap][data-ri="0"][data-f=timing]');
+  await page.click('[data-action=re-flag][data-key=ghost]');
+  await page.click('[data-action=re-sheet-close][data-done]');
+  await page.click('[data-action=re-tab][data-k=win]');
+  await page.click('[data-action=re-win][data-k=successes]');
+  await page.click('[data-action=re-winn][data-d="1"]');
+  const prev = await page.locator('#re-preview').innerText();
+  assert.ok(prev.includes('Als Geist, jede Nacht: prüft'), prev);
+  await page.click('[data-action=re-save]');
+  const cr = await page.evaluate(() => window.__werwolf.S.customRoles[0]);
+  const pid = await page.evaluate(() => window.__werwolf.S.customParties[0].id);
+  assert.deepEqual([cr.party, cr.win, cr.winN, cr.rules[0].ghost], [pid, 'successes', 4, true]);
+  assert.equal(await page.locator('.re-page select').count(), 0);
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});
+
 test('Verbitterter Greis: Gruppen lassen sich zuordnen', async () => {
   const { page, problems } = await app.openApp();
   await startGame(page, { names: NAMES.slice(0, 6), counts: { wolf: 1, greis: 1, villager: 4 }, mode: 'cards' });

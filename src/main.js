@@ -14,13 +14,14 @@ import './ui/roleeditor.js';
 import { bind } from './store-ref.js';
 import { setMusic, stopMusic, unlockAudio, musicState, debugSeekNearEnd, sfxLog } from './audio.js';
 import { buildScene } from './ui/scene.js';
-import { registerRoles, registerItems } from './engine/roles.js';
+import { registerRoles, registerItems, registerParties } from './engine/roles.js';
 import { watchViewport } from './viewport.js';
 
 bind(() => S);
 registerRoles(S.customRoles);
 registerItems(S.customItems ?? []);
-if (S.game) { registerRoles(S.game.cfg.custom); registerItems(S.game.cfg.items ?? []); }
+registerParties(S.customParties ?? []);
+if (S.game) { registerRoles(S.game.cfg.custom); registerItems(S.game.cfg.items ?? []); registerParties(S.game.cfg.parties ?? []); }
 
 function setupServiceWorker() {
   if (!('serviceWorker' in navigator)) return;

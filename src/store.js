@@ -17,7 +17,7 @@ export const defaultSettings = () => ({
 
 export const defaultSetup = () => ({ step: 0, groupId: null, off: {}, order: [], counts: null, extra: false });
 
-const fresh = () => ({ v: 1, groups: [], setup: defaultSetup(), settings: defaultSettings(), game: null, saves: [], locked: false, lastResult: null, customRoles: [], customCards: [], customItems: [] });
+const fresh = () => ({ v: 1, groups: [], setup: defaultSetup(), settings: defaultSettings(), game: null, saves: [], locked: false, lastResult: null, customRoles: [], customCards: [], customItems: [], customParties: [] });
 
 let mem = null;
 export const uid = (p = 'x') => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -39,6 +39,7 @@ function normalize(s, base) {
   if (!Array.isArray(s.saves)) s.saves = [];
   if (!Array.isArray(s.customCards)) s.customCards = [];
   if (!Array.isArray(s.customItems)) s.customItems = [];
+  if (!Array.isArray(s.customParties)) s.customParties = [];
   if (!Array.isArray(s.settings.beadleIds)) s.settings.beadleIds = [];
   if (!s.settings.townSel || typeof s.settings.townSel !== 'object') s.settings.townSel = { ...DEFAULT_TOWN };
   if (!s.settings.eventOff || typeof s.settings.eventOff !== 'object') s.settings.eventOff = {};
@@ -55,14 +56,14 @@ export function save(state) {
 /** Sicherung als Datei: Gruppen, Einstellungen und eigene Rollen (nicht das laufende Spiel). */
 export function exportBackup(state) {
   const { lockPin, ...settings } = state.settings;   // die PIN gehört nicht in eine Datei
-  return JSON.stringify({ format: FORMAT, version: 1, savedAt: new Date().toISOString(), groups: state.groups, settings, customRoles: state.customRoles, customCards: state.customCards, customItems: state.customItems ?? [], game: state.game, saves: state.saves }, null, 1);
+  return JSON.stringify({ format: FORMAT, version: 1, savedAt: new Date().toISOString(), groups: state.groups, settings, customRoles: state.customRoles, customCards: state.customCards, customItems: state.customItems ?? [], customParties: state.customParties ?? [], game: state.game, saves: state.saves }, null, 1);
 }
 
 export function importBackup(state, text) {
   const d = JSON.parse(text);
   if (d?.format !== FORMAT) throw new Error('Das ist keine Sicherung dieser App.');
   const base = fresh();
-  const next = normalize({ ...state, groups: Array.isArray(d.groups) ? d.groups : state.groups, settings: { ...(d.settings ?? state.settings), lockPin: state.settings.lockPin }, customRoles: d.customRoles ?? [], customItems: Array.isArray(d.customItems) ? d.customItems : [], customCards: Array.isArray(d.customCards) ? d.customCards : [], game: d.game ?? null, saves: Array.isArray(d.saves) ? d.saves : state.saves }, base);
+  const next = normalize({ ...state, groups: Array.isArray(d.groups) ? d.groups : state.groups, settings: { ...(d.settings ?? state.settings), lockPin: state.settings.lockPin }, customRoles: d.customRoles ?? [], customItems: Array.isArray(d.customItems) ? d.customItems : [], customParties: Array.isArray(d.customParties) ? d.customParties : [], customCards: Array.isArray(d.customCards) ? d.customCards : [], game: d.game ?? null, saves: Array.isArray(d.saves) ? d.saves : state.saves }, base);
   return next;
 }
 

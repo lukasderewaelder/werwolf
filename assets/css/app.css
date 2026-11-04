@@ -592,3 +592,5 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
 .reveal-big{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
 .reveal-big .rbg{width:min(60vw,220px);aspect-ratio:1;height:auto;border-radius:20px}
 .rhead:disabled{opacity:1;cursor:default}
+
+.re-dot{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:middle}

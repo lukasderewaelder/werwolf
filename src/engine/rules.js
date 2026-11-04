@@ -1,6 +1,6 @@
 // Regeln eigener Rollen: Bedingungen (Wenn), Nebenwirkungen (Danach), Klartext und Vorlagen.
 // Die Wirkungen selbst stehen in BLOCKS (roles.js); eine Regel ist ein Baustein mit Bedingungsbaum.
-import { BLOCKS, RM, roleName } from './roles.js';
+import { BLOCKS, RM, PM, roleName } from './roles.js';
 
 /** Bedingungen. arg: 'n' (Zahl) oder 'role' (Rollenkennung). Ausgewertet in game.js (evalCond). */
 export const CONDS = {
@@ -65,7 +65,7 @@ export const EFFECT_GROUPS = [
   ['Besuche und Orte', ['visit', 'invite', 'decoy', 'redirect', 'swapPlace']],
   ['Bei Ereignis (automatisch)', ['survive', 'strike', 'dieSelf', 'shield']],
   ['Beeinflussen', ['silence', 'block', 'jail']],
-  ['Verbinden und Verwandeln', ['love', 'swap', 'turn', 'convert', 'recruit', 'bind']],
+  ['Verbinden und Verwandeln', ['love', 'swap', 'turn', 'convert', 'recruit', 'leaveParty', 'bind']],
   ['Zurückholen', ['revive']],
   ['Frei', ['note']],
 ];
@@ -85,6 +85,7 @@ export const EFFECT_HINT = {
   attackedAll: 'Alle, die heute angegriffen wurden.', wasProtected: 'Ja oder nein.', myAttacker: 'Wer sie heute angegriffen hat.',
   appear: 'Dauerhaft: Prüfungen zeigen etwas Falsches.',
   becomeWolf: 'Ein Angriff macht sie zum Werwolf statt zu töten.',
+  leaveParty: 'Die Person gehört keiner Partei mehr an.',
   giveItem: 'Zum Beispiel eine Rüstung.', stealItem: 'Nimmt den ersten Gegenstand der Person an sich.', destroyItem: 'Alle Gegenstände der Person sind weg.', cleanse: 'Entfernt alle schlechten Gegenstände.', gainItem: 'Bei einem Ereignis bekommt sie einen Gegenstand.', startItem: 'Liegt ab Spielbeginn bereit.',
   voteBoost: 'Für heute: ×2, ×½ oder gestrichen.', votePenalty: 'Wie der Rabe: Stimmen mehr gegen die Person.', voteShield: 'Die Person scheidet heute nicht durch Abstimmung aus.',
   noVote: 'Der Tag endet ohne Abstimmung.', extraVote: 'Wie beim Stotternden Richter.', accuse: 'Ja oder Nein über die angeklagte Person.', reveal: 'Große Karte zum Zeigen, danach Abzeichen.',
@@ -96,7 +97,7 @@ export const EFFECT_HINT = {
 export const PHRASE = {
   kill: 'tötet {t}', protect: 'schützt {t} vor den Wölfen', mark: 'markiert {t}', peek: 'prüft, ob {t} ein Werwolf ist', peekrole: 'erfährt die Rolle von {t}',
   silence: 'schaltet {t} stumm', block: 'sperrt die Fähigkeit von {t}', swap: 'lässt {t} die Rollen tauschen', love: 'verliebt {t}', turn: 'macht {t} heimlich zum Werwolf',
-  convert: 'verwandelt {t} in {r}', revive: 'belebt {t} wieder', bind: 'legt {t} als Ziel fest', guard: 'bewacht {t} und stirbt notfalls an ihrer Stelle', recruit: 'nimmt {t} in die Sekte auf',
+  convert: 'verwandelt {t} in {r}', revive: 'belebt {t} wieder', bind: 'legt {t} als Ziel fest', guard: 'bewacht {t} und stirbt notfalls an ihrer Stelle', recruit: 'nimmt {t} in {p} auf', leaveParty: 'lässt {t} die Partei verlassen',
   watch: 'beobachtet, wer {t} besucht', alert: 'ist wachsam', shoot: 'erschießt {t}', jail: 'sperrt {t} ein', jailkill: 'sperrt {t} ein und richtet sie in der Nacht hin', note: 'erinnert dich: „{x}“',
   visit: 'besucht {t} und übernachtet dort', invite: 'lädt {t} zu sich ein', decoy: 'lockt Angriffe auf {t} zu sich', redirect: 'lenkt Angriffe um: {t}', swapPlace: 'vertauscht den Platz von {t}',
   delayed: 'verflucht {t}',
@@ -131,14 +132,15 @@ export function condText(c) {
   return CONDS[c.k]?.text(c) ?? '';
 }
 export const condCount = (c) => (!c ? 0 : c.all || c.any ? (c.all ?? c.any).reduce((s, x) => s + condCount(x), 0) : 1);
-export const whenText = (b) => (b.on === 'always' ? 'Immer' : b.on ? TRIGGERS[b.on] : WHEN_TXT[BLOCKS[b.k].day ? 'day' : 'night'][b.when] ?? '');
+export const whenText = (b) => (b.ghost ? `Als Geist${b.ghostNights ? ` (${b.ghostNights} ${b.ghostNights === 1 ? 'Nacht' : 'Nächte'} lang)` : ''}, ${(WHEN_TXT.night[b.when] ?? '').replace(/^./, (c) => c.toLowerCase())}` : b.on === 'always' ? 'Immer' : b.on ? TRIGGERS[b.on] : WHEN_TXT[BLOCKS[b.k].day ? 'day' : 'night'][b.when] ?? '');
 export const powerText = (b) => (b.power == null ? '' : b.k === 'protect' ? PROTECT_TXT[b.power] : POWER_TXT[b.power]);
 const WHO_TXT = { ownCamp: 'nur aus der eigenen Partei', otherCamp: 'nur aus der anderen Partei', withAbility: 'nur Personen mit Nachtfähigkeit', noAbility: 'nur Personen ohne Nachtfähigkeit' };
 const TRAP_TXT = { first: 'trifft den ersten Besucher', all: 'trifft alle Besucher', wolves: 'trifft nur Werwölfe', nonWolves: 'trifft alle außer Werwölfen' };
 /** Name eines eigenen Gegenstands (ohne Import des Speichers: über die registrierte Regelquelle). */
 export const itemName = (iid) => RM[`it_${iid}`]?.name ?? 'Gegenstand';
+export const partyName = (id) => PM[id]?.name ?? '';
 export const asText = (b) => ({ village: 'Dorfbewohner', wolf: 'Werwolf', role: roleName(b.role), random: 'zufällige Rolle' }[b.as] ?? '');
-export const effectText = (b) => PHRASE[b.k].replace('{t}', targetText(b) || (b.k === 'strike' ? 'niemanden' : 'sich')).replace('{a}', asText(b)).replace('{i}', b.item ? `„${itemName(b.item)}“` : 'einen Gegenstand').replace('{r}', roleName(b.role)).replace('{x}', b.text || '…');
+export const effectText = (b) => PHRASE[b.k].replace('{t}', targetText(b) || (b.k === 'strike' ? 'niemanden' : 'sich')).replace('{a}', asText(b)).replace('{i}', b.item ? `„${itemName(b.item)}“` : 'einen Gegenstand').replace('{p}', b.party ? `die Partei „${partyName(b.party)}“` : 'die Sekte').replace('{r}', roleName(b.role)).replace('{x}', b.text || '…');
 export const extrasText = (b) => [b.power > 1 ? powerText(b) : '', b.k === 'trap' ? `${TRAP_TXT[b.trapWho]}, ${b.trapArm === 'now' ? 'sofort scharf' : 'ab der nächsten Nacht scharf'}` : '', b.k === 'frame' ? `${b.nights} ${b.nights === 1 ? 'Nacht' : 'Nächte'}` : '', b.keep != null ? (b.keep ? 'behält die alte Fähigkeit' : 'verliert die alte Fähigkeit') : '', b.mult != null ? (b.mult === 0 ? 'Stimme gestrichen' : b.mult === 0.5 ? 'Stimme zählt halb' : `Stimme zählt ${b.mult}×`) : '', b.even ? 'nur jeden zweiten Tag' : '', b.plus ? `${b.plus} Strafstimmen` : '', b.k === 'appear' && b.scope !== 'checks' ? (b.scope === 'death' ? 'nur beim Tod' : 'auch beim Tod') : '', WHO_TXT[b.who] ?? '', b.once ? 'jede Person nur einmal im Spiel' : '', b.limit ? `höchstens ${b.limit}×` : '', b.chance < 100 ? `gelingt zu ${b.chance} %` : '', b.rep ? 'nie zweimal hintereinander dieselbe Person' : '', b.visit && b.k !== 'visit' ? 'zählt als Besuch' : ''].filter(Boolean).join(', ');
 
 /** Klartext einer Regel: „Ab der zweiten Nacht: tötet eine andere Person, wenn … (höchstens 2×). Danach …“ */
@@ -178,6 +180,8 @@ export const ITEM_TEMPLATES = [
 ];
 const R = (k, o = {}) => ({ k, n: 1, when: 'every', limit: 0, self: false, rep: false, role: 'villager', chance: 100, ...o });
 export const CUSTOM_TEMPLATES = [
+  { key: 'ghost', name: 'Poltergeist', sub: 'Spukt nach dem Tod zwei Nächte lang', icon: '💀', rules: [R('mark'), R('note', { n: 1, ghost: true, ghostNights: 2, text: 'Der Geist darf der Person ein Zeichen geben.' })] },
+  { key: 'hunter3', name: 'Kopfgeldjäger', sub: 'Gewinnt, wenn er sein Ziel selbst erwischt', icon: '🎯', rules: [R('bind', { when: 'first', limit: 1 }), R('kill', { when: 'later', limit: 2 })], win: 'killBound' },
   { key: 'smith', name: 'Schmied', sub: 'Verteilt zweimal eine Rüstung', icon: '🪓', rules: [R('giveItem', { limit: 2, item: '@armor' })], needItems: ['armor'] },
   { key: 'mayor', name: 'Bürgermeister', sub: 'Starke Stimme, entscheidet Gleichstände', icon: '⚖️', rules: [R('selfVote', { on: 'always', mult: 2 }), R('tieBreak', { on: 'always' })] },
   { key: 'lawyer', name: 'Anwalt', sub: 'Bewahrt einmal jemanden vor dem Galgen', icon: '📜', rules: [R('voteShield', { limit: 1 }), R('secretVote', { on: 'always' })] },

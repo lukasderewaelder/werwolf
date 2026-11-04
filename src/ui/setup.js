@@ -7,7 +7,7 @@ import { ROLES, RM, SETS, CAMP_LABEL, recommendCounts, requiredCards, fillVillag
 import { uid } from '../store.js';
 import { createGame, setupProblems, DEFAULT_RULES, townRandomMap } from '../engine/game.js';
 import { activeCards } from './cards.js';
-import { openRoleEditor, openItemEditor } from './roleeditor.js';
+import { openRoleEditor, openItemEditor, openPartyEditor } from './roleeditor.js';
 import { townSetupHtml, townSel } from './town.js';
 
 const STEPS = ['Wer spielt mit?', 'Wie spielt ihr?', 'Welche Rollen?', 'Regeln und Start'];
@@ -195,8 +195,9 @@ function rolesStep() {
     ${probs.length ? `<div class="problems">${probs.map(esc).join(' ')}</div>` : ''}
     <div class="row wrap"><button class="btn sm" data-action="roles-recommend">${I.dice}Empfehlung für ${n} Spieler</button><button class="btn sm ghost" data-action="roles-clear">Zurücksetzen</button></div>
     <div class="chips">${sets.map((s) => `<button class="chip ${s === cur ? 'on' : ''}" data-action="lib-set-setup" data-set="${s}">${SETS[s]}${setBadge(s) ? `<em>${setBadge(s)}</em>` : ''}</button>`).join('')}</div>
-    ${cur === 'eigene' ? `<div class="seg">${[['roles', 'Rollen'], ['items', 'Gegenstände']].map(([k, t]) => `<button class="${(ui.ownTab ?? 'roles') === k ? 'on' : ''}" data-action="own-tab" data-k="${k}">${t}</button>`).join('')}</div>` : ''}
-    ${cur === 'eigene' && ui.ownTab === 'items' ? `<div class="role-grid scroll" data-keep="itemgrid">${(S.customItems ?? []).map((it) => `<div class="rtile"><span class="re-ic">${esc(it.icon || '🎒')}</span><div class="info"><b>${esc(it.name)}</b><small>${esc([it.hidden ? 'verdeckt' : '', it.bad ? 'schlecht' : '', it.charges ? `${it.charges} Ladung${it.charges === 1 ? '' : 'en'}` : 'unbegrenzt'].filter(Boolean).join(' · '))}</small></div><button data-action="item-edit" data-id="${it.id}" aria-label="Bearbeiten" class="mini">${I.menu}</button></div>`).join('')}<button class="rtile" data-action="item-new" style="justify-content:center;font-weight:700">${I.plus} Gegenstand anlegen</button></div><p class="muted small">Gegenstände verteilen Rollen (Gegenstand geben, Startausstattung) oder du im Spielerblatt.</p>`
+    ${cur === 'eigene' ? `<div class="seg">${[['roles', 'Rollen'], ['items', 'Gegenstände'], ['parties', 'Parteien']].map(([k, t]) => `<button class="${(ui.ownTab ?? 'roles') === k ? 'on' : ''}" data-action="own-tab" data-k="${k}">${t}</button>`).join('')}</div>` : ''}
+    ${cur === 'eigene' && ui.ownTab === 'parties' ? `<div class="role-grid scroll" data-keep="partygrid">${(S.customParties ?? []).map((p) => `<div class="rtile"><span class="re-ic" style="background:${esc(p.color)}"></span><div class="info"><b>${esc(p.name)}</b><small>${esc({ all: 'Sieg: alle Lebenden', members: `Sieg: ${p.win?.n ?? 3} Mitglieder`, item: 'Sieg: alle tragen Gegenstand' }[p.win?.k ?? 'all'])}</small></div><button data-action="party-edit" data-id="${p.id}" aria-label="Bearbeiten" class="mini">${I.menu}</button></div>`).join('')}<button class="rtile" data-action="party-new" style="justify-content:center;font-weight:700">${I.plus} Partei anlegen</button></div><p class="muted small">Rollen gehören einer Partei an (Eigenschaften) oder werben Personen an.</p>`
+      : cur === 'eigene' && ui.ownTab === 'items' ? `<div class="role-grid scroll" data-keep="itemgrid">${(S.customItems ?? []).map((it) => `<div class="rtile"><span class="re-ic">${esc(it.icon || '🎒')}</span><div class="info"><b>${esc(it.name)}</b><small>${esc([it.hidden ? 'verdeckt' : '', it.bad ? 'schlecht' : '', it.charges ? `${it.charges} Ladung${it.charges === 1 ? '' : 'en'}` : 'unbegrenzt'].filter(Boolean).join(' · '))}</small></div><button data-action="item-edit" data-id="${it.id}" aria-label="Bearbeiten" class="mini">${I.menu}</button></div>`).join('')}<button class="rtile" data-action="item-new" style="justify-content:center;font-weight:700">${I.plus} Gegenstand anlegen</button></div><p class="muted small">Gegenstände verteilen Rollen (Gegenstand geben, Startausstattung) oder du im Spielerblatt.</p>`
       : `<div class="role-grid scroll" data-keep="rolegrid">${inSet(cur).map(tile).join('')}${cur === 'eigene' ? `<button class="rtile" data-action="custom-new" style="justify-content:center;font-weight:700">${I.plus} Eigene Rolle anlegen</button>` : ''}</div>`}`;
 }
 
@@ -253,7 +254,7 @@ on('start-game', () => {
   const eventCards = rules.events ? activeCards() : [];
   if (rules.events && !eventCards.length) { toast('Keine Ereigniskarten ausgewählt: Karten und Büttel öffnen.'); return; }
   const beadleIds = (S.settings.beadleIds ?? []).filter((id) => eventCards.some((c) => c.id === id));
-  S.game = createGame({ players, counts, custom, items: S.customItems ?? [], mode: S.settings.mode, rules, eventCards, beadleIds, town: rules.town ? { ...townSel() } : null });
+  S.game = createGame({ players, counts, custom, items: S.customItems ?? [], parties: S.customParties ?? [], mode: S.settings.mode, rules, eventCards, beadleIds, town: rules.town ? { ...townSel() } : null });
   if (rules.town) S.game.town.b = townRandomMap(S.game);
   clearUndo();
   ui.timer.left = S.settings.timer; ui.timer.running = false;
@@ -269,5 +270,7 @@ export { CAMP_LABEL };
 on('custom-new', () => { openRoleEditor(); return false; });
 on('own-tab', (el) => { ui.ownTab = el.dataset.k; });
 on('item-new', () => { openItemEditor(); return false; });
+on('party-new', () => { openPartyEditor(); return false; });
+on('party-edit', (el) => { openPartyEditor(el.dataset.id); return false; });
 on('item-edit', (el) => { openItemEditor(el.dataset.id); return false; });
 on('custom-edit', (el) => { openRoleEditor(el.dataset.id); return false; });
