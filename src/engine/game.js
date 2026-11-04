@@ -1,6 +1,6 @@
 // Spiellogik ohne Oberfläche: Zustand ist reines JSON, jede Aktion liefert einen neuen Zustand.
 // Regelgrundlage: Regelheft "Die Werwölfe von Düsterwald – Der Pakt" (siehe docs/regelabgleich.md).
-import { ROLES, RM, ACTOR_POOL, roleName, requiredCards, registerRoles, isWolfRole, BLOCKS, targetsOf, custKey, whenOk, isTrigOnly } from './roles.js';
+import { ROLES, RM, ACTOR_POOL, roleName, requiredCards, registerRoles, isWolfRole, BLOCKS, targetsOf, custKey, whenOk, isTrigOnly, isToggle } from './roles.js';
 import { CONDS } from './rules.js';
 import { SPIRIT_CARDS, KINDS, MAX_BEADLE } from './events.js';
 import { BUILDINGS, DEFAULT_TOWN } from './town.js';
@@ -46,7 +46,7 @@ const emptyDraft = () => ({
 });
 
 /** Ältere Spielstände ohne Stimmenzähler ergänzen. */
-export function normalizeGame(g) { if (g) { g.draft = { ...emptyDraft(), ...g.draft }; g.charmed ??= {}; g.customUsed ??= {}; g.cuse ??= {}; g.clast ??= {}; g.bound ??= {}; g.blocked ??= {}; g.mutes ??= []; g.hardyUsed ??= {}; g.cult ??= {}; g.jail ??= []; g.traps ??= []; g.delayed ??= []; g.shields ??= {}; g.chist ??= {}; g.ckills ??= {}; g.host ??= {}; g.attackers ??= {}; g.ev ??= null; g.town ??= null; } return g; }
+export function normalizeGame(g) { if (g) { g.draft = { ...emptyDraft(), ...g.draft }; g.charmed ??= {}; g.customUsed ??= {}; g.cuse ??= {}; g.clast ??= {}; g.bound ??= {}; g.blocked ??= {}; g.mutes ??= []; g.hardyUsed ??= {}; g.cult ??= {}; g.jail ??= []; g.traps ??= []; g.delayed ??= []; g.shields ??= {}; g.chist ??= {}; g.ckills ??= {}; g.host ??= {}; g.attackers ??= {}; g.frames ??= {}; g.nullified ??= {}; g.ev ??= null; g.town ??= null; } return g; }
 
 /* ---------- Zustand anlegen ---------- */
 
@@ -81,7 +81,7 @@ export function createGame(cfg, rnd = Math.random) {
     judgeUsed: false, judgeArmed: false, secondVote: false, voters: null, votersDay: -1,
     angelWin: false, angelWindow: true, winner: null, collectMorning: false,
     queue: [], interrupts: [], resume: null, dayMode: 'vote', draft: emptyDraft(),
-    morning: [], lastDeaths: [], log: [], dealIdx: 0, dealShown: false, charmed: {}, customUsed: {}, cuse: {}, clast: {}, bound: {}, blocked: {}, mutes: [], hardyUsed: {}, cult: {}, jail: [], traps: [], delayed: [], shields: {}, chist: {}, ckills: {}, host: {}, attackers: {}, execWin: null, ev: null, town: null, pendingBarber: null,
+    morning: [], lastDeaths: [], log: [], dealIdx: 0, dealShown: false, charmed: {}, customUsed: {}, cuse: {}, clast: {}, bound: {}, blocked: {}, mutes: [], hardyUsed: {}, cult: {}, jail: [], traps: [], delayed: [], shields: {}, chist: {}, ckills: {}, host: {}, attackers: {}, frames: {}, nullified: {}, execWin: null, ev: null, town: null, pendingBarber: null,
   };
   g.ev = initEvents(g, cfg, rnd);
   if (g.cfg.rules.town) { g.cfg.town = { ...(cfg.town ?? DEFAULT_TOWN) }; g.town = { b: {}, used: {}, free: [], gone: [], fireUsed: false, innLost: false }; if (cfg.townMap) g.town.b = { ...cfg.townMap }; }
@@ -177,7 +177,63 @@ export const isWhiteWolf = (g, id) => g.roles[id] === 'whitewolf';
 /** Passive Eigenschaft einer eigenen Rolle (Betörte haben keine Fähigkeiten mehr). */
 export const hasPassive = (g, id, p) => !!RM[g.roles[id]]?.passives?.includes(p) && !g.charmed?.[id];
 /** Werwolf für Prüfungen von Fuchs, Bär, Seherin (Lager-Modus) und eigene Bausteine. */
-export const looksWolf = (g, id) => isWolf(g, id) || hasPassive(g, id, 'looksWolf');
+/** Pseudozufall, der in einer Nacht für dieselbe Person gleich bleibt (Täuschung „zufällige Rolle“, drei Rollen). */
+const stable = (g, id, salt = '') => { let h = 2166136261; for (const ch of `${id}|${g.night}|${salt}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return (h >>> 0) / 4294967296; };
+const rolesInPlay = (g) => Object.keys(g.cfg.counts).filter((r) => g.cfg.counts[r] > 0 && RM[r]);
+/** Aktive Täuschungen aus dem Entwurf dieser Nacht (Verfälschen, Wirkungslos), sofort wirksam für spätere Schritte. */
+function draftEffects(g, k) {
+  const out = [];
+  if (g.phase !== 'night') return out;
+  for (const [key, v] of Object.entries(g.draft?.cust ?? {})) {
+    const [rid, ix] = key.split('#'), b = RM[rid]?.custom ? RM[rid].blocks?.[+(ix ?? 0)] : null;
+    if (b?.k === k && livingHolders(g, rid).length) targetsOf(v).forEach((t) => out.push({ t, b }));
+  }
+  return out;
+}
+const asLook = (g, id, x) => (x.as === 'wolf' ? { wolf: true, role: 'wolf' } : x.as === 'role' ? { wolf: isWolfRole(x.role), role: x.role } : x.as === 'random' ? (() => { const pool = rolesInPlay(g); const r = pool[Math.floor(stable(g, id, 'as') * pool.length)] ?? 'villager'; return { wolf: isWolfRole(r), role: r }; })() : { wolf: false, role: 'villager' });
+/** So erscheint eine Person bei Prüfungen: Verfälschung dieser Nacht, dauerhaftes „Erscheint als“, sonst die Wahrheit. */
+export function appearance(g, id, { death = false } = {}) {
+  const real = { wolf: isWolf(g, id) || hasPassive(g, id, 'looksWolf'), role: g.roles[id] };
+  if (!death) {
+    const fd = draftEffects(g, 'frame').find((x) => x.t === id);
+    if (fd) return asLook(g, id, fd.b);
+    const fr = g.frames?.[id];
+    if (fr && fr.until >= g.night) return asLook(g, id, fr);
+  }
+  const r = RM[g.roles[id]];
+  const ap = r?.custom && !g.charmed?.[id] ? r.blocks?.find((b) => b.k === 'appear' && (death ? b.scope !== 'checks' : b.scope !== 'death')) : null;
+  return ap ? asLook(g, id, ap) : real;
+}
+export const looksWolf = (g, id) => appearance(g, id).wolf;
+/** Fähigkeit dieser Person ist heute unbemerkt wirkungslos. */
+export const isNullified = (g, id) => g.nullified?.[id] === g.night || draftEffects(g, 'nullify').some((x) => x.t === id);
+const campName = (look) => (look.wolf ? 'Werwölfe' : { solo: 'Einzelgänger', twofold: 'Zweideutige' }[RM[look.role]?.camp] ?? 'Dorf');
+/** Sofortige Auskunft einer Regel im Nachtschritt: say = was der Spieler hört, truth = Wahrheit (leer, wenn gleich). */
+export function infoNow(g, b, ts, holderId) {
+  const truthOf = (x) => ({ wolf: isWolf(g, x), role: g.roles[x] });
+  const pair = (say, truth) => ({ say, truth: truth !== say ? truth : '' });
+  const nmr = (x) => nm(g, x);
+  if (holderId && isNullified(g, holderId)) return { say: 'Wirkungslos: nenne ein beliebiges Ergebnis.', truth: '' };
+  if (ts.some((x) => !g.roles[x])) return { say: 'Rolle noch nicht erfasst.', truth: '' };
+  switch (b.k) {
+    case 'peek': return pair(ts.map((x) => `${nmr(x)}: ${looksWolf(g, x) ? 'Werwolf (nicken)' : 'kein Werwolf (Kopf schütteln)'}`).join(' · '), ts.map((x) => `${nmr(x)}: ${isWolf(g, x) ? 'Werwolf (nicken)' : 'kein Werwolf (Kopf schütteln)'}`).join(' · '));
+    case 'peekrole': return pair(ts.map((x) => `${nmr(x)}: ${roleName(appearance(g, x).role)}`).join(' · '), ts.map((x) => `${nmr(x)}: ${roleLabel(g, x)}`).join(' · '));
+    case 'party': return pair(ts.map((x) => `${nmr(x)}: ${campName(appearance(g, x))}`).join(' · '), ts.map((x) => `${nmr(x)}: ${campName(truthOf(x))}`).join(' · '));
+    case 'same': { const [p, q] = ts; const a = campName(appearance(g, p)) === campName(appearance(g, q)), t = campName(truthOf(p)) === campName(truthOf(q)); return pair(a ? 'Gleiche Partei (nicken)' : 'Verschiedene Parteien (Kopf schütteln)', t ? 'Gleiche Partei (nicken)' : 'Verschiedene Parteien (Kopf schütteln)'); }
+    case 'count': { const a = ts.filter((x) => appearance(g, x).wolf).length, t = ts.filter((x) => isWolf(g, x)).length; return pair(`${a} Werw${a === 1 ? 'olf' : 'ölfe'}`, `${t} Werw${t === 1 ? 'olf' : 'ölfe'}`); }
+    case 'threeRoles': {
+      const x = ts[0], shown = appearance(g, x).role, pool = rolesInPlay(g).filter((r) => r !== shown);
+      const picks = []; for (let i = 0; picks.length < 2 && pool.length && i < 20; i++) { const r = pool[Math.floor(stable(g, x, i) * pool.length)]; if (!picks.includes(r)) picks.push(r); }
+      const three = [shown, ...picks].sort((a2, c) => stable(g, a2, 'o') - stable(g, c, 'o')).map(roleName).join(', ');
+      return pair(`${nmr(x)}: ${three}`, shown !== g.roles[x] ? `${nmr(x)}: ${three} (echt: ${roleName(g.roles[x])})` : `${nmr(x)}: ${three}`);
+    }
+    case 'roleAlive': { const hs = holders(g, b.role); return { say: !(g.cfg.counts[b.role] > 0) && !hs.length ? `${roleName(b.role)} ist nicht im Spiel` : hs.some((p) => alive(g, p.id)) ? `${roleName(b.role)} lebt noch` : hs.length ? `${roleName(b.role)} ist ausgeschieden` : `${roleName(b.role)}: noch niemandem zugeordnet`, truth: '' }; }
+    case 'roleIn': return { say: g.cfg.counts[b.role] > 0 || holders(g, b.role).length ? `${roleName(b.role)} ist im Spiel (nicken)` : `${roleName(b.role)} ist nicht im Spiel (Kopf schütteln)`, truth: '' };
+    case 'deadRole': return pair(ts.map((x) => `${nmr(x)}: ${roleName(appearance(g, x, { death: true }).role)}`).join(' · '), ts.map((x) => `${nmr(x)}: ${roleLabel(g, x)}`).join(' · '));
+    case 'deathCause': return { say: ts.map((x) => `${nmr(x)}: ${CAUSE[g.dead[x]?.cause] ?? g.dead[x]?.cause ?? '?'}`).join(' · '), truth: '' };
+    default: return null;
+  }
+}
 export const powerOn = (g, roleId) => !(g.powersLost && RM[roleId]?.camp === 'village');
 
 export function roleLabel(g, id) {
@@ -669,8 +725,15 @@ function finishNight(g) {
   if (d.check) log(g, `Seherin prüft ${nm(g, d.check)}: ${roleLabel(g, d.check)}`);
   g.ravenMark = d.mark || null;
   if (d.mark) log(g, `Rabe markiert ${nm(g, d.mark)}`);
+  const nulls = draftEffects(g, 'nullify').map((x) => x.t);
+  nulls.forEach((t) => { g.nullified[t] = g.night; });
+  draftEffects(g, 'frame').forEach(({ t, b }) => { g.frames[t] = { as: b.as, role: b.role, until: g.night + (b.nights ?? 1) - 1 }; });
+  const nullH = (role) => livingHolders(g, role).some((p) => nulls.includes(p.id));
+  if (d.protect && nullH('guard')) { log(g, 'Der Heiler ist heute wirkungslos'); d.protect = null; }
+  if ((d.heal || d.poison) && nullH('witch')) { log(g, 'Die Hexe ist heute wirkungslos: Ihre Tränke wirken nicht, bleiben aber verbraucht'); if (d.heal) g.potions.heal = true; if (d.poison) g.potions.poison = true; d.heal = null; d.poison = null; }
   g.lastProtect = d.protect || null;
   if (d.protect) log(g, `Heiler schützt ${nm(g, d.protect)}`);
+  const later = [];
   const prot = {}, ckill = [], cguard = [], alerts = new Set(), visits = {}, host = {}, aim = {}, used = new Set(), tgtOf = {};
   g.host = host; g.attackers = {};
   const protect = (x, lvl) => { prot[x] = Math.max(prot[x] ?? 0, lvl); };
@@ -693,6 +756,7 @@ function finishNight(g) {
     const holder = livingHolders(g, rid)[0];
     if (!b || !holder) continue;
     const B = BLOCKS[b.k];
+    if (nulls.includes(holder.id) && b.k !== 'nullify') { log(g, `${rr.name} ${holder.name} ist heute wirkungslos (${B.short})`); continue; }
     const ts = targetsOf(v).filter((x) => (B.dead ? !!g.dead[x] : alive(g, x)));
     if (!ts.length || (B.fixed && ts.length < B.fixed)) continue;
     g.cuse[key] = (g.cuse[key] ?? 0) + 1; g.customUsed[rid] = true; g.clast[key] = ts; used.add(holder.id);
@@ -714,6 +778,10 @@ function finishNight(g) {
       case 'protect': ts.forEach((x) => protect(x, b.power ?? 1)); log(g, `${by} schützt ${names}${(b.power ?? 1) > 1 ? ' (stark)' : ''}`); break;
       case 'peek': log(g, `${by} prüft ${names}: ${ts.map((x) => (looksWolf(g, x) ? 'Werwolf' : 'kein Werwolf')).join(', ')}`); break;
       case 'peekrole': log(g, `${by} prüft ${names}: ${ts.map((x) => roleLabel(g, x)).join(', ')}`); break;
+      case 'party': case 'same': case 'count': case 'threeRoles': case 'roleAlive': case 'roleIn': case 'deadRole': case 'deathCause': { const r = infoNow(g, b, ts, null); log(g, `${by} – ${B.short}: ${r?.say ?? ''}${r?.truth ? ` (echt: ${r.truth})` : ''}`); break; }
+      case 'whoActive': case 'whomVisited': case 'attackedAll': case 'wasProtected': case 'myAttacker': later.push({ k: b.k, ts, holder: holder.id, by }); break;
+      case 'frame': log(g, `${by} lässt ${names} als ${b.as === 'wolf' ? 'Werwolf' : b.as === 'role' ? roleName(b.role) : b.as === 'random' ? 'zufällige Rolle' : 'Dorfbewohner'} erscheinen`); break;
+      case 'nullify': log(g, `${by} macht die Fähigkeit von ${names} heute wirkungslos`); note(`${names}: Fähigkeit heute wirkungslos. Ergebnisse frei erfinden, Aktionen wirken nicht.`); break;
       case 'kill': ts.forEach((x) => ckill.push({ v: x, power: b.power ?? 1, by: holder.id })); log(g, `${by} greift ${names} an`); break;
       case 'visit': log(g, `${by} übernachtet bei ${names}`); break;
       case 'invite': log(g, `${by} lädt ${names} zu sich ein`); break;
@@ -887,6 +955,19 @@ function finishNight(g) {
     for (const a of alerts) for (const t of visits[a] ?? []) if (alive(g, t) && !alerts.has(t)) { kill(g, t, 'custom'); log(g, `${nm(g, t)} besuchte den wachsamen ${nm(g, a)} und stirbt`); g.morning.push(`Nur für den Spielleiter: ${nm(g, t)} hat ${nm(g, a)} besucht und stirbt.`); }
   }
 
+  // Auskünfte am Morgen, nach allen Angriffen
+  for (const x of later) {
+    const n2 = (ids) => (ids.length ? [...new Set(ids)].map((y) => nm(g, y)).join(', ') : 'niemand');
+    const active = [...used, ...(d.kill ? pack : []), ...(d.check ? livingHolders(g, 'seer').map((p) => p.id) : []), ...(d.protect ? livingHolders(g, 'guard').map((p) => p.id) : []), ...((d.heal || d.poison) ? livingHolders(g, 'witch').map((p) => p.id) : [])].filter((y) => y !== x.holder);
+    const txt = {
+      whoActive: () => `Heute aktiv: ${n2(active)}.`,
+      whomVisited: () => x.ts.map((t) => `${nm(g, t)} besuchte: ${n2([...(out[t] ?? [])])}.`).join(' '),
+      attackedAll: () => `Heute angegriffen: ${n2(attacked.map((a) => a.v))}.`,
+      wasProtected: () => x.ts.map((t) => `${nm(g, t)} war ${(prot[t] ?? 0) >= 1 || cguard.some((c) => c.t === t) ? '' : 'nicht '}geschützt.`).join(' '),
+      myAttacker: () => `Angegriffen von: ${n2(g.attackers[x.holder] ?? [])}.`,
+    }[x.k]();
+    log(g, `${x.by}: ${txt}`); g.morning.push(`Nur für den Spielleiter: ${x.by}: ${txt}`);
+  }
   if (d.fire && g.town && g.town.b[d.fire]) {
     const fk = g.town.b[d.fire];
     g.town.fireUsed = true; g.town.gone.push(fk); delete g.town.b[d.fire]; delete g.town.used[d.fire];
@@ -1165,7 +1246,7 @@ function tap(g, pid, toast) {
         const ok = { ownCamp: same, otherCamp: !same, withAbility: !known || ab, noAbility: !known || !ab }[cb.who];
         if (!ok) { toast?.({ ownCamp: 'Nur Personen aus der eigenen Partei.', otherCamp: 'Nur Personen aus der anderen Partei.', withAbility: 'Nur Personen mit Nachtfähigkeit.', noAbility: 'Nur Personen ohne Nachtfähigkeit.' }[cb.who]); return; }
       }
-      if (cb.k === 'note' && !cb.n) { toast?.('Dieser Hinweis braucht kein Ziel.'); return; }
+      if (isToggle(cb) && cb.k !== 'alert') { toast?.('Diese Fähigkeit braucht kein Ziel: Knopf „Einsetzen“ nutzen.'); return; }
       const arr = targetsOf(d.cust[ck]), i = arr.indexOf(pid);
       if (i >= 0) arr.splice(i, 1);
       else if (cb.n === 1) arr.splice(0, arr.length, pid);

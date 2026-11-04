@@ -255,6 +255,39 @@ test('Rollen-Werkstatt E2: Dorfmatratze mit Auslösern, Stärke und Zielfilter',
   await page.context().close();
 });
 
+test('Rollen-Werkstatt E3: Täuschung mit Blatt „Erscheint als“, Auskunft mit Wahrheit im Nachtschritt', async () => {
+  const { page, problems } = await app.openApp({ viewport: PHONE });
+  await openWorkshop(page);
+  await page.fill('#re-name', 'Intrigantin');
+  await page.click('[data-action=re-tab][data-k=rules]');
+  await page.click('[data-action=re-gap][data-ri="-1"]');
+  await page.click('[data-action=re-effect][data-k=frame]');
+  await page.waitForSelector('[data-action=re-set][data-key=as]');
+  await page.click('[data-action=re-set][data-key=as][data-v=wolf]');
+  await page.click('[data-action=re-num][data-key=nights][data-d="1"]');
+  await page.click('[data-action=re-sheet-close][data-done]');
+  await page.click('[data-action=re-gap][data-ri="-1"]');
+  await page.click('[data-action=re-effect][data-k=party]');
+  const prev = await page.locator('#re-preview').innerText();
+  assert.ok(prev.includes('lässt eine andere Person bei Prüfungen als Werwolf erscheinen (2 Nächte)'), prev);
+  await page.click('[data-action=re-save]');
+  await page.click('[data-action=role-inc]');
+  await page.click('[data-action=wiz-next]');
+  await page.click('[data-action=start-game]');
+  await page.waitForSelector('.game');
+  const id = await page.evaluate(() => { const w = window.__werwolf, g = w.S.game, id = w.S.customRoles[0].id; g.cfg.mode = 'digital'; g.roles = Object.fromEntries(g.cfg.players.map((p, i) => [p.id, i === 0 ? id : i === 1 ? 'wolf' : 'villager'])); g.night = 2; g.dealIdx = g.cfg.players.length; w.render(); return id; });
+  await page.evaluate(async (rid) => { const { nightSteps } = await import('/src/engine/game.js'); const w = window.__werwolf; w.S.game.stepIdx = nightSteps(w.S.game).findIndex((s) => s.role === rid); w.render(); }, id);
+  await page.click(`[data-action=rule-sel][data-key="${id}"]`);
+  await page.click('.pgrid .tok >> nth=2');
+  await page.click(`[data-action=rule-sel][data-key="${id}#1"]`);
+  await page.click('.pgrid .tok >> nth=2');
+  const row = await page.locator('.rrow.on').innerText();
+  assert.match(row, /Werwölfe/, 'verfälschtes Ergebnis groß');
+  assert.match(row, /Echt: .*Dorf/, 'Wahrheit klein');
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});
+
 test('Verbitterter Greis: Gruppen lassen sich zuordnen', async () => {
   const { page, problems } = await app.openApp();
   await startGame(page, { names: NAMES.slice(0, 6), counts: { wolf: 1, greis: 1, villager: 4 }, mode: 'cards' });

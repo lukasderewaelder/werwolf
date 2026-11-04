@@ -1,10 +1,10 @@
 // Spielansicht: Tisch mit Spielersteinen, Nachtschritte, Tag, Abfragen, Rollenvergabe, Ende.
 import { S, ui, views, on, go, dispatch, undo, canUndo, toast, buzz, afterRender, persist, clearUndo } from './core.js';
 import { esc, art, I, initials, circlePos, tokenSize, roleShort } from './art.js';
-import { RM, CAMP_LABEL, roleName, BLOCKS, targetsOf, custKey } from '../engine/roles.js';
+import { RM, CAMP_LABEL, roleName, BLOCKS, targetsOf, custKey, isToggle } from '../engine/roles.js';
 import {
   alive, nm, isWolf, looksWolf, roleLabel, holders, livingHolders, seatNeighbors, stepContext, nightSteps, openDecision, unknownPool, livingIds, CAUSE, groupNames, powerOn, tally,
-  eligibleVoters, voucherVictim, voucherStart, dayBlocks,
+  eligibleVoters, voucherVictim, voucherStart, dayBlocks, appearance, infoNow, isNullified,
 } from '../engine/game.js';
 import { SPIRIT_CARDS } from '../engine/events.js';
 import { eventBlock } from './cards.js';
@@ -146,7 +146,7 @@ const seenText = (g, id) => {
   const rid = g.roles[id];
   if (!rid) return null;
   if (g.cfg.rules.seerSees === 'camp') return looksWolf(g, id) ? 'Werwolf' : 'Kein Werwolf';
-  const card = g.actorId === id && rid !== 'actor' ? 'Gaukler' : RM[rid].name;
+  const shown = appearance(g, id).role, card = g.actorId === id && rid !== 'actor' ? 'Gaukler' : shown !== rid ? `${roleName(shown)} (echt: ${RM[rid].name})` : RM[rid].name;
   return g.turned[id] ? `${card} (Karte; infiziert, die Seherin sieht nur die Karte)` : card;
 };
 
@@ -193,7 +193,8 @@ function taskBox(g, c) {
       case 'check': {
         if (!d.check) prompt = 'Wen prüft die Seherin? Person antippen.';
         else if (g.cfg.rules.harvest) prompt = harvestSeen(g, d.check) ?? `${nm(g, d.check)}: Rollen der Nachbarn noch nicht erfasst. Zeig der Seherin die Karten.`;
-        else prompt = seenText(g, d.check) ? `${nm(g, d.check)}: ${seenText(g, d.check)}` : `${nm(g, d.check)}: Rolle noch nicht erfasst. Zeig der Seherin die Karte.`;
+        else if (livingHolders(g, 'seer').some((p) => isNullified(g, p.id))) prompt = `${nm(g, d.check)}: Die Seherin ist heute wirkungslos. Zeig irgendeine Karte.`;
+        else prompt = seenText(g, d.check) ? `${nm(g, d.check)}: ${seenText(g, d.check)}${g.cfg.rules.seerSees === 'camp' && looksWolf(g, d.check) !== isWolf(g, d.check) ? ` (echt: ${isWolf(g, d.check) ? 'Werwolf' : 'kein Werwolf'})` : ''}` : `${nm(g, d.check)}: Rolle noch nicht erfasst. Zeig der Seherin die Karte.`;
         cls = d.check ? 'ok' : '';
         break;
       }
@@ -238,20 +239,21 @@ function taskBox(g, c) {
         break;
       case 'fire': prompt = d.fire ? `Das Gebäude von ${nm(g, d.fire)} brennt (${BUILDINGS[g.town.b[d.fire]]?.name ?? ''}).` : 'Welches Gebäude setzt der Brandstifter in Brand? Einmal im Spiel, Person im Kreis antippen oder Weiter.'; cls = d.fire ? 'ok' : ''; break;
       case 'cust': {
+        const r0 = r;
         const rows = (step.blks ?? []).map((i, j) => {
           const b = r.blocks[i], B = BLOCKS[b.k], key = step.keys[j], ts = targetsOf(d.cust[key]), on = i === step.blk, names = ts.map((x) => nm(g, x)).join(' & ');
-          const need = B.fixed ?? 1, toggle = !!B.selfOnly || (b.k === 'note' && !b.n), left = b.limit ? b.limit - (g.cuse?.[key] ?? 0) : 0;
+          const need = B.fixed ?? 1, toggle = isToggle(b), left = b.limit ? b.limit - (g.cuse?.[key] ?? 0) : 0;
           const meta = [b.limit ? `noch ${left}× im Spiel` : 'freiwillig', b.chance < 100 ? `gelingt zu ${b.chance} %` : '', b.rep ? 'nicht dieselbe Person wie zuletzt' : ''].filter(Boolean).join(' · ');
-          let status;
-          if (toggle) status = ts.length ? (b.k === 'alert' ? 'ist heute wachsam' : 'eingesetzt') : 'nicht eingesetzt';
+          let status, truth = '';
+          if (toggle && B.info === 'now' && ts.length) { const r = infoNow(g, b, [], livingHolders(g, r0.id)[0]?.id); status = r?.say ?? ''; }
+          else if (toggle) status = ts.length ? (b.k === 'alert' ? 'ist heute wachsam' : 'eingesetzt') : 'nicht eingesetzt';
           else if (!ts.length) status = B.dead ? 'gestorbene Person antippen' : b.n > 1 ? `bis zu ${b.n} Personen antippen` : need === 2 ? 'zwei Personen antippen' : 'Person im Kreis antippen';
-          else if (b.k === 'peek') status = ts.map((x) => (!g.roles[x] ? `${nm(g, x)}: Rolle noch nicht erfasst` : `${nm(g, x)}: ${looksWolf(g, x) ? 'Werwolf (nicken)' : 'kein Werwolf (Kopf schütteln)'}`)).join(' · ');
-          else if (b.k === 'peekrole') status = ts.map((x) => (g.roles[x] ? `${nm(g, x)}: ${roleLabel(g, x)}` : `${nm(g, x)}: Rolle noch nicht erfasst`)).join(' · ');
+          else if (B.info === 'now' || b.k === 'peek' || b.k === 'peekrole') { if (ts.length >= need) { const r = infoNow(g, b, ts, step.holder ?? livingHolders(g, r0.id)[0]?.id); status = r?.say ?? ''; truth = r?.truth ?? ''; } else status = `${ts.map((x) => nm(g, x)).join(' & ')} · noch ${need - ts.length} antippen`; }
           else if (b.k === 'convert') status = `${names} → ${roleName(b.role)}`;
           else if (ts.length < need) status = `${names} · noch ${need - ts.length} antippen`;
           else status = b.n > 1 ? `${names} (${ts.length}/${b.n})` : names;
           const done = toggle ? ts.length > 0 : ts.length >= need;
-          const body = on ? `<div class="rbody"><span class="muted small">${esc(meta)}</span>${b.k === 'note' && b.text ? `<div class="hint">${I.book}<span>${esc(b.text)}</span></div>` : ''}${toggle ? `<button class="btn sm ${ts.length ? 'on' : ''}" data-action="rule-self" data-key="${key}">${ts.length ? I.check : ''}<span>${b.k === 'alert' ? (ts.length ? 'Ist wachsam' : 'Wachsam sein') : ts.length ? 'Eingesetzt' : 'Einsetzen'}</span></button>` : ''}</div>` : '';
+          const body = on ? `<div class="rbody">${truth ? `<span class="truth small">Echt: ${esc(truth)}</span>` : ''}<span class="muted small">${esc(meta)}</span>${b.k === 'note' && b.text ? `<div class="hint">${I.book}<span>${esc(b.text)}</span></div>` : ''}${toggle ? `<button class="btn sm ${ts.length ? 'on' : ''}" data-action="rule-self" data-key="${key}">${ts.length ? I.check : ''}<span>${b.k === 'alert' ? (ts.length ? 'Ist wachsam' : 'Wachsam sein') : ts.length ? 'Eingesetzt' : 'Einsetzen'}</span></button>` : ''}</div>` : '';
           return `<div class="rrow ${on ? 'on' : ''} ${done ? 'ok' : ''}"><button class="rhead" data-action="rule-sel" data-key="${key}" aria-pressed="${on}"><span class="rdot">${done ? I.check : ''}</span><b>${esc(B.short)}</b><span class="rst">${esc(status)}</span></button>${body}</div>`;
         });
         const many = rows.length > 1;
@@ -331,7 +333,8 @@ function roleOnDeath(g, id) {
   const rid = g.roles[id];
   if (!rid) return 'Rolle noch unbekannt';
   if (g.cfg.rules.hideWolfdogSide && (rid === 'wolfdog' || (rid === 'wildchild' && g.turned[id]))) return roleName(rid);
-  return roleLabel(g, id);
+  const mask = appearance(g, id, { death: true }).role;
+  return mask !== rid ? `Ansagen: ${roleName(mask)} (echt: ${roleLabel(g, id)})` : roleLabel(g, id);
 }
 
 function morningCard(g) {

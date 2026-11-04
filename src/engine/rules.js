@@ -31,7 +31,7 @@ export const COND_GROUPS = [['In diesem Moment', ['away', 'home', 'visitedNone',
 
 /** Auslöser: Die Regel wirkt automatisch, ohne Nachtschritt. */
 export const TRIGGERS = {
-  attacked: 'Wenn sie angegriffen wird', targetAttacked: 'Wenn ihr heutiges Ziel angegriffen wird', hostDies: 'Wenn ihr Gastgeber stirbt',
+  always: 'Immer', attacked: 'Wenn sie angegriffen wird', targetAttacked: 'Wenn ihr heutiges Ziel angegriffen wird', hostDies: 'Wenn ihr Gastgeber stirbt',
   visited: 'Wenn sie besucht wird', death: 'Wenn sie stirbt', voted: 'Wenn das Dorf sie hinrichtet',
 };
 export const TGT_TXT = { attacker: 'den Angreifer', visitors: 'alle Besucher', host: 'den Gastgeber', bound: 'das festgelegte Ziel', pick: 'eine Person nach Wahl', none: '', self: 'sich selbst' };
@@ -49,7 +49,9 @@ export const THENS = {
 /** Gruppen und Erklärungen der Wirkungen für den Katalog im Editor. */
 export const EFFECT_GROUPS = [
   ['Schützen', ['protect', 'guard', 'alert']],
-  ['Wissen', ['peek', 'peekrole', 'watch']],
+  ['Wissen', ['peek', 'peekrole', 'party', 'same', 'count', 'threeRoles', 'roleAlive', 'roleIn', 'deadRole', 'deathCause']],
+  ['Wissen am Morgen', ['watch', 'whomVisited', 'whoActive', 'attackedAll', 'wasProtected', 'myAttacker']],
+  ['Täuschen', ['appear', 'frame', 'nullify']],
   ['Angreifen', ['kill', 'delayed', 'trap', 'shoot', 'jailkill']],
   ['Besuche und Orte', ['visit', 'invite', 'decoy', 'redirect', 'swapPlace']],
   ['Bei Ereignis (automatisch)', ['survive', 'strike', 'dieSelf', 'shield']],
@@ -68,7 +70,11 @@ export const EFFECT_HINT = {
   visit: 'Übernachtet bei der Person (zählt als Besuch, ist unterwegs).', invite: 'Die Person übernachtet bei dir.', decoy: 'Angriffe auf die Person treffen dich.',
   redirect: 'Angriffe auf die erste Person treffen die zweite.', swapPlace: 'Angriffe auf die beiden werden vertauscht.',
   delayed: 'Die Person wird erst in der nächsten Nacht angegriffen.', trap: 'Trifft Besucher der Person.',
-  survive: 'Der Angriff oder die Hinrichtung geht ins Leere.', strike: 'Angriff auf Angreifer, Besucher oder eine Person nach Wahl.', dieSelf: 'Zum Beispiel, wenn der Gastgeber stirbt.', shield: 'Wehrt den nächsten normalen Angriff ab.',
+  survive: 'Der Angriff oder die Hinrichtung geht ins Leere.',
+  party: 'Dorf, Werwölfe oder eigene Partei.', same: 'Ja oder nein.', count: 'Eine Zahl, keine Namen.', threeRoles: 'Eine der drei Rollen ist die echte.', roleAlive: 'Lebt oder ausgeschieden.', roleIn: 'Ja oder nein.',
+  deadRole: 'Die echte Rolle einer gestorbenen Person.', deathCause: 'Wie die Person gestorben ist.', whomVisited: 'Wen die Person heute besucht hat.', whoActive: 'Alle, die heute etwas eingesetzt haben.',
+  attackedAll: 'Alle, die heute angegriffen wurden.', wasProtected: 'Ja oder nein.', myAttacker: 'Wer sie heute angegriffen hat.',
+  appear: 'Dauerhaft: Prüfungen zeigen etwas Falsches.', frame: 'Für 1 bis 3 Nächte: Prüfungen zeigen etwas Falsches.', nullify: 'Die Fähigkeit wirkt heute nicht, ohne dass es jemand merkt.', strike: 'Angriff auf Angreifer, Besucher oder eine Person nach Wahl.', dieSelf: 'Zum Beispiel, wenn der Gastgeber stirbt.', shield: 'Wehrt den nächsten normalen Angriff ab.',
 };
 /** Satzbaustein der Wirkung; {t} = Ziel. */
 export const PHRASE = {
@@ -77,7 +83,11 @@ export const PHRASE = {
   convert: 'verwandelt {t} in {r}', revive: 'belebt {t} wieder', bind: 'legt {t} als Ziel fest', guard: 'bewacht {t} und stirbt notfalls an ihrer Stelle', recruit: 'nimmt {t} in die Sekte auf',
   watch: 'beobachtet, wer {t} besucht', alert: 'ist wachsam', shoot: 'erschießt {t}', jail: 'sperrt {t} ein', jailkill: 'sperrt {t} ein und richtet sie in der Nacht hin', note: 'erinnert dich: „{x}“',
   visit: 'besucht {t} und übernachtet dort', invite: 'lädt {t} zu sich ein', decoy: 'lockt Angriffe auf {t} zu sich', redirect: 'lenkt Angriffe um: {t}', swapPlace: 'vertauscht den Platz von {t}',
-  delayed: 'verflucht {t}', trap: 'stellt eine Falle bei {t}', survive: 'übersteht es', strike: 'greift {t} an', dieSelf: 'wird selbst angegriffen', shield: 'bekommt einen Schild',
+  delayed: 'verflucht {t}',
+  party: 'erfährt die Partei von {t}', same: 'erfährt, ob {t} zur gleichen Partei gehören', count: 'zählt die Werwölfe unter {t}', threeRoles: 'erfährt drei Rollen für {t}',
+  roleAlive: 'erfährt, ob {r} noch lebt', roleIn: 'erfährt, ob {r} im Spiel ist', deadRole: 'erfährt die Rolle von {t}', deathCause: 'erfährt die Todesursache von {t}',
+  whomVisited: 'erfährt am Morgen, wen {t} besucht hat', whoActive: 'erfährt am Morgen, wer aktiv war', attackedAll: 'erfährt am Morgen, wer angegriffen wurde', wasProtected: 'erfährt am Morgen, ob {t} geschützt war', myAttacker: 'erfährt am Morgen, wer sie angegriffen hat',
+  appear: 'erscheint bei Prüfungen als {a}', frame: 'lässt {t} bei Prüfungen als {a} erscheinen', nullify: 'macht die Fähigkeit von {t} heute wirkungslos', trap: 'stellt eine Falle bei {t}', survive: 'übersteht es', strike: 'greift {t} an', dieSelf: 'wird selbst angegriffen', shield: 'bekommt einen Schild',
 };
 const WHEN_TXT = { night: { every: 'Jede Nacht', first: 'In der ersten Nacht', later: 'Ab der zweiten Nacht', even: 'Jede zweite Nacht' }, day: { every: 'Jeden Tag', first: 'Am ersten Tag', later: 'Ab dem zweiten Tag', even: 'Jeden zweiten Tag' } };
 
@@ -100,12 +110,13 @@ export function condText(c) {
   return CONDS[c.k]?.text(c) ?? '';
 }
 export const condCount = (c) => (!c ? 0 : c.all || c.any ? (c.all ?? c.any).reduce((s, x) => s + condCount(x), 0) : 1);
-export const whenText = (b) => (b.on ? TRIGGERS[b.on] : WHEN_TXT[BLOCKS[b.k].day ? 'day' : 'night'][b.when] ?? '');
+export const whenText = (b) => (b.on === 'always' ? 'Immer' : b.on ? TRIGGERS[b.on] : WHEN_TXT[BLOCKS[b.k].day ? 'day' : 'night'][b.when] ?? '');
 export const powerText = (b) => (b.power == null ? '' : b.k === 'protect' ? PROTECT_TXT[b.power] : POWER_TXT[b.power]);
 const WHO_TXT = { ownCamp: 'nur aus der eigenen Partei', otherCamp: 'nur aus der anderen Partei', withAbility: 'nur Personen mit Nachtfähigkeit', noAbility: 'nur Personen ohne Nachtfähigkeit' };
 const TRAP_TXT = { first: 'trifft den ersten Besucher', all: 'trifft alle Besucher', wolves: 'trifft nur Werwölfe', nonWolves: 'trifft alle außer Werwölfen' };
-export const effectText = (b) => PHRASE[b.k].replace('{t}', targetText(b) || (b.k === 'strike' ? 'niemanden' : 'sich')).replace('{r}', roleName(b.role)).replace('{x}', b.text || '…');
-export const extrasText = (b) => [b.power > 1 ? powerText(b) : '', b.k === 'trap' ? `${TRAP_TXT[b.trapWho]}, ${b.trapArm === 'now' ? 'sofort scharf' : 'ab der nächsten Nacht scharf'}` : '', WHO_TXT[b.who] ?? '', b.once ? 'jede Person nur einmal im Spiel' : '', b.limit ? `höchstens ${b.limit}×` : '', b.chance < 100 ? `gelingt zu ${b.chance} %` : '', b.rep ? 'nie zweimal hintereinander dieselbe Person' : '', b.visit && b.k !== 'visit' ? 'zählt als Besuch' : ''].filter(Boolean).join(', ');
+export const asText = (b) => ({ village: 'Dorfbewohner', wolf: 'Werwolf', role: roleName(b.role), random: 'zufällige Rolle' }[b.as] ?? '');
+export const effectText = (b) => PHRASE[b.k].replace('{t}', targetText(b) || (b.k === 'strike' ? 'niemanden' : 'sich')).replace('{a}', asText(b)).replace('{r}', roleName(b.role)).replace('{x}', b.text || '…');
+export const extrasText = (b) => [b.power > 1 ? powerText(b) : '', b.k === 'trap' ? `${TRAP_TXT[b.trapWho]}, ${b.trapArm === 'now' ? 'sofort scharf' : 'ab der nächsten Nacht scharf'}` : '', b.k === 'frame' ? `${b.nights} ${b.nights === 1 ? 'Nacht' : 'Nächte'}` : '', b.k === 'appear' && b.scope !== 'checks' ? (b.scope === 'death' ? 'nur beim Tod' : 'auch beim Tod') : '', WHO_TXT[b.who] ?? '', b.once ? 'jede Person nur einmal im Spiel' : '', b.limit ? `höchstens ${b.limit}×` : '', b.chance < 100 ? `gelingt zu ${b.chance} %` : '', b.rep ? 'nie zweimal hintereinander dieselbe Person' : '', b.visit && b.k !== 'visit' ? 'zählt als Besuch' : ''].filter(Boolean).join(', ');
 
 /** Klartext einer Regel: „Ab der zweiten Nacht: tötet eine andere Person, wenn … (höchstens 2×). Danach …“ */
 export function describeRule(b) {
@@ -135,6 +146,9 @@ export const sanitizeThen = (list) => (Array.isArray(list) ? list : []).filter((
 /* ---------- Vorlagen ---------- */
 const R = (k, o = {}) => ({ k, n: 1, when: 'every', limit: 0, self: false, rep: false, role: 'villager', chance: 100, ...o });
 export const CUSTOM_TEMPLATES = [
+  { key: 'framer', name: 'Intrigant', sub: 'Lässt Unschuldige verdächtig wirken', icon: '🎭', rules: [R('frame', { as: 'wolf', nights: 1 })] },
+  { key: 'maskwolf', name: 'Maskenwolf', sub: 'Wolf, der bei Prüfungen als Dorfbewohner gilt', icon: '🐺', camp: 'wolf', rules: [R('appear', { on: 'always', as: 'village', scope: 'both' })] },
+  { key: 'detective', name: 'Detektiv', sub: 'Vergleicht zwei Verdächtige', icon: '🔍', rules: [R('same'), R('whomVisited', { when: 'later' })] },
   { key: 'mattress', name: 'Dorfmatratze', sub: 'Übernachtet jede Nacht woanders', icon: '🌙', rules: [R('visit', { rep: true }), R('survive', { on: 'attacked', if: { all: [{ k: 'away' }] } }), R('dieSelf', { on: 'hostDies' })] },
   { key: 'shadow', name: 'Schattenwache', sub: 'Beobachtet und lernt daraus', icon: '🦉', rules: [R('watch'), R('shield', { on: 'targetAttacked' })] },
   { key: 'trapper', name: 'Fallensteller', sub: 'Fallen für nächtliche Besucher', icon: '🪤', rules: [R('trap', { trapWho: 'first', trapArm: 'next', rep: true })] },

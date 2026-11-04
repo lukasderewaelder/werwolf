@@ -378,9 +378,28 @@ export const BLOCKS = {
   strike: { name: 'Greift jemanden an', short: 'Greift an', verb: 'greift an', trig: ['attacked', 'targetAttacked', 'visited', 'death', 'voted'], power: true },
   dieSelf: { name: 'Wird selbst angegriffen', short: 'Mitsterben', verb: 'wird angegriffen', trig: ['hostDies', 'targetAttacked'], noTarget: true, power: true },
   shield: { name: 'Bekommt einen Schild für den nächsten Angriff', short: 'Schild', verb: 'bekommt einen Schild', trig: ['targetAttacked', 'visited', 'attacked'], noTarget: true },
+  // E3: Informationen (sofort im Nachtschritt oder am Morgen) und Täuschung
+  party: { name: 'Die Partei der Person erfahren', short: 'Partei', verb: 'erfährt die Partei', info: 'now' },
+  same: { name: 'Erfahren, ob zwei Personen zur gleichen Partei gehören', short: 'Gleiche Partei?', verb: 'vergleicht', fixed: 2, info: 'now' },
+  count: { name: 'Erfahren, wie viele Werwölfe unter den Personen sind', short: 'Wölfe zählen', verb: 'zählt', info: 'now' },
+  roleAlive: { name: 'Erfahren, ob eine Rolle noch lebt', short: 'Lebt die Rolle?', verb: 'fragt', role: true, noTarget: true, info: 'now' },
+  roleIn: { name: 'Erfahren, ob eine Rolle im Spiel ist', short: 'Rolle im Spiel?', verb: 'fragt', role: true, noTarget: true, info: 'now' },
+  threeRoles: { name: 'Drei Rollen erfahren, eine davon stimmt', short: 'Drei Rollen', verb: 'erfährt drei Rollen', info: 'now' },
+  deathCause: { name: 'Todesursache einer gestorbenen Person erfahren', short: 'Todesursache', verb: 'untersucht', dead: true, info: 'now' },
+  deadRole: { name: 'Rolle einer gestorbenen Person erfahren', short: 'Tote untersuchen', verb: 'untersucht', dead: true, info: 'now' },
+  whoActive: { name: 'Am Morgen: wer heute eine Fähigkeit eingesetzt hat', short: 'Wer war aktiv?', verb: 'beobachtet das Dorf', noTarget: true, info: 'morning' },
+  whomVisited: { name: 'Am Morgen: wen die Person besucht hat', short: 'Wen besucht?', verb: 'verfolgt', info: 'morning' },
+  attackedAll: { name: 'Am Morgen: wer heute angegriffen wurde', short: 'Wer angegriffen?', verb: 'hört Schreie', noTarget: true, info: 'morning' },
+  wasProtected: { name: 'Am Morgen: ob die Person geschützt war', short: 'Geschützt?', verb: 'prüft den Schutz', info: 'morning' },
+  myAttacker: { name: 'Am Morgen: wer sie selbst angegriffen hat', short: 'Wer griff an?', verb: 'erkennt den Angreifer', noTarget: true, info: 'morning' },
+  appear: { name: 'Erscheint bei Prüfungen als …', short: 'Erscheint als', verb: 'erscheint als', trig: ['always'], noTarget: true, as: true },
+  frame: { name: 'Person erscheint bei Prüfungen als …', short: 'Verfälschen', verb: 'verfälscht', as: true },
+  nullify: { name: 'Fähigkeit der Person heute unbemerkt wirkungslos machen', short: 'Wirkungslos', verb: 'macht wirkungslos' },
 };
+/** Ohne Ziel: Einsatz per Knopf im Nachtschritt. */
+export const isToggle = (b) => !!BLOCKS[b.k].selfOnly || (b.k === 'note' && !b.n) || (!!BLOCKS[b.k].noTarget && !b.on && !isTrigOnly(b.k));
 /** Nur über Auslöser nutzbar (kein Nachtschritt). */
-export const isTrigOnly = (k) => ['survive', 'strike', 'dieSelf', 'shield'].includes(k);
+export const isTrigOnly = (k) => ['survive', 'strike', 'dieSelf', 'shield', 'appear'].includes(k);
 export const BLOCK_WHEN = { every: 'Jede Nacht', first: 'Nur in der ersten Nacht', later: 'Ab der zweiten Nacht', even: 'Jede zweite Nacht' };
 export const BLOCK_WHEN_DAY = { every: 'Jeden Tag', first: 'Nur am ersten Tag', later: 'Ab dem zweiten Tag', even: 'Jeden zweiten Tag' };
 export const BLOCK_CHANCE = [100, 75, 50, 25];
@@ -445,12 +464,13 @@ function ruleExtras(b, B) {
   if (B.power || b.k === 'kill' || b.k === 'protect') out.power = Math.max(1, Math.min(b.k === 'protect' ? 2 : 3, Math.round(+b.power) || 1));
   if (on && (b.k === 'strike' || b.k === 'note')) out.tgt = TRIG_TARGETS[on].includes(b.tgt) ? b.tgt : TRIG_TARGETS[on][0];
   if (!on) { out.who = ['any', 'ownCamp', 'otherCamp', 'withAbility', 'noAbility'].includes(b.who) ? b.who : 'any'; out.once = !!b.once; }
+  if (B.as) { out.as = ['village', 'wolf', 'role', 'random'].includes(b.as) ? b.as : 'village'; if (b.k === 'frame') out.nights = Math.max(1, Math.min(3, Math.round(+b.nights) || 1)); if (b.k === 'appear') out.scope = ['checks', 'death', 'both'].includes(b.scope) ? b.scope : 'checks'; }
   if (b.k === 'trap') { out.trapWho = ['first', 'all', 'wolves', 'nonWolves'].includes(b.trapWho) ? b.trapWho : 'first'; out.trapArm = b.trapArm === 'now' ? 'now' : 'next'; }
   return out;
 }
 /** Mögliche Ziele einer ausgelösten Wirkung je Auslöser (erste = Vorgabe). */
 export const TRIG_TARGETS = {
-  attacked: ['attacker', 'pick', 'none'], targetAttacked: ['attacker', 'none'], hostDies: ['none'], visited: ['visitors', 'none'],
+  always: ['none'], attacked: ['attacker', 'pick', 'none'], targetAttacked: ['attacker', 'none'], hostDies: ['none'], visited: ['visitors', 'none'],
   death: ['pick', 'bound', 'host', 'attacker', 'none'], voted: ['pick', 'none'],
 };
 

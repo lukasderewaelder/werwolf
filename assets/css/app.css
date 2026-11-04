@@ -586,3 +586,5 @@ textarea.inp{padding:12px 14px;min-height:96px;resize:vertical}
 .gap{padding:2px 9px;font-size:var(--fs-sm)}
 .rc-sent{line-height:2.3}
 @media (max-width:600px){ .re-lines{max-height:calc(var(--vh)*.12)} .re-prev{padding:8px 12px} .re-ic{width:30px;height:30px;font-size:var(--fs-md)} }
+
+.truth{color:var(--warn);font-weight:700}

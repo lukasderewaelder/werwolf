@@ -4,6 +4,7 @@ import { S, ui, views, on, go, toast } from './core.js';
 import { esc, art, I } from './art.js';
 import { topBar } from './home.js';
 import { ROLES, RM, CAMP_LABEL, CUSTOM_WIN, PASSIVES, BLOCKS, BLOCK_WHEN, BLOCK_WHEN_DAY, BLOCK_CHANCE, registerRoles, customBlocks, blankBlock, fillVillagers, TRIG_TARGETS, isTrigOnly } from '../engine/roles.js';
+import { asText } from '../engine/rules.js';
 import { CONDS, COND_GROUPS, MAX_DEPTH, THENS, EFFECT_GROUPS, EFFECT_HINT, PHRASE, CUSTOM_TEMPLATES, describeRule, condText, condCount, targetText, whenText, sanitizeCond, TRIGGERS, TGT_TXT, POWER_TXT, PROTECT_TXT, powerText } from '../engine/rules.js';
 
 const WHO = { any: 'Alle', ownCamp: 'Eigene Partei', otherCamp: 'Andere Partei', withAbility: 'Mit Nachtfähigkeit', noAbility: 'Ohne Nachtfähigkeit' };
@@ -51,19 +52,29 @@ const stepper = (action, val, label, attrs = '') => `<div class="stepper re-step
 
 /** Ein Satz mit Lücken: Zeit · Wirkung · Ziel · Bedingung · Häufigkeit · Danach. */
 function ruleCard(b, ri, n) {
-  const B = BLOCKS[b.k], [pre, post = ''] = PHRASE[b.k].split('{t}'), tt = targetText(b);
-  const verb = pre.replace('{x}', '').replace('{r}', '').trim().replace(/[:„“]+$/, '').trim() || B.short;
+  const B = BLOCKS[b.k], tt = targetText(b);
   const cond = condCount(b.if) ? condText(b.if) : 'immer';
   const freq = [b.limit ? `höchstens ${b.limit}×` : 'unbegrenzt', b.chance < 100 ? `gelingt zu ${b.chance} %` : 'gelingt immer'].join(' · ');
   const then = (b.then ?? []).length ? b.then.map((t) => THENS[t.k].name).join(', ') : 'nichts';
-  const tail = post.replace('{r}', '').trim();
+  // Satzbaustein in Text und Lücken zerlegen: der erste Text ist die Wirkung, {t} Ziel, {r} Rolle, {a} Erscheinen als, {x} Hinweistext
+  let first = true;
+  const sent = PHRASE[b.k].split(/(\{[trax]\})/).filter((p) => p.trim()).map((p) => {
+    if (p === '{t}') return tt ? gap(ri, 'target', tt) : b.k === 'strike' ? gap(ri, 'target', 'niemanden', 'empty') : esc('sich');
+    if (p === '{r}') return gap(ri, 'role', RM[b.role]?.name ?? '?');
+    if (p === '{a}') return gap(ri, 'as', asText(b));
+    if (p === '{x}') return gap(ri, 'text', b.text ? `„${b.text}“` : 'Text eingeben', b.text ? '' : 'empty');
+    const t = p.replace(/[„“]/g, '').trim();
+    if (first) { first = false; return gap(ri, 'effect', t.replace(/:$/, ''), 'eff'); }
+    return esc(t);
+  }).join(' ');
+  const extra = [b.k === 'note' && !b.n && !b.on ? gap(ri, 'target', 'ohne Ziel', 'empty') : '', b.power != null ? gap(ri, 'power', powerText(b)) : '', b.k === 'trap' ? gap(ri, 'trap', `${TRAP_WHO[b.trapWho]} · ${b.trapArm === 'now' ? 'sofort' : 'ab nächster Nacht'}`) : '', b.k === 'frame' ? gap(ri, 'as', `${b.nights} ${b.nights === 1 ? 'Nacht' : 'Nächte'}`) : '', b.k === 'appear' && b.scope !== 'checks' ? gap(ri, 'as', b.scope === 'death' ? 'nur beim Tod' : 'auch beim Tod') : '', !b.on && b.who && b.who !== 'any' ? gap(ri, 'target', WHO[b.who]) : ''].filter(Boolean).join(' ');
   return `<div class="rcard" data-ri="${ri}">
     <div class="rc-top"><span class="no">${ri + 1}</span><b class="rc-name">${esc(B.short)}</b>${B.day ? '<span class="pill">Tag</span>' : ''}<span class="spacer"></span>
       <button type="button" class="mini" data-action="re-move" data-ri="${ri}" data-d="-1" aria-label="Nach oben" ${ri === 0 ? 'disabled' : ''}>${I.up}</button>
       <button type="button" class="mini" data-action="re-move" data-ri="${ri}" data-d="1" aria-label="Nach unten" ${ri === n - 1 ? 'disabled' : ''}>${I.down}</button>
       <button type="button" class="mini" data-action="re-dup" data-ri="${ri}" aria-label="Verdoppeln" ${n >= 8 ? 'disabled' : ''}>${I.plus}</button>
       <button type="button" class="mini bad" data-action="re-del" data-ri="${ri}" aria-label="Entfernen">${I.close}</button></div>
-    <p class="rc-sent">${gap(ri, 'timing', whenText(b))} ${gap(ri, 'effect', verb, 'eff')}${tt ? ` ${gap(ri, 'target', tt)}` : b.k === 'note' || b.k === 'strike' ? ` ${gap(ri, 'target', b.k === 'strike' ? 'niemanden' : 'ohne Ziel', 'empty')}` : ''}${b.power != null ? ` ${gap(ri, 'power', powerText(b))}` : ''}${b.k === 'trap' ? ` ${gap(ri, 'trap', `${TRAP_WHO[b.trapWho]} · ${b.trapArm === 'now' ? 'sofort' : 'ab nächster Nacht'}`)}` : ''}${!b.on && b.who && b.who !== 'any' ? ` ${gap(ri, 'target', WHO[b.who])}` : ''}${tail ? ` ${esc(tail)}` : ''}${b.k === 'convert' ? ` in ${gap(ri, 'role', RM[b.role]?.name ?? '?')}` : ''}${b.k === 'note' ? ` ${gap(ri, 'text', b.text ? `„${b.text}“` : 'Text eingeben', b.text ? '' : 'empty')}` : ''}</p>
+    <p class="rc-sent">${gap(ri, 'timing', whenText(b))} ${sent}${extra ? ` ${extra}` : ''}</p>
     <p class="rc-sent"><span class="lbl">wenn</span> ${gap(ri, 'cond', cond, condCount(b.if) ? '' : 'empty')}</p>
     <p class="rc-sent"><span class="lbl">Häufigkeit</span> ${gap(ri, 'freq', freq)}</p>
     <p class="rc-sent"><span class="lbl">danach</span> ${gap(ri, 'then', then, (b.then ?? []).length ? '' : 'empty')}</p></div>`;
@@ -137,6 +148,14 @@ function sheetHtml(re) {
       const mode = B.trig && !trigOnly ? `<div class="seg">${[['', 'Zu einer Zeit'], [B.trig[0], 'Bei einem Ereignis']].map(([v, t]) => `<button type="button" class="${!!b.on === !!v ? 'on' : ''}" data-action="re-set" data-key="on" data-v="${v}">${t}</button>`).join('')}</div>` : '';
       const list = b.on ? B.trig.map((k) => pickRow('re-set', esc(TRIGGERS[k]), '', b.on === k, `data-key="on" data-v="${k}"`)) : Object.entries(W).map(([k, t]) => pickRow('re-set', esc(t), '', b.when === k, `data-key="when" data-v="${k}"`));
       body = `${mode}${b.on ? '<p class="muted small">Die Regel wirkt automatisch, ohne Nachtschritt.</p>' : ''}<div class="re-tiles one">${list.join('')}</div>`;
+      break;
+    }
+    case 'as': {
+      title = b.k === 'appear' ? 'Erscheint als …' : 'Lässt erscheinen als …';
+      body = `<div class="re-tiles one">${[['village', 'Dorfbewohner', 'Prüfungen zeigen „kein Werwolf“.'], ['wolf', 'Werwolf', 'Prüfungen zeigen „Werwolf“.'], ['role', 'Eine feste Rolle', `Zurzeit: ${esc(RM[b.role]?.name ?? '?')}`], ['random', 'Eine zufällige Rolle', 'Jede Nacht eine andere Rolle aus dem Spiel.']].map(([k, t, h]) => pickRow('re-set', t, h, b.as === k, `data-key="as" data-v="${k}"`)).join('')}</div>
+        ${b.as === 'role' ? `<button type="button" class="btn sm" data-action="re-gap" data-ri="${sh.ri}" data-f="role">${I.right}<span>Rolle wählen</span></button>` : ''}
+        ${b.k === 'frame' ? `<div class="re-sec"><span class="eyebrow">Wie lange?</span>${stepper('re-num', b.nights, `${b.nights} ${b.nights === 1 ? 'Nacht' : 'Nächte'}`, 'data-key="nights" data-min="1" data-max="3"')}</div>` : ''}
+        ${b.k === 'appear' ? `<div class="re-sec"><span class="eyebrow">Wann?</span><div class="seg">${[['checks', 'Bei Prüfungen'], ['death', 'Beim Tod'], ['both', 'Beides']].map(([k, t]) => `<button type="button" class="${b.scope === k ? 'on' : ''}" data-action="re-set" data-key="scope" data-v="${k}">${t}</button>`).join('')}</div><p class="muted small">Beim Tod: Die App zeigt dir die Rolle, die du ansagst, und klein die echte.</p></div>` : ''}`;
       break;
     }
     case 'power': {
@@ -222,7 +241,7 @@ for (let i = 0; i < 3; i++) on(`input:re-then-${i}`, (el) => { const t = R()?.th
 on('re-tpl', (el) => {
   const t = CUSTOM_TEMPLATES.find((x) => x.key === el.dataset.k); if (!t) return false;
   const d = D();
-  Object.assign(d, { name: d.name.trim() ? d.name : t.name, sub: d.sub.trim() ? d.sub : t.sub, icon: t.icon, rules: customBlocks({ rules: clone(t.rules) }), passives: [...(t.passives ?? [])], win: t.win ?? 'camp', needUse: false });
+  Object.assign(d, { camp: t.camp ?? d.camp, name: d.name.trim() ? d.name : t.name, sub: d.sub.trim() ? d.sub : t.sub, icon: t.icon, rules: customBlocks({ rules: clone(t.rules) }), passives: [...(t.passives ?? [])], win: t.win ?? 'camp', needUse: false });
   toast(`Vorlage „${t.name}“ übernommen. Alles lässt sich ändern.`);
 });
 on('re-camp', (el) => { D().camp = el.dataset.v === 'wolf' ? 'wolf' : 'village'; });
@@ -238,14 +257,14 @@ on('re-sheet-close', (el, e) => { if (e.target.closest('[data-stop]') && !el.dat
 on('re-sheet-back', () => { ui.re.sheet.f = 'cond'; });
 on('re-effect', (el) => {
   const k = el.dataset.k, d = D(), sh = ui.re.sheet;
-  if (sh.ri < 0) { d.rules.push(fix({ ...blankBlock(k), self: !!BLOCKS[k].selfOnly })); ui.re.tab = 'rules'; ui.re.sheet = k === 'convert' ? { ri: d.rules.length - 1, f: 'role', path: '' } : k === 'note' ? { ri: d.rules.length - 1, f: 'text', path: '' } : null; return; }
+  if (sh.ri < 0) { d.rules.push(fix({ ...blankBlock(k), self: !!BLOCKS[k].selfOnly })); ui.re.tab = 'rules'; ui.re.sheet = BLOCKS[k].role ? { ri: d.rules.length - 1, f: 'role', path: '' } : BLOCKS[k].as ? { ri: d.rules.length - 1, f: 'as', path: '' } : k === 'note' ? { ri: d.rules.length - 1, f: 'text', path: '' } : null; return; }
   d.rules[sh.ri] = fix({ ...d.rules[sh.ri], k });
   ui.re.sheet = null;
 });
 on('re-set', (el) => { const b = R(); if (!b) return false; const k = el.dataset.key, v = el.dataset.v; b[k] = ['limit', 'chance', 'power', 'n'].includes(k) ? +v : v; D().rules[ui.re.sheet.ri] = fix(b); });
-on('re-num', (el) => { const b = R(); if (!b) return false; b.n = Math.max(+el.dataset.min, Math.min(+el.dataset.max, b.n + +el.dataset.d)); D().rules[ui.re.sheet.ri] = fix(b); });
+on('re-num', (el) => { const b = R(); if (!b) return false; const k = el.dataset.key || 'n'; b[k] = Math.max(+el.dataset.min, Math.min(+el.dataset.max, (b[k] ?? 0) + +el.dataset.d)); D().rules[ui.re.sheet.ri] = fix(b); });
 on('re-flag', (el) => { const b = R(); if (!b) return false; b[el.dataset.key] = !b[el.dataset.key]; D().rules[ui.re.sheet.ri] = fix(b); });
-on('re-role', (el) => { const b = R(); if (b) b.role = el.dataset.v; ui.re.sheet = null; });
+on('re-role', (el) => { const b = R(); if (b) b.role = el.dataset.v; ui.re.sheet = BLOCKS[b?.k]?.as ? { ...ui.re.sheet, f: 'as' } : null; });
 on('re-heir', (el) => { D().heir = el.dataset.v; ui.re.sheet = null; });
 
 on('re-move', (el) => { const r = D().rules, i = +el.dataset.ri, j = i + +el.dataset.d; if (j < 0 || j >= r.length) return false; [r[i], r[j]] = [r[j], r[i]]; });
