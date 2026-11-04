@@ -57,10 +57,10 @@ export const EFFECT_GROUPS = [
   ['Schützen', ['protect', 'guard', 'alert']],
   ['Wissen', ['peek', 'peekrole', 'party', 'same', 'count', 'threeRoles', 'roleAlive', 'roleIn', 'deadRole', 'deathCause']],
   ['Wissen am Morgen', ['watch', 'whomVisited', 'whoActive', 'attackedAll', 'wasProtected', 'myAttacker']],
-  ['Täuschen', ['appear', 'frame', 'nullify']],
+  ['Täuschen', ['appear', 'frame', 'nullify', 'redirectAbility']],
   ['Gegenstände', ['giveItem', 'stealItem', 'destroyItem', 'cleanse', 'gainItem', 'startItem']],
   ['Abstimmung und Tag', ['voteBoost', 'votePenalty', 'voteShield', 'noVote', 'extraVote', 'accuse', 'reveal', 'selfVote', 'secretVote', 'tieBreak']],
-  ['Rolle wechseln', ['becomeWolf', 'turnSelf', 'copyDead', 'passOn', 'lend', 'bequeath', 'takeRole', 'unlock']],
+  ['Rolle wechseln', ['secondRole', 'startSecond', 'becomeWolf', 'turnSelf', 'copyDead', 'passOn', 'lend', 'bequeath', 'takeRole', 'unlock']],
   ['Angreifen', ['kill', 'delayed', 'trap', 'shoot', 'jailkill']],
   ['Besuche und Orte', ['visit', 'invite', 'decoy', 'redirect', 'swapPlace']],
   ['Bei Ereignis (automatisch)', ['survive', 'strike', 'dieSelf', 'shield']],
@@ -84,6 +84,7 @@ export const EFFECT_HINT = {
   deadRole: 'Die echte Rolle einer gestorbenen Person.', deathCause: 'Wie die Person gestorben ist.', whomVisited: 'Wen die Person heute besucht hat.', whoActive: 'Alle, die heute etwas eingesetzt haben.',
   attackedAll: 'Alle, die heute angegriffen wurden.', wasProtected: 'Ja oder nein.', myAttacker: 'Wer sie heute angegriffen hat.',
   appear: 'Dauerhaft: Prüfungen zeigen etwas Falsches.',
+  redirectAbility: 'Seherin, Heiler, Hexe, Rabe, Wölfe oder eigene Rollen treffen heute eine andere Person.', secondRole: 'Die Person wird zusätzlich für diese Rolle geweckt. Sieg nach der Hauptrolle.', startSecond: 'Ab Spielbeginn zusätzlich eine zweite Rolle.',
   becomeWolf: 'Ein Angriff macht sie zum Werwolf statt zu töten.',
   leaveParty: 'Die Person gehört keiner Partei mehr an.',
   giveItem: 'Zum Beispiel eine Rüstung.', stealItem: 'Nimmt den ersten Gegenstand der Person an sich.', destroyItem: 'Alle Gegenstände der Person sind weg.', cleanse: 'Entfernt alle schlechten Gegenstände.', gainItem: 'Bei einem Ereignis bekommt sie einen Gegenstand.', startItem: 'Liegt ab Spielbeginn bereit.',
@@ -105,6 +106,7 @@ export const PHRASE = {
   roleAlive: 'erfährt, ob {r} noch lebt', roleIn: 'erfährt, ob {r} im Spiel ist', deadRole: 'erfährt die Rolle von {t}', deathCause: 'erfährt die Todesursache von {t}',
   whomVisited: 'erfährt am Morgen, wen {t} besucht hat', whoActive: 'erfährt am Morgen, wer aktiv war', attackedAll: 'erfährt am Morgen, wer angegriffen wurde', wasProtected: 'erfährt am Morgen, ob {t} geschützt war', myAttacker: 'erfährt am Morgen, wer sie angegriffen hat',
   appear: 'erscheint bei Prüfungen als {a}',
+  redirectAbility: 'lenkt die Fähigkeit um: {t}', secondRole: 'gibt {t} die Zweitrolle {r}', startSecond: 'hat zusätzlich die Rolle {r}',
   becomeWolf: 'wird Werwolf statt zu sterben',
   giveItem: 'gibt {t} {i}', stealItem: 'stiehlt {t} einen Gegenstand', destroyItem: 'zerstört die Gegenstände von {t}', cleanse: 'befreit {t} von schlechten Gegenständen', gainItem: 'erhält {i}', startItem: 'beginnt mit {i}',
   voteBoost: 'ändert die Stimme von {t}', votePenalty: 'belastet {t} mit Strafstimmen', voteShield: 'bewahrt {t} heute vor der Hinrichtung', noVote: 'verhindert die heutige Abstimmung', extraVote: 'verlangt eine zweite Abstimmung',
@@ -180,6 +182,8 @@ export const ITEM_TEMPLATES = [
 ];
 const R = (k, o = {}) => ({ k, n: 1, when: 'every', limit: 0, self: false, rep: false, role: 'villager', chance: 100, ...o });
 export const CUSTOM_TEMPLATES = [
+  { key: 'trickster', name: 'Gaukler der Nacht', sub: 'Lenkt Fähigkeiten auf andere', icon: '🎲', rules: [R('redirectAbility', { when: 'later', limit: 2 })] },
+  { key: 'mentor', name: 'Mentor', sub: 'Gibt einmal eine Zweitrolle weiter', icon: '📜', rules: [R('secondRole', { role: 'seer', limit: 1 })] },
   { key: 'ghost', name: 'Poltergeist', sub: 'Spukt nach dem Tod zwei Nächte lang', icon: '💀', rules: [R('mark'), R('note', { n: 1, ghost: true, ghostNights: 2, text: 'Der Geist darf der Person ein Zeichen geben.' })] },
   { key: 'hunter3', name: 'Kopfgeldjäger', sub: 'Gewinnt, wenn er sein Ziel selbst erwischt', icon: '🎯', rules: [R('bind', { when: 'first', limit: 1 }), R('kill', { when: 'later', limit: 2 })], win: 'killBound' },
   { key: 'smith', name: 'Schmied', sub: 'Verteilt zweimal eine Rüstung', icon: '🪓', rules: [R('giveItem', { limit: 2, item: '@armor' })], needItems: ['armor'] },

@@ -404,6 +404,10 @@ export const BLOCKS = {
   lend: { name: 'Leiht die eigene Rolle für die nächste Nacht aus', short: 'Ausleihen', verb: 'leiht die Rolle an' },
   bequeath: { name: 'Vererbt die eigene Rolle beim Tod', short: 'Vererben', verb: 'vererbt die Rolle an', trig: ['death'] },
   takeRole: { name: 'Übernimmt die Rolle des festgelegten Ziels, wenn es stirbt', short: 'Nachfolge', verb: 'übernimmt die Rolle', trig: ['boundDies'], noTarget: true },
+  // E8: Umlenken und Zweitrolle
+  redirectAbility: { name: 'Lenkt die Fähigkeit der ersten Person heute auf die zweite', short: 'Fähigkeit umlenken', verb: 'lenkt um', fixed: 2 },
+  secondRole: { name: 'Gibt einer Person eine Zweitrolle', short: 'Zweitrolle', verb: 'gibt eine Zweitrolle', role: true },
+  startSecond: { name: 'Beginnt mit einer Zweitrolle', short: 'Zweitrolle zu Beginn', verb: 'hat zusätzlich', role: true, trig: ['always'], noTarget: true },
   // E6: Gegenstände
   giveItem: { name: 'Gibt einer Person einen Gegenstand', short: 'Gegenstand geben', verb: 'gibt', item: true },
   stealItem: { name: 'Stiehlt einer Person einen Gegenstand', short: 'Stehlen', verb: 'stiehlt' },
@@ -427,7 +431,7 @@ export const BLOCKS = {
 /** Ohne Ziel: Einsatz per Knopf im Nachtschritt. */
 export const isToggle = (b) => !!BLOCKS[b.k].selfOnly || (b.k === 'note' && !b.n) || (!!BLOCKS[b.k].noTarget && !b.on && !isTrigOnly(b.k));
 /** Nur über Auslöser nutzbar (kein Nachtschritt). */
-export const isTrigOnly = (k) => ['survive', 'strike', 'dieSelf', 'shield', 'appear', 'becomeWolf', 'turnSelf', 'bequeath', 'takeRole', 'selfVote', 'secretVote', 'tieBreak', 'gainItem', 'startItem'].includes(k);
+export const isTrigOnly = (k) => ['survive', 'strike', 'dieSelf', 'shield', 'appear', 'becomeWolf', 'turnSelf', 'bequeath', 'takeRole', 'selfVote', 'secretVote', 'tieBreak', 'gainItem', 'startItem', 'startSecond'].includes(k);
 export const BLOCK_WHEN = { every: 'Jede Nacht', first: 'Nur in der ersten Nacht', later: 'Ab der zweiten Nacht', even: 'Jede zweite Nacht' };
 export const BLOCK_WHEN_DAY = { every: 'Jeden Tag', first: 'Nur am ersten Tag', later: 'Ab dem zweiten Tag', even: 'Jeden zweiten Tag' };
 export const BLOCK_CHANCE = [100, 75, 50, 25];

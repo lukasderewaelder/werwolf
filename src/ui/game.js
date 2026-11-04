@@ -4,7 +4,7 @@ import { esc, art, I, initials, circlePos, tokenSize, roleShort } from './art.js
 import { RM, CAMP_LABEL, roleName, BLOCKS, targetsOf, custKey, isToggle, PM } from '../engine/roles.js';
 import {
   alive, nm, isWolf, looksWolf, roleLabel, holders, livingHolders, seatNeighbors, stepContext, nightSteps, openDecision, unknownPool, livingIds, CAUSE, groupNames, powerOn, tally,
-  eligibleVoters, voucherVictim, voucherStart, dayBlocks, appearance, infoNow, isNullified, specialVoters,
+  eligibleVoters, voucherVictim, voucherStart, dayBlocks, appearance, infoNow, isNullified, specialVoters, redirectOf,
 } from '../engine/game.js';
 import { SPIRIT_CARDS } from '../engine/events.js';
 import { eventBlock } from './cards.js';
@@ -78,6 +78,7 @@ function tokHtml(g, p, i, n, mk, mode) {
   if (g.charmed?.[p.id] && !dead && showRoles()) b.push(`<span class="bdg blue" title="Betört">${I.moon}</span>`);
   if (known && !dead && isWolf(g, p.id) && n <= 20) b.push(`<span class="bdg red" title="Werwolf">${I.wolf}</span>`);
   for (const it of (g.items?.[p.id] ?? []).slice(0, 3)) { const R2 = RM[`it_${it.iid}`]; if (R2 && (!R2.hidden || showRoles())) b.push(`<span class="bdg" title="${esc(R2.name)}${R2.hidden ? ' (verdeckt)' : ''}">${esc(R2.icon)}</span>`); }
+  if (g.second?.[p.id] && showRoles()) b.push(`<span class="bdg blue" title="Zweitrolle ${esc(roleName(g.second[p.id]))}">2</span>`);
   if (g.party?.[p.id] && PM[g.party[p.id]] && showRoles()) b.push(`<span class="bdg" title="Partei ${esc(PM[g.party[p.id]].name)}" style="color:${esc(PM[g.party[p.id]].color)}">●</span>`);
   if (g.revealed?.[p.id]) b.push(`<span class="bdg gold" title="Aufgedeckt">${I.eye}</span>`);
   if (g.idiotRevealed && rid === 'idiot') b.push(`<span class="bdg gold" title="Ohne Stimmrecht">${I.minus}</span>`);
@@ -198,6 +199,7 @@ function taskBox(g, c) {
       case 'check': {
         if (!d.check) prompt = 'Wen prüft die Seherin? Person antippen.';
         else if (g.cfg.rules.harvest) prompt = harvestSeen(g, d.check) ?? `${nm(g, d.check)}: Rollen der Nachbarn noch nicht erfasst. Zeig der Seherin die Karten.`;
+        else if (livingHolders(g, 'seer').some((p) => redirectOf(g, p.id))) { const to = livingHolders(g, 'seer').map((p) => redirectOf(g, p.id)).find(Boolean); prompt = `Umgelenkt auf ${nm(g, to)}: ${seenText(g, to) ?? 'Rolle noch nicht erfasst'}`; }
         else if (livingHolders(g, 'seer').some((p) => isNullified(g, p.id))) prompt = `${nm(g, d.check)}: Die Seherin ist heute wirkungslos. Zeig irgendeine Karte.`;
         else prompt = seenText(g, d.check) ? `${nm(g, d.check)}: ${seenText(g, d.check)}${g.cfg.rules.seerSees === 'camp' && looksWolf(g, d.check) !== isWolf(g, d.check) ? ` (echt: ${isWolf(g, d.check) ? 'Werwolf' : 'kein Werwolf'})` : ''}` : `${nm(g, d.check)}: Rolle noch nicht erfasst. Zeig der Seherin die Karte.`;
         cls = d.check ? 'ok' : '';
