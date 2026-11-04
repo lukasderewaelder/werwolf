@@ -69,9 +69,9 @@ const GUIDE = [
   { t: 'Eigene Rollen und Sonderkarten', parts: [
     { h: 'Eigene Rollen', steps: [
       'Öffne bei der Rollenwahl den Reiter <b>Eigene</b> und tippe auf <b>Eigene Rolle anlegen</b>.',
-      'Füge Bausteine hinzu: jede Fähigkeit ist ein Baustein mit eigenen Grenzen.',
-      'Lege fest, wann und wie oft sie wirkt und ob sie nur mit einer Chance gelingt.',
-      'Ergänze passive Eigenschaften und eine Siegbedingung.',
+      'Die Rollen-Werkstatt öffnet sich. Beginne mit einer Vorlage oder leer.',
+      'Unter <b>Fähigkeiten</b> ist jede Fähigkeit ein Satz. Tippe die markierten Lücken an: wann, was, wen, wenn, wie oft, danach.',
+      'Bedingungen ordnest du in Gruppen: <b>Alle müssen gelten</b> oder <b>Eine reicht</b>. Dann Eigenschaften und Sieg wählen und speichern.',
     ] },
     { dots: [
       'Nachts: töten, schützen, prüfen, Rolle erfahren, stumm schalten, sperren, tauschen, verlieben, verwandeln, wiederbeleben.',

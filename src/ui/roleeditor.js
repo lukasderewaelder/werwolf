@@ -1,0 +1,273 @@
+// Rollen-Werkstatt: eigene Rollen als Satzbaukasten. Jede Fähigkeit ist ein Satz mit antippbaren Lücken;
+// eine Lücke öffnet ein Auswahlblatt mit Kacheln, Chips und Schaltern (keine Auswahllisten).
+import { S, ui, views, on, go, toast } from './core.js';
+import { esc, art, I } from './art.js';
+import { topBar } from './home.js';
+import { ROLES, RM, CAMP_LABEL, CUSTOM_WIN, PASSIVES, BLOCKS, BLOCK_WHEN, BLOCK_WHEN_DAY, BLOCK_CHANCE, registerRoles, customBlocks, blankBlock, fillVillagers } from '../engine/roles.js';
+import { CONDS, COND_GROUPS, MAX_DEPTH, THENS, EFFECT_GROUPS, EFFECT_HINT, PHRASE, CUSTOM_TEMPLATES, describeRule, condText, condCount, targetText, whenText, sanitizeCond } from '../engine/rules.js';
+import { uid, presentPlayers } from '../store.js';
+
+export const CUSTOM_ICONS = ['🔮', '🗡️', '🛡️', '👁️', '🔥', '🌙', '⭐', '🍀', '🕯️', '🗝️', '🎭', '🧪', '📜', '🐺', '🦉', '🐍', '⚖️', '🏹', '🪓', '🎲', '🧿', '🌹', '💀', '🔔'];
+const TABS = [['basis', 'Grundlagen'], ['rules', 'Fähigkeiten'], ['traits', 'Eigenschaften'], ['win', 'Sieg']];
+const WIN_GROUPS = [['Mit dem Lager', ['camp']], ['Gewinnt mit dem Sieger', ['survive', 'bound', 'hunt']], ['Gewinnt allein', ['solo', 'executed', 'dies', 'killed', 'cult']]];
+const WAKE = [['none', 'Nie'], ['first', 'Nacht 1'], ['every', 'Jede Nacht'], ['even', 'Jede 2.']];
+const clone = (o) => JSON.parse(JSON.stringify(o));
+
+const blankDraft = () => ({ name: '', camp: 'village', sub: '', desc: '', say: '', wake: 'none', after: false, icon: '', rules: [], passives: [], heir: '', needUse: false, win: 'camp' });
+
+/** Werkstatt öffnen: neue Rolle oder vorhandene (alte Rollen mit „blocks“ werden in Regeln umgerechnet). */
+export function openRoleEditor(id = null) {
+  const r = id ? S.customRoles.find((x) => x.id === id) : null;
+  const draft = r ? { ...blankDraft(), ...clone(r), rules: customBlocks(r) } : blankDraft();
+  delete draft.blocks;
+  ui.re = { id: r?.id ?? null, draft, tab: 'basis', sheet: null, lastDel: null, from: ui.view };
+  go('roleeditor');
+}
+
+/* ---------- Vorschau ---------- */
+function previewHtml(d) {
+  const lines = [
+    ...d.rules.map((b) => describeRule(b)),
+    ...(d.rules.length ? [] : d.wake !== 'none' ? [`${{ first: 'In der ersten Nacht', every: 'Jede Nacht', even: 'Jede zweite Nacht' }[d.wake]}: wird nur aufgerufen.`] : ['Keine Fähigkeit in der Nacht.']),
+    ...d.passives.map((p) => `${PASSIVES[p]}.`),
+    ...(d.heir ? [`Übernimmt ${RM[d.heir]?.name ?? '?'}, wenn diese Rolle stirbt.`] : []),
+    `Sieg: ${CUSTOM_WIN[d.win] ?? CUSTOM_WIN.camp}${d.needUse ? ', nur nach eigenem Einsatz' : ''}.`,
+  ];
+  const ic = d.icon || (d.name.trim()[0] ?? '?').toUpperCase();
+  return `<div class="re-prev card flat"><div class="re-prev-head"><span class="re-ic ${d.camp}">${esc(ic)}</span><div class="t"><b>${esc(d.name.trim() || 'Neue Rolle')}</b><span class="camp ${d.camp}">${CAMP_LABEL[d.camp]}</span></div></div>
+    <ul class="re-lines" data-keep="re-prev">${lines.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
+}
+const refreshPreview = () => { const el = document.getElementById('re-preview'); if (el && ui.re) el.innerHTML = previewHtml(ui.re.draft); };
+
+/* ---------- Bausteine der Oberfläche ---------- */
+const gap = (ri, f, label, extra = '') => `<button type="button" class="gap ${extra}" data-action="re-gap" data-ri="${ri}" data-f="${f}">${esc(label)}</button>`;
+const chip = (action, label, on, attrs = '') => `<button type="button" class="chip ${on ? 'on' : ''}" data-action="${action}" ${attrs}>${label}</button>`;
+const toggleRow = (action, title, sub, on, attrs = '', disabled = false) => `<button type="button" class="opt ${disabled ? 'off' : ''}" data-action="${action}" ${attrs} ${disabled ? 'disabled' : ''} aria-pressed="${on}"><span class="t"><b>${title}</b>${sub ? `<span>${sub}</span>` : ''}</span><span class="toggle ${on ? 'on' : ''}"><i></i></span></button>`;
+const pickRow = (action, title, sub, on, attrs = '') => `<button type="button" class="opt pick ${on ? 'on' : ''}" data-action="${action}" ${attrs} aria-pressed="${on}"><span class="radio"></span><span class="t"><b>${title}</b>${sub ? `<span>${sub}</span>` : ''}</span></button>`;
+const stepper = (action, val, label, attrs = '') => `<div class="stepper re-step"><button type="button" data-action="${action}" data-d="-1" ${attrs} aria-label="weniger">${I.minus}</button><span class="val">${esc(label ?? val)}</span><button type="button" data-action="${action}" data-d="1" ${attrs} aria-label="mehr">${I.plus}</button></div>`;
+
+/** Ein Satz mit Lücken: Zeit · Wirkung · Ziel · Bedingung · Häufigkeit · Danach. */
+function ruleCard(b, ri, n) {
+  const B = BLOCKS[b.k], [pre, post = ''] = PHRASE[b.k].split('{t}'), tt = targetText(b);
+  const verb = pre.replace('{x}', '').replace('{r}', '').trim().replace(/[:„“]+$/, '').trim() || B.short;
+  const cond = condCount(b.if) ? condText(b.if) : 'immer';
+  const freq = [b.limit ? `höchstens ${b.limit}×` : 'unbegrenzt', b.chance < 100 ? `gelingt zu ${b.chance} %` : 'gelingt immer'].join(' · ');
+  const then = (b.then ?? []).length ? b.then.map((t) => THENS[t.k].name).join(', ') : 'nichts';
+  const tail = post.replace('{r}', '').trim();
+  return `<div class="rcard" data-ri="${ri}">
+    <div class="rc-top"><span class="no">${ri + 1}</span><b class="rc-name">${esc(B.short)}</b>${B.day ? '<span class="pill">Tag</span>' : ''}<span class="spacer"></span>
+      <button type="button" class="mini" data-action="re-move" data-ri="${ri}" data-d="-1" aria-label="Nach oben" ${ri === 0 ? 'disabled' : ''}>${I.up}</button>
+      <button type="button" class="mini" data-action="re-move" data-ri="${ri}" data-d="1" aria-label="Nach unten" ${ri === n - 1 ? 'disabled' : ''}>${I.down}</button>
+      <button type="button" class="mini" data-action="re-dup" data-ri="${ri}" aria-label="Verdoppeln" ${n >= 8 ? 'disabled' : ''}>${I.plus}</button>
+      <button type="button" class="mini bad" data-action="re-del" data-ri="${ri}" aria-label="Entfernen">${I.close}</button></div>
+    <p class="rc-sent">${gap(ri, 'timing', whenText(b))} ${gap(ri, 'effect', verb, 'eff')}${tt ? ` ${gap(ri, 'target', tt)}` : b.k === 'note' ? ` ${gap(ri, 'target', 'ohne Ziel')}` : ''}${tail ? ` ${esc(tail)}` : ''}${b.k === 'convert' ? ` in ${gap(ri, 'role', RM[b.role]?.name ?? '?')}` : ''}${b.k === 'note' ? ` ${gap(ri, 'text', b.text ? `„${b.text}“` : 'Text eingeben', b.text ? '' : 'empty')}` : ''}</p>
+    <p class="rc-sent"><span class="lbl">wenn</span> ${gap(ri, 'cond', cond, condCount(b.if) ? '' : 'empty')}</p>
+    <p class="rc-sent"><span class="lbl">Häufigkeit</span> ${gap(ri, 'freq', freq)}</p>
+    <p class="rc-sent"><span class="lbl">danach</span> ${gap(ri, 'then', then, (b.then ?? []).length ? '' : 'empty')}</p></div>`;
+}
+
+function tabHtml(re) {
+  const d = re.draft;
+  switch (re.tab) {
+    case 'basis': return `
+      <div class="re-sec"><div class="eyebrow">Mit Vorlage beginnen</div><div class="chips">${CUSTOM_TEMPLATES.map((t) => chip('re-tpl', `${t.icon} ${esc(t.name)}`, false, `data-k="${t.key}"`)).join('')}</div></div>
+      <label class="re-sec"><span class="eyebrow">Name</span><input class="inp" id="re-name" value="${esc(d.name)}" maxlength="28" placeholder="z. B. Nachtwächter" autocomplete="off"></label>
+      <div class="re-sec"><span class="eyebrow">Lager</span><div class="re-two">${pickRow('re-camp', 'Dorf', 'Gewinnt mit den Dorfbewohnern', d.camp !== 'wolf', 'data-v="village"')}${pickRow('re-camp', 'Werwölfe', 'Zählt als Wolf', d.camp === 'wolf', 'data-v="wolf"')}</div></div>
+      <div class="re-sec"><span class="eyebrow">Symbol</span><div class="chips wrap">${['', ...CUSTOM_ICONS].map((ic) => chip('re-icon', ic || 'Aa', (d.icon || '') === ic, `data-v="${ic}" aria-label="${ic ? `Symbol ${ic}` : 'Anfangsbuchstabe'}"`)).join('')}</div></div>
+      <label class="re-sec"><span class="eyebrow">Kurzbeschreibung</span><input class="inp" id="re-sub" value="${esc(d.sub)}" maxlength="60" placeholder="z. B. Sieht, wer nachts wach ist" autocomplete="off"></label>
+      <label class="re-sec"><span class="eyebrow">Ansage zum Vorlesen</span><input class="inp" id="re-say" value="${esc(d.say)}" maxlength="300" placeholder="Der Nachtwächter erwacht." autocomplete="off"></label>
+      <label class="re-sec"><span class="eyebrow">Beschreibung</span><textarea class="inp" id="re-desc" maxlength="600" placeholder="Was kann die Rolle?">${esc(d.desc)}</textarea></label>
+      <div class="re-sec"><span class="eyebrow">Aufruf in der Nacht</span><div class="seg">${[[false, 'Vor den Wölfen'], [true, 'Nach den Wölfen']].map(([v, t]) => `<button type="button" class="${!!d.after === v ? 'on' : ''}" data-action="re-after" data-v="${v ? 1 : 0}">${t}</button>`).join('')}</div></div>
+      ${re.id ? `<button type="button" class="btn danger" data-action="re-delete">${I.close}<span>Rolle löschen</span></button>` : ''}`;
+    case 'rules': return `
+      ${d.rules.map((b, i) => ruleCard(b, i, d.rules.length)).join('')}
+      ${re.lastDel ? `<div class="hint">${I.undo}<span>${esc(BLOCKS[re.lastDel.rule.k].short)} entfernt.</span><button type="button" class="btn sm ghost" data-action="re-undo">Rückgängig</button></div>` : ''}
+      ${d.rules.length < 8 ? `<button type="button" class="btn re-add" data-action="re-gap" data-ri="-1" data-f="effect">${I.plus}<span>Fähigkeit hinzufügen</span></button>` : '<p class="muted small">Höchstens 8 Fähigkeiten.</p>'}
+      ${d.rules.length ? '' : `<div class="re-sec"><span class="eyebrow">Ohne Fähigkeit nachts aufrufen</span><div class="seg">${WAKE.map(([v, t]) => `<button type="button" class="${d.wake === v ? 'on' : ''}" data-action="re-wake" data-v="${v}">${t}</button>`).join('')}</div></div>`}
+      <p class="muted small">Die App wertet die Nacht in festen Stufen aus: erst Sperren, dann Schutz, dann Angriffe, dann Folgen und Informationen.</p>`;
+    case 'traits': return `
+      <div class="re-sec"><span class="eyebrow">Dauerhafte Eigenschaften</span>${Object.entries(PASSIVES).map(([k, t]) => toggleRow('re-passive', esc(t), '', d.passives.includes(k), `data-k="${k}"`)).join('')}</div>
+      <div class="re-sec"><span class="eyebrow">Erbt eine Rolle</span><button type="button" class="opt" data-action="re-gap" data-ri="-1" data-f="heir">${d.heir ? art(d.heir) : ''}<span class="t"><b>${d.heir ? `Übernimmt ${esc(RM[d.heir]?.name ?? '?')}` : 'Keine'}</b><span>Stirbt diese Rolle, wird die eigene Rolle zu ihr.</span></span>${I.right}</button></div>`;
+    case 'win': {
+      const needsBind = (d.win === 'bound' || d.win === 'hunt') && !d.rules.some((b) => b.k === 'bind');
+      return `${WIN_GROUPS.map(([t, ks]) => `<div class="re-sec"><span class="eyebrow">${t}</span>${ks.map((k) => pickRow('re-win', esc(CUSTOM_WIN[k]), '', (d.win || 'camp') === k, `data-k="${k}"`)).join('')}</div>`).join('')}
+        ${needsBind ? `<div class="hint ok">${I.check}<span>Beim Speichern ergänzt die App die Fähigkeit „Ziel festlegen“ in der ersten Nacht.</span></div>` : ''}
+        ${toggleRow('re-needuse', 'Nur nach eigenem Einsatz', 'Der Sieg zählt nur, wenn die Rolle ihre Fähigkeit mindestens einmal benutzt hat.', d.needUse)}`;
+    }
+    default: return '';
+  }
+}
+
+/* ---------- Auswahlblätter ---------- */
+const condAt = (root, path) => (path === '' ? root : path.split('.').reduce((n, i) => (n.all ?? n.any)[+i], root));
+const depthOf = (path) => (path === '' ? 1 : path.split('.').length + 1);
+
+function condGroupHtml(grp, path) {
+  const list = grp.all ?? grp.any, depth = depthOf(path);
+  const items = list.map((c, i) => {
+    const p = path === '' ? `${i}` : `${path}.${i}`;
+    if (c.all || c.any) return condGroupHtml(c, p);
+    const C = CONDS[c.k];
+    const arg = C.arg === 'n' ? stepper('re-cnum', c.n, String(c.n), `data-p="${p}"`) : C.arg === 'role' ? `<button type="button" class="chip" data-action="re-crole" data-p="${p}">${art(c.role)}${esc(RM[c.role]?.name ?? '?')}</button>` : '';
+    return `<div class="crow"><span class="ctext">${esc(C.name)}</span>${arg}<button type="button" class="mini bad" data-action="re-cdel" data-p="${p}" aria-label="Bedingung entfernen">${I.close}</button></div>`;
+  }).join('');
+  return `<div class="cgrp d${depth}"><div class="cg-head"><div class="seg">${[['all', 'Alle müssen gelten'], ['any', 'Eine reicht']].map(([k, t]) => `<button type="button" class="${grp[k] ? 'on' : ''}" data-action="re-cmode" data-p="${path}" data-k="${k}">${t}</button>`).join('')}</div>${path !== '' ? `<button type="button" class="mini bad" data-action="re-cdel" data-p="${path}" aria-label="Gruppe entfernen">${I.close}</button>` : ''}</div>
+    ${items || `<p class="muted small">${path === '' ? 'Noch keine Bedingung: Die Fähigkeit gilt immer.' : 'Leere Gruppe: zählt als erfüllt.'}</p>`}
+    <div class="cg-add"><button type="button" class="btn sm" data-action="re-cpick" data-p="${path}">${I.plus}<span>Bedingung</span></button>${depth < MAX_DEPTH ? `<button type="button" class="btn sm" data-action="re-cgrp" data-p="${path}">${I.plus}<span>Gruppe</span></button>` : ''}</div></div>`;
+}
+
+function rolePicker(action, cur, { none = false } = {}) {
+  return `<div class="re-roles">${none ? `<button type="button" class="re-role ${!cur ? 'on' : ''}" data-action="${action}" data-v=""><span class="re-ic">–</span><b>Keine</b></button>` : ''}${ROLES.filter((r) => !r.custom && r.id !== 'villager').map((r) => `<button type="button" class="re-role ${cur === r.id ? 'on' : ''}" data-action="${action}" data-v="${r.id}">${art(r.id)}<b>${esc(r.name)}</b></button>`).join('')}</div>`;
+}
+
+function sheetHtml(re) {
+  const sh = re.sheet, d = re.draft, b = d.rules[sh.ri];
+  let title = '', body = '';
+  switch (sh.f) {
+    case 'effect':
+      title = sh.ri < 0 ? 'Fähigkeit hinzufügen' : 'Fähigkeit ändern';
+      body = EFFECT_GROUPS.map(([t, ks]) => `<div class="eyebrow">${t}</div><div class="re-tiles">${ks.map((k) => `<button type="button" class="re-tile ${b?.k === k ? 'on' : ''}" data-action="re-effect" data-k="${k}"><b>${esc(BLOCKS[k].short)}${BLOCKS[k].day ? ' <span class="pill">Tag</span>' : ''}</b><span>${esc(EFFECT_HINT[k])}</span></button>`).join('')}</div>`).join('');
+      break;
+    case 'timing': {
+      const W = BLOCKS[b.k].day ? BLOCK_WHEN_DAY : BLOCK_WHEN;
+      title = 'Wann?';
+      body = `<div class="re-tiles one">${Object.entries(W).map(([k, t]) => pickRow('re-set', esc(t), '', b.when === k, `data-key="when" data-v="${k}"`)).join('')}</div>`;
+      break;
+    }
+    case 'target': {
+      const B = BLOCKS[b.k], fixed = !!B.fixed || !!B.selfOnly, min = b.k === 'note' ? 0 : 1;
+      title = 'Wen?';
+      body = `<div class="re-sec"><span class="eyebrow">Anzahl</span>${fixed ? `<p class="muted">Fest: ${B.selfOnly ? 'nur die eigene Person' : `${B.fixed} Personen`}</p>` : stepper('re-num', b.n, b.n === 0 ? 'kein Ziel' : b.n === 1 ? '1 Person' : `bis zu ${b.n}`, `data-key="n" data-min="${min}" data-max="3"`)}</div>
+        ${toggleRow('re-flag', 'Darf sich selbst wählen', B.dead || B.selfOnly ? 'Hier nicht möglich.' : '', !!b.self, 'data-key="self"', !!(B.dead || B.selfOnly))}
+        ${toggleRow('re-flag', 'Nie zweimal hintereinander dieselbe Person', '', !!b.rep, 'data-key="rep"', !!B.selfOnly)}
+        ${toggleRow('re-flag', 'Zählt als Besuch', 'Wichtig für Beobachten und Wachsam. Ohne diesen Schalter besuchen nur die Werwölfe.', !!b.visit, 'data-key="visit"', !!B.selfOnly || b.k === 'bind')}`;
+      break;
+    }
+    case 'freq':
+      title = 'Wie oft und wie sicher?';
+      body = `<div class="re-sec"><span class="eyebrow">Wie oft im Spiel</span><div class="chips wrap">${[0, 1, 2, 3, 5].map((v) => chip('re-set', v ? `${v}×` : 'Unbegrenzt', b.limit === v, `data-key="limit" data-v="${v}" ${BLOCKS[b.k].limit1 ? 'disabled' : ''}`)).join('')}</div></div>
+        <div class="re-sec"><span class="eyebrow">Gelingt</span><div class="chips wrap">${BLOCK_CHANCE.map((v) => chip('re-set', v === 100 ? 'Immer' : `${v} %`, b.chance === v, `data-key="chance" data-v="${v}" ${BLOCKS[b.k].limit1 ? 'disabled' : ''}`)).join('')}</div><p class="muted small">Unter 100 % würfelt die App. Das Ergebnis siehst nur du.</p></div>`;
+      break;
+    case 'cond':
+      title = 'Wenn …';
+      body = `<p class="muted small">Die Fähigkeit wird nur angeboten, wenn die Bedingungen erfüllt sind.</p>${condGroupHtml(b.if ?? { all: [] }, '')}`;
+      break;
+    case 'condPick':
+      title = 'Bedingung wählen';
+      body = COND_GROUPS.map(([t, ks]) => `<div class="eyebrow">${t}</div><div class="re-tiles">${ks.map((k) => `<button type="button" class="re-tile" data-action="re-cadd" data-k="${k}"><b>${esc(CONDS[k].name)}</b></button>`).join('')}</div>`).join('');
+      break;
+    case 'condRole': title = 'Welche Rolle?'; body = rolePicker('re-crole-set', condAt(b.if, sh.path).role); break;
+    case 'role': title = 'In welche Rolle?'; body = rolePicker('re-role', b.role); break;
+    case 'heir': title = 'Erbt welche Rolle?'; body = rolePicker('re-heir', d.heir, { none: true }); break;
+    case 'text':
+      title = 'Hinweis für dich';
+      body = `<textarea class="inp" id="re-note" maxlength="200" placeholder="z. B. Die Person darf dem Spielleiter eine Ja-Nein-Frage stellen.">${esc(b.text ?? '')}</textarea><p class="muted small">Die App rechnet hier nichts. Sie zeigt den Text im Nachtschritt und am Morgen.</p>`;
+      break;
+    case 'then':
+      title = 'Danach';
+      body = `${(b.then ?? []).map((t, i) => `<div class="crow"><span class="ctext">${esc(THENS[t.k].name)}</span>${t.k === 'note' ? `<input class="inp" id="re-then-${i}" value="${esc(t.text)}" maxlength="200" placeholder="Text">` : ''}<button type="button" class="mini bad" data-action="re-tdel" data-i="${i}" aria-label="Entfernen">${I.close}</button></div>`).join('') || '<p class="muted small">Keine Nebenwirkung.</p>'}
+        <div class="re-tiles">${Object.entries(THENS).filter(([k]) => !(b.then ?? []).some((t) => t.k === k)).map(([k, T]) => `<button type="button" class="re-tile" data-action="re-tadd" data-k="${k}"><b>${esc(T.name)}</b><span>${esc(T.hint)}</span></button>`).join('')}</div>`;
+      break;
+    default: break;
+  }
+  const back = sh.f === 'condPick' || sh.f === 'condRole' ? `<button type="button" class="ibtn" data-action="re-sheet-back" aria-label="Zurück">${I.left}</button>` : '';
+  return `<div class="backdrop sheet" data-action="re-sheet-close"><div class="modal sheet re-sheet" data-stop role="dialog" aria-modal="true" data-keep="re-sheet-${sh.f}">
+    <div class="re-sheet-head">${back}<h2>${title}</h2><span class="spacer"></span><button type="button" class="btn sm" data-action="re-sheet-close" data-done="1">Fertig</button></div>${body}</div></div>`;
+}
+
+views.roleeditor = () => {
+  const re = ui.re;
+  if (!re) return views.home();
+  return `<div class="view re">${topBar(re.id ? 'Rolle bearbeiten' : 'Neue Rolle', 'Rollen-Werkstatt', { back: 're-back', right: '<button class="btn primary sm" data-action="re-save">Speichern</button>' })}
+    <div class="page re-page"><div id="re-preview">${previewHtml(re.draft)}</div>
+      <div class="seg re-tabs" role="tablist">${TABS.map(([k, t]) => `<button type="button" role="tab" class="${re.tab === k ? 'on' : ''}" data-action="re-tab" data-k="${k}" aria-selected="${re.tab === k}">${t}${k === 'rules' && re.draft.rules.length ? ` <em>${re.draft.rules.length}</em>` : ''}</button>`).join('')}</div>
+      <div class="re-scroll scroll" data-keep="re-${re.tab}">${tabHtml(re)}</div></div>${re.sheet ? sheetHtml(re) : ''}</div>`;
+};
+
+/* ---------- Handler ---------- */
+const D = () => ui.re.draft;
+const R = () => ui.re.draft.rules[ui.re.sheet?.ri];
+const fix = (b) => customBlocks({ rules: [b] })[0] ?? b;
+
+on('re-tab', (el) => { ui.re.tab = el.dataset.k; ui.re.sheet = null; });
+on('re-back', () => { const from = ui.re?.from ?? 'setup'; ui.re = null; go(from); return false; });
+for (const [id, key, max] of [['re-name', 'name', 28], ['re-sub', 'sub', 60], ['re-say', 'say', 300], ['re-desc', 'desc', 600]]) on(`input:${id}`, (el) => { D()[key] = el.value.slice(0, max); refreshPreview(); return false; });
+on('input:re-note', (el) => { const b = R(); if (b) { b.text = el.value.slice(0, 200); refreshPreview(); } return false; });
+for (let i = 0; i < 3; i++) on(`input:re-then-${i}`, (el) => { const t = R()?.then?.[i]; if (t) { t.text = el.value.slice(0, 200); refreshPreview(); } return false; });
+
+on('re-tpl', (el) => {
+  const t = CUSTOM_TEMPLATES.find((x) => x.key === el.dataset.k); if (!t) return false;
+  const d = D();
+  Object.assign(d, { name: d.name.trim() ? d.name : t.name, sub: d.sub.trim() ? d.sub : t.sub, icon: t.icon, rules: customBlocks({ rules: clone(t.rules) }), passives: [...(t.passives ?? [])], win: t.win ?? 'camp', needUse: false });
+  toast(`Vorlage „${t.name}“ übernommen. Alles lässt sich ändern.`);
+});
+on('re-camp', (el) => { D().camp = el.dataset.v === 'wolf' ? 'wolf' : 'village'; });
+on('re-icon', (el) => { D().icon = el.dataset.v; });
+on('re-after', (el) => { D().after = el.dataset.v === '1'; });
+on('re-wake', (el) => { D().wake = el.dataset.v; });
+on('re-passive', (el) => { const p = D().passives, k = el.dataset.k, i = p.indexOf(k); if (i >= 0) p.splice(i, 1); else p.push(k); });
+on('re-win', (el) => { D().win = el.dataset.k; });
+on('re-needuse', () => { D().needUse = !D().needUse; });
+
+on('re-gap', (el) => { ui.re.sheet = { ri: +el.dataset.ri, f: el.dataset.f, path: '' }; });
+on('re-sheet-close', (el, e) => { if (e.target.closest('[data-stop]') && !el.dataset.done) return false; ui.re.sheet = null; });
+on('re-sheet-back', () => { ui.re.sheet.f = 'cond'; });
+on('re-effect', (el) => {
+  const k = el.dataset.k, d = D(), sh = ui.re.sheet;
+  if (sh.ri < 0) { d.rules.push(fix({ ...blankBlock(k), self: !!BLOCKS[k].selfOnly })); ui.re.tab = 'rules'; ui.re.sheet = k === 'convert' ? { ri: d.rules.length - 1, f: 'role', path: '' } : k === 'note' ? { ri: d.rules.length - 1, f: 'text', path: '' } : null; return; }
+  d.rules[sh.ri] = fix({ ...d.rules[sh.ri], k });
+  ui.re.sheet = null;
+});
+on('re-set', (el) => { const b = R(); if (!b) return false; const k = el.dataset.key, v = el.dataset.v; b[k] = k === 'when' ? v : +v; D().rules[ui.re.sheet.ri] = fix(b); });
+on('re-num', (el) => { const b = R(); if (!b) return false; b.n = Math.max(+el.dataset.min, Math.min(+el.dataset.max, b.n + +el.dataset.d)); D().rules[ui.re.sheet.ri] = fix(b); });
+on('re-flag', (el) => { const b = R(); if (!b) return false; b[el.dataset.key] = !b[el.dataset.key]; D().rules[ui.re.sheet.ri] = fix(b); });
+on('re-role', (el) => { const b = R(); if (b) b.role = el.dataset.v; ui.re.sheet = null; });
+on('re-heir', (el) => { D().heir = el.dataset.v; ui.re.sheet = null; });
+
+on('re-move', (el) => { const r = D().rules, i = +el.dataset.ri, j = i + +el.dataset.d; if (j < 0 || j >= r.length) return false; [r[i], r[j]] = [r[j], r[i]]; });
+on('re-dup', (el) => { const r = D().rules, i = +el.dataset.ri; if (r.length < 8) r.splice(i + 1, 0, clone(r[i])); });
+on('re-del', (el) => { const i = +el.dataset.ri; ui.re.lastDel = { rule: D().rules[i], i }; D().rules.splice(i, 1); });
+on('re-undo', () => { const x = ui.re.lastDel; if (x) D().rules.splice(Math.min(x.i, D().rules.length), 0, x.rule); ui.re.lastDel = null; });
+
+// Bedingungen: Baum unter rule.if, Pfad „0.2“ = zweites Element der ersten Untergruppe
+const condRoot = () => { const b = R(); b.if ??= { all: [] }; return b.if; };
+const condSave = () => { const b = R(); b.if = sanitizeCond(b.if) ?? { all: [] }; };
+on('re-cmode', (el) => { const g = condAt(condRoot(), el.dataset.p), list = g.all ?? g.any; delete g.all; delete g.any; g[el.dataset.k] = list; });
+on('re-cpick', (el) => { ui.re.sheet = { ...ui.re.sheet, f: 'condPick', path: el.dataset.p }; });
+on('re-cadd', (el) => {
+  const C = CONDS[el.dataset.k], g = condAt(condRoot(), ui.re.sheet.path), list = g.all ?? g.any;
+  list.push({ k: el.dataset.k, ...(C.arg === 'n' ? { n: C.def } : C.arg === 'role' ? { role: 'seer' } : {}) });
+  condSave(); ui.re.sheet = { ...ui.re.sheet, f: 'cond' };
+});
+on('re-cgrp', (el) => { const g = condAt(condRoot(), el.dataset.p); (g.all ?? g.any).push({ any: [] }); });
+on('re-cdel', (el) => { const p = el.dataset.p.split('.'), last = +p.pop(), g = condAt(condRoot(), p.join('.')); (g.all ?? g.any).splice(last, 1); });
+on('re-cnum', (el) => { const c = condAt(condRoot(), el.dataset.p), C = CONDS[c.k]; c.n = Math.max(C.min, Math.min(C.max, c.n + +el.dataset.d)); });
+on('re-crole', (el) => { ui.re.sheet = { ...ui.re.sheet, f: 'condRole', path: el.dataset.p }; });
+on('re-crole-set', (el) => { condAt(condRoot(), ui.re.sheet.path).role = el.dataset.v; ui.re.sheet = { ...ui.re.sheet, f: 'cond', path: '' }; });
+
+on('re-tadd', (el) => { const b = R(); b.then = [...(b.then ?? []), el.dataset.k === 'note' ? { k: 'note', text: '' } : { k: el.dataset.k }].slice(0, 3); });
+on('re-tdel', (el) => { R().then.splice(+el.dataset.i, 1); });
+
+on('re-save', () => {
+  const re = ui.re, d = re.draft;
+  if (!d.name.trim()) { re.tab = 'basis'; toast('Bitte einen Namen eingeben.'); return; }
+  const role = { ...clone(d), name: d.name.trim(), id: re.id ?? uid('c') };
+  role.rules = customBlocks(role);
+  delete role.blocks;
+  const i = S.customRoles.findIndex((x) => x.id === role.id);
+  if (i >= 0) S.customRoles[i] = role; else S.customRoles.push(role);
+  registerRoles([role]);
+  ui.libSet = 'eigene';
+  const from = re.from ?? 'setup'; ui.re = null;
+  toast(`„${role.name}“ gespeichert.`);
+  go(from); return false;
+});
+on('re-delete', () => {
+  const id = ui.re.id;
+  S.customRoles = S.customRoles.filter((x) => x.id !== id);
+  const i = ROLES.findIndex((x) => x.id === id); if (i >= 0) ROLES.splice(i, 1);
+  delete RM[id];
+  if (S.setup.counts) { delete S.setup.counts[id]; S.setup.counts = fillVillagers(S.setup.counts, presentPlayers(S).length); }
+  const from = ui.re.from ?? 'setup'; ui.re = null;
+  go(from); return false;
+});

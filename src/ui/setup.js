@@ -7,6 +7,7 @@ import { ROLES, RM, SETS, CAMP_LABEL, recommendCounts, requiredCards, fillVillag
 import { uid } from '../store.js';
 import { createGame, setupProblems, DEFAULT_RULES, townRandomMap } from '../engine/game.js';
 import { activeCards } from './cards.js';
+import { openRoleEditor } from './roleeditor.js';
 import { townSetupHtml, townSel } from './town.js';
 
 const STEPS = ['Wer spielt mit?', 'Wie spielt ihr?', 'Welche Rollen?', 'Regeln und Start'];
@@ -263,40 +264,5 @@ on('start-game', () => {
 export { CAMP_LABEL };
 
 /* ---------- Eigene Rollen ---------- */
-const blankCustom = () => ({ name: '', camp: 'village', sub: '', desc: '', say: '', wake: 'none', after: false, icon: '', blocks: [], passives: [], heir: '', needUse: false, win: 'camp' });
-on('custom-new', () => { ui.modal = { type: 'custom', id: null, draft: blankCustom() }; });
-on('custom-edit', (el) => { const r = S.customRoles.find((x) => x.id === el.dataset.id); if (r) ui.modal = { type: 'custom', id: r.id, draft: { ...blankCustom(), ...r, blocks: customBlocks(r) } }; });
-
-/** Liest das Formular des Editors in einen Rollenentwurf (alle Felder, auch halbfertige Bausteine). */
-function readCustomForm(f) {
-  const d = Object.fromEntries(new FormData(f).entries());
-  const count = ui.modal?.draft?.blocks?.length ?? 0;
-  const blocks = Array.from({ length: count }, (_, i) => ({ k: d[`bk_k_${i}`], n: d[`bk_n_${i}`], when: d[`bk_when_${i}`], limit: d[`bk_limit_${i}`], chance: d[`bk_chance_${i}`], role: d[`bk_role_${i}`], self: d[`bk_self_${i}`] === 'on', rep: d[`bk_rep_${i}`] === 'on' }));
-  return {
-    name: (d.name || '').trim().slice(0, 28), camp: d.camp === 'wolf' ? 'wolf' : 'village', sub: (d.sub || '').trim().slice(0, 60), desc: (d.desc || '').trim().slice(0, 600), say: (d.say || '').trim().slice(0, 300),
-    wake: d.wake || 'none', after: d.after === 'after', icon: (d.icon || '').slice(0, 8), blocks, passives: Object.keys(PASSIVES).filter((k) => d[`pa_${k}`] === 'on'),
-    heir: d.heir || '', needUse: d.needUse === 'on', win: d.win || 'camp',
-  };
-}
-const syncCustom = () => { const f = document.getElementById('custom-form'); if (f && ui.modal?.type === 'custom') ui.modal.draft = { ...ui.modal.draft, ...readCustomForm(f) }; };
-on('custom-block-add', () => { syncCustom(); ui.modal.draft.blocks.push(blankBlock()); });
-on('custom-block-del', (el) => { syncCustom(); ui.modal.draft.blocks.splice(+el.dataset.i, 1); });
-for (let i = 0; i < 8; i++) on(`input:bk-k-${i}`, () => { syncCustom(); });
-on('submit:custom-form', (f) => {
-  const role = { ...readCustomForm(f), id: ui.modal.id ?? uid('c') };
-  if (!role.name) { toast('Bitte einen Namen eingeben.'); return; }
-  role.blocks = customBlocks(role);
-  const i = S.customRoles.findIndex((x) => x.id === role.id);
-  if (i >= 0) S.customRoles[i] = role; else S.customRoles.push(role);
-  registerRoles([role]);
-  ui.libSet = 'eigene';
-  ui.modal = null;
-});
-on('custom-delete', () => {
-  const id = ui.modal.id;
-  S.customRoles = S.customRoles.filter((x) => x.id !== id);
-  const i = ROLES.findIndex((x) => x.id === id); if (i >= 0) ROLES.splice(i, 1);
-  delete RM[id];
-  if (S.setup.counts) { delete S.setup.counts[id]; S.setup.counts = fillVillagers(S.setup.counts, presentPlayers(S).length); }
-  ui.modal = null;
-});
+on('custom-new', () => { openRoleEditor(); return false; });
+on('custom-edit', (el) => { openRoleEditor(el.dataset.id); return false; });

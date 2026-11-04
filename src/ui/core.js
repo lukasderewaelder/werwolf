@@ -87,6 +87,7 @@ function snapLayout(app) {
 }
 
 let rendering = false;
+let lastKey = ['', ''];   // gleiche Ansicht bzw. gleicher Dialog: keine Einblend-Animation beim Neuzeichnen
 export function render() {
   if (rendering) return;
   rendering = true;
@@ -98,6 +99,8 @@ export function render() {
     const focus = active && active.id && app.contains(active) ? { id: active.id, s: active.selectionStart, e: active.selectionEnd } : null;
     snapLayout(app);
     const scrolls = [...app.querySelectorAll('[data-keep]')].map((el) => [el.dataset.keep, el.scrollTop, el.scrollLeft]);
+    const vkey = locked ? 'lock' : ui.view, mkey = `${ui.modal?.type ?? ''}|${ui.re?.sheet ? 1 : 0}`;
+    app.classList.toggle('still', vkey === lastKey[0]); app.classList.toggle('still-m', mkey === lastKey[1]); lastKey = [vkey, mkey];
     app.innerHTML = fn() + (ui.modal && (!locked || ui.modal.type === 'pin-forgot') ? (views.modal?.() ?? '') : '');
     for (const [k, t, l] of scrolls) { const el = app.querySelector(`[data-keep="${k}"]`); if (el) { el.scrollTop = t; el.scrollLeft = l; } }
     if (focus) { const el = document.getElementById(focus.id); if (el) { el.focus(); try { el.setSelectionRange(focus.s, focus.e); } catch { /* kein Textfeld */ } } }

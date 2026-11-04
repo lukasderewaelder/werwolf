@@ -207,13 +207,37 @@ export function log(g, t) { g.log.push({ p: clockLabel(g), t }); }
 
 /* ---------- Nachtablauf ---------- */
 
+/** Bedingungsbaum einer Regel auswerten: { all: [...] } alle, { any: [...] } eine reicht, sonst eine einzelne Bedingung (siehe CONDS in rules.js). */
+export function evalCond(g, rid, c, key) {
+  if (!c) return true;
+  if (c.all) return c.all.every((x) => evalCond(g, rid, x, key));
+  if (c.any) return !c.any.length || c.any.some((x) => evalCond(g, rid, x, key));
+  const liv = livingIds(g), prev = `Nacht ${g.clock === 'day' ? g.day : g.night - 1}`, died = Object.values(g.dead).some((x) => x.at === prev);
+  const hs = holders(g, c.role ?? ''), t = g.bound?.[rid];
+  switch (c.k) {
+    case 'nightGte': return g.night >= c.n;
+    case 'roleAlive': return hs.some((p) => alive(g, p.id));
+    case 'roleDead': return hs.length > 0 && hs.every((p) => !alive(g, p.id));
+    case 'deathLast': return died;
+    case 'noDeathLast': return !died;
+    case 'wolvesGte': return liv.filter((x) => isWolf(g, x)).length >= c.n;
+    case 'aliveGte': return liv.length >= c.n;
+    case 'aliveLte': return liv.length <= c.n;
+    case 'boundAlive': return !!t && alive(g, t);
+    case 'boundDead': return !!t && !alive(g, t);
+    case 'used': return (g.cuse?.[key] ?? 0) > 0;
+    case 'unused': return !(g.cuse?.[key] ?? 0);
+    default: return true;
+  }
+}
+
 /** Baustein einer eigenen Rolle ist heute Nacht aufrufbar (Nacht, Grenzen, Ziele vorhanden). */
 export function blockApplies(g, r, b, i) {
   if (BLOCKS[b.k].day || !whenOk(g.night, b)) return false;
   if (b.limit && (g.cuse?.[custKey(r.id, i)] ?? 0) >= b.limit) return false;
   if (b.k === 'revive' && !Object.keys(g.dead).length) return false;
   if (b.k === 'bind' && g.bound?.[r.id]) return false;
-  return true;
+  return evalCond(g, r.id, b.if, custKey(r.id, i));
 }
 /** Alle lebenden Träger der Rolle sind diese Nacht gesperrt. */
 const lockedNow = (g, r) => { const hs = livingHolders(g, r.id); return hs.length > 0 && hs.every((h) => g.blocked?.[h.id] === g.night); };
@@ -228,7 +252,7 @@ export function dayBlocks(g) {
     if (!hs.length) continue;
     r.blocks.forEach((b, i) => {
       const key = custKey(r.id, i), used = g.cuse?.[key] ?? 0;
-      if (!BLOCKS[b.k].day || !whenOk(g.day, b) || (b.limit && used >= b.limit)) return;
+      if (!BLOCKS[b.k].day || !whenOk(g.day, b) || (b.limit && used >= b.limit) || !evalCond(g, r.id, b.if, key)) return;
       out.push({ r, b, i, key, holder: hs[0], left: b.limit ? b.limit - used : 0 });
     });
   }
@@ -291,7 +315,8 @@ export function nightSteps(g) {
     const input = act && INPUT_ACTS.has(r.night.act) && !gone;
     if (input && r.custom && r.blocks) {
       const on = r.blocks.map((b, i) => i).filter((i) => blockApplies(g, r, r.blocks[i], i));
-      on.forEach((i, k) => out.push({ key: custKey(r.id, i), role: r.id, act: 'cust', blk: i, gone: false, label: on.length > 1 ? `${r.name}: ${BLOCKS[r.blocks[i].k].short}` : r.name, say: k === 0 ? r.say ?? '' : '' }));
+      const sel = g.ruleSel?.[r.id], blk = on.includes(sel) ? sel : on[0];
+      out.push({ key: r.id, keys: on.map((i) => custKey(r.id, i)), blks: on, role: r.id, act: 'cust', blk, gone: false, label: r.name, say: r.say ?? '' });
       continue;
     }
     out.push({ key: r.id, role: r.id, act: input ? r.night.act : null, gone, label: r.id === borrowed && !cnt(g, r.id) ? `${r.name} (Gaukler)` : r.name, say: r.say ?? '' });
@@ -345,8 +370,12 @@ export function openDecision(g) {
     case 'side': return d.side ? null : 'Der Wolfshund hat sich noch nicht für eine Seite entschieden.';
     case 'fox': return d.fox ? null : 'Der Fuchs hat noch keine Dreiergruppe gewählt.';
     case 'cust': {
-      const b = RM[c.step.role]?.blocks?.[c.step.blk ?? 0], have = targetsOf(d.cust?.[c.step.key]).length, need = b ? BLOCKS[b.k].fixed ?? 0 : 0;
-      return need && have > 0 && have < need ? `${who}: Es sind erst ${have} von ${need} Personen gewählt.` : null;
+      const rb = RM[c.step.role]?.blocks ?? [];
+      for (const [j, i] of (c.step.blks ?? []).entries()) {
+        const b = rb[i], have = targetsOf(d.cust?.[c.step.keys[j]]).length, need = b ? BLOCKS[b.k].fixed ?? 0 : 0;
+        if (need > 1 && have > 0 && have < need) return `${who} (${BLOCKS[b.k].short}): Es sind erst ${have} von ${need} Personen gewählt.`;
+      }
+      return null;
     }
     default: return null;
   }
@@ -584,7 +613,7 @@ function seanceNote(g, d) {
 }
 
 function beginNight(g, n) {
-  g.night = n; g.day = Math.max(g.day, n - 1); g.phase = 'night'; g.clock = 'night'; g.stepIdx = 0; g.subMode = null; g.draft = emptyDraft(); g.secondVote = false;
+  g.night = n; g.day = Math.max(g.day, n - 1); g.phase = 'night'; g.clock = 'night'; g.stepIdx = 0; g.subMode = null; g.draft = emptyDraft(); g.secondVote = false; g.ruleSel = {};
   if (g.actorId && alive(g, g.actorId)) g.roles[g.actorId] = 'actor';
   log(g, '— Nacht beginnt —');
 }
@@ -619,14 +648,9 @@ function finishNight(g) {
   pack.forEach((w) => visit(w, d.kill));
   if (d.bigkill) livingHolders(g, 'bigwolf').forEach((h) => visit(h.id, d.bigkill));
   if (d.whitekill) livingHolders(g, 'whitewolf').forEach((h) => visit(h.id, d.whitekill));
-  const seerH = livingHolders(g, 'seer')[0], guardH = livingHolders(g, 'guard')[0], witchH = livingHolders(g, 'witch')[0], ravenH = livingHolders(g, 'raven')[0];
-  if (seerH) visit(seerH.id, d.check);
-  if (guardH) visit(guardH.id, d.protect);
-  if (witchH) { visit(witchH.id, d.poison); visit(witchH.id, d.heal); }
-  if (ravenH) visit(ravenH.id, d.mark);
   for (const [key, v] of Object.entries(d.cust ?? {})) {
     const [rid, ix] = key.split('#'), b = RM[rid]?.custom ? RM[rid].blocks?.[+(ix ?? 0)] : null, h = livingHolders(g, rid)[0];
-    if (b && h && !['watch', 'alert', 'bind', 'revive'].includes(b.k)) targetsOf(v).forEach((t) => visit(h.id, t));
+    if (b && h && b.visit && !['alert', 'bind'].includes(b.k)) targetsOf(v).forEach((t) => visit(h.id, t));   // eigene Regeln besuchen nur, wenn eingestellt
   }
   for (const [key, v] of Object.entries(d.cust ?? {})) {
     const [rid, ix] = key.split('#'), rr = RM[rid], b = rr?.custom ? rr.blocks?.[+(ix ?? 0)] : null;
@@ -648,6 +672,7 @@ function finishNight(g) {
       }
       case 'watch': ts.forEach((x) => { const vs = (visits[x] ?? []).filter((y) => y !== holder.id).map((y) => nm(g, y)); log(g, `${by} beobachtet ${nm(g, x)}: ${vs.join(', ') || 'kein Besuch'}`); note(`${nm(g, x)} wurde besucht von: ${vs.join(', ') || 'niemandem'}.`); }); break;
       case 'alert': alerts.add(holder.id); log(g, `${by} ist wachsam`); break;
+      case 'note': log(g, `${by}: Hinweis „${b.text}“${b.n ? ` (${names})` : ''}`); note(`${rr.name}: ${b.text || 'Hinweis'}${b.n ? ` · gewählt: ${names}` : ''}`); break;
       case 'mark': log(g, `${by} markiert ${names}`); ts.forEach((x) => g.morning.push(`${rr.name}: ${nm(g, x)} ist markiert.`)); break;
       case 'protect': cprot.push(...ts); log(g, `${by} schützt ${names}`); break;
       case 'peek': log(g, `${by} prüft ${names}: ${ts.map((x) => (looksWolf(g, x) ? 'Werwolf' : 'kein Werwolf')).join(', ')}`); break;
@@ -674,6 +699,11 @@ function finishNight(g) {
         log(g, `${by} belebt ${names} wieder`); break;
       case 'bind': g.bound[rid] = ts[0]; log(g, `${by} bestimmt ${names} als Ziel`); break;
       default: break;
+    }
+    for (const t of b.then ?? []) {
+      if (t.k === 'note') note(`${by}: ${t.text || 'Hinweis'}`);
+      else if (t.k === 'selfBlock') g.blocked[holder.id] = g.night + 1;
+      else if (t.k === 'selfDie') { ckill.push(holder.id); log(g, `${by} bezahlt den Einsatz mit dem eigenen Leben`); }
     }
   }
   for (const j of g.jail ?? []) if (alive(g, j.id)) { (j.kill ? ckill : cprot).push(j.id); log(g, `${nm(g, j.id)} sitzt im Kerker${j.kill ? ' und wird hingerichtet' : ' und ist vor den Wölfen sicher'}`); }
@@ -986,14 +1016,16 @@ function tap(g, pid, toast) {
       if (!cb) return;
       if (cb.k === 'alert' && !holders(g, rr.id).some((x) => x.id === pid)) { toast?.('Zum Wachsamsein die eigene Person antippen.'); return; }
       if (!cb.self && holders(g, rr.id).some((x) => x.id === pid)) { toast?.(`${rr.name} kann sich nicht selbst wählen.`); return; }
-      if (cb.rep && (g.clast?.[step.key] ?? []).includes(pid)) { toast?.('Nicht zweimal hintereinander dieselbe Person.'); return; }
+      const ck = custKey(step.role, step.blk ?? 0);
+      if (cb.rep && (g.clast?.[ck] ?? []).includes(pid)) { toast?.('Nicht zweimal hintereinander dieselbe Person.'); return; }
       if (cb.k === 'turn' && isWolf(g, pid)) { toast?.('Diese Person ist schon ein Werwolf.'); return; }
-      const arr = targetsOf(d.cust[step.key]), i = arr.indexOf(pid);
+      if (cb.k === 'note' && !cb.n) { toast?.('Dieser Hinweis braucht kein Ziel.'); return; }
+      const arr = targetsOf(d.cust[ck]), i = arr.indexOf(pid);
       if (i >= 0) arr.splice(i, 1);
       else if (cb.n === 1) arr.splice(0, arr.length, pid);
       else if (arr.length < cb.n) arr.push(pid);
       else { toast?.(`Schon ${cb.n} gewählt – erst eine Person abwählen.`); return; }
-      d.cust[step.key] = arr;
+      d.cust[ck] = arr;
       break;
     }
     default: break;
@@ -1182,8 +1214,22 @@ export function apply(g0, a, toast) {
       const B = BLOCKS[e.b.k], by = `${e.r.name} ${e.holder.name}`;
       g.cuse[e.key] = (g.cuse[e.key] ?? 0) + 1; g.customUsed[e.r.id] = true; g.clast[e.key] = [t];
       if (e.b.chance < 100 && rand() * 100 >= e.b.chance) { log(g, `${by}: ${B.short} bei ${nm(g, t)} ist diesmal gescheitert (Chance ${e.b.chance} %)`); toast?.('Diesmal gescheitert – nichts passiert.'); break; }
-      if (e.b.k === 'shoot') { log(g, `${by} erschießt ${nm(g, t)}`); g.collectMorning = false; kill(g, t, 'custom'); afterDeaths(g, 'day'); }
+      if (e.b.k === 'shoot') { log(g, `${by} erschießt ${nm(g, t)}`); g.collectMorning = false; kill(g, t, 'custom'); }
       else { g.jail.push({ id: t, by: e.r.id, kill: e.b.k === 'jailkill' }); g.blocked[t] = g.night + 1; log(g, `${by} sperrt ${nm(g, t)} ein`); toast?.(`${nm(g, t)} ist eingesperrt.`); }
+      for (const n of e.b.then ?? []) {
+        if (n.k === 'note') { log(g, `${by}: Hinweis „${n.text}“`); toast?.(`Hinweis: ${n.text}`); }
+        else if (n.k === 'selfBlock') g.blocked[e.holder.id] = g.night + 1;
+        else if (n.k === 'selfDie' && alive(g, e.holder.id)) { g.collectMorning = false; kill(g, e.holder.id, 'custom'); }
+      }
+      if (g.queue.length) afterDeaths(g, 'day');
+      break;
+    }
+    case 'rule-sel': { const [rid, ix] = String(a.key).split('#'); (g.ruleSel ??= {})[rid] = +(ix ?? 0); break; }
+    case 'rule-self': {
+      const [rid, ix] = String(a.key).split('#'), h = livingHolders(g, rid)[0];
+      if (!h || g.phase !== 'night') break;
+      (g.ruleSel ??= {})[rid] = +(ix ?? 0);
+      d.cust[a.key] = targetsOf(d.cust[a.key]).length ? [] : [h.id];
       break;
     }
     case 'manual-kill': if (g.phase === 'day' && alive(g, a.pid)) { kill(g, a.pid, 'manual'); afterDeaths(g, 'day'); } break;

@@ -11,7 +11,7 @@ function mk(roleList, custom) {
   g.roles = Object.fromEntries(players.map((p, i) => [p.id, roleList[i]])); g.middle = [];
   return g;
 }
-const goKey = (g, key) => { const i = nightSteps(g).findIndex((s) => s.key === key); assert.ok(i >= 0, `Schritt ${key} fehlt`); return apply(g, { t: 'goto', idx: i }); };
+const goKey = (g, key) => { const i = nightSteps(g).findIndex((s) => s.key === key || s.keys?.includes(key)); assert.ok(i >= 0, `Schritt ${key} fehlt`); const x = apply(g, { t: 'goto', idx: i }); return nightSteps(x)[i].keys ? apply(x, { t: 'rule-sel', key }) : x; };
 const tap = (g, ...ids) => ids.reduce((x, id) => apply(x, { t: 'tap', pid: id }), g);
 const finishNight = (g) => { let x = g; for (let i = 0; i < 60 && x.phase === 'night'; i++) x = apply(x, { t: 'next' }); return x; };
 const rest = (g) => apply(apply(g, { t: 'skip-captain' }), { t: 'day-none' });
@@ -67,24 +67,35 @@ test('Sekte: Anwerben und Sieg, wenn alle Lebenden dazugehören', () => {
   assert.equal(g.phase, 'ended'); assert.match(g.winner, /Sonder P2 mit der Sekte/);
 });
 
-test('Beobachter meldet die Besucher, Veteran tötet sie', () => {
+test('Besuche: standardmäßig nur die Wölfe, eigene Regeln mit „zählt als Besuch“', () => {
   let g = mk(['wolf', 'c1', 'seer', ...V(3)], { blocks: [blk('watch')] });
-  g = goKey(g, 'c1'); g = tap(g, 'p3');
-  g = goKey(g, 'seer'); g = tap(g, 'p3');
+  g = goKey(g, 'c1'); g = tap(g, 'p4');
+  g = goKey(g, 'seer'); g = tap(g, 'p4');
+  g = goKey(g, 'wolf'); g = tap(g, 'p4');
   g = finishNight(g);
-  assert.ok(g.morning.some((t) => /P3 wurde besucht von: P1/.test(t) === false && /P3 wurde besucht von/.test(t)), 'Seherin ist der Besucher');
-  const v = g.morning.find((t) => /wurde besucht von/.test(t));
-  assert.match(v, /P3\b/);
+  assert.ok(g.morning.some((t) => /P4 wurde besucht von: P1./.test(t)), 'nur der Wolf, nicht die Seherin');
+  const players = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'].map((id) => ({ id, name: id.toUpperCase() }));
+  let v = createGame({ players, counts: { wolf: 1, c1: 1, c2: 1, villager: 3 }, mode: 'digital', custom: [{ id: 'c1', name: 'Späher', blocks: [blk('watch')] }, { id: 'c2', name: 'Bote', blocks: [blk('mark', { visit: true })] }] });
+  v.roles = { p1: 'wolf', p2: 'c1', p3: 'c2', p4: 'villager', p5: 'villager', p6: 'villager' };
+  v = goKey(v, 'c1'); v = tap(v, 'p5');
+  v = goKey(v, 'c2'); v = tap(v, 'p5');
+  v = finishNight(v);
+  assert.ok(v.morning.some((t) => /P5 wurde besucht von: P3./.test(t)), 'Bote zählt als Besucher');
+});
+
+test('Veteran: wachsam per Knopf, nur Besucher sterben', () => {
   let a = mk(['wolf', 'c1', 'seer', ...V(3)], { blocks: [blk('alert', { limit: 3 })] });
   assert.equal(RM.c1.blocks[0].self, true);
   a = goKey(a, 'c1'); a = tap(a, 'p4');
   assert.deepEqual(a.draft.cust.c1 ?? [], [], 'nur die eigene Person');
-  a = tap(a, 'p2');
+  a = apply(a, { t: 'rule-self', key: 'c1' });
+  assert.deepEqual(a.draft.cust.c1, ['p2'], 'Knopf schaltet wachsam ein');
   a = goKey(a, 'seer'); a = tap(a, 'p2');
   a = goKey(a, 'wolf'); a = tap(a, 'p2');
   a = finishNight(a);
   assert.ok(alive(a, 'p2'), 'wachsam: unangreifbar');
-  assert.ok(!alive(a, 'p1') && !alive(a, 'p3'), 'Wolf und Seherin als Besucher sterben');
+  assert.ok(!alive(a, 'p1'), 'der Wolf als Besucher stirbt');
+  assert.ok(alive(a, 'p3'), 'die Seherin besucht nicht');
 });
 
 test('Tagfähigkeiten: Schuss, Einsperren und Hinrichten', () => {

@@ -10,6 +10,7 @@ import './ui/diagnose.js';
 import './ui/lock.js';
 import './ui/protocol.js';
 import './ui/saves.js';
+import './ui/roleeditor.js';
 import { bind } from './store-ref.js';
 import { setMusic, stopMusic, unlockAudio, musicState, debugSeekNearEnd, sfxLog } from './audio.js';
 import { buildScene } from './ui/scene.js';

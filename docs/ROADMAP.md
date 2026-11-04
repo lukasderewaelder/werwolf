@@ -132,6 +132,10 @@ Umgesetzt: Schriftskala mit sechs Stufen (am Handy kleiner), Serifenschrift nur 
 
 Abnahme: Anleitung und die Hauptansichten wirken am Handy aus einem Guss.
 
+## M14e Regel-System und Rollen-Werkstatt, Etappe E1 (umgesetzt, wartet auf deine Abnahme)
+Umgesetzt: Fähigkeiten eigener Rollen sind Regeln mit Bedingungsbaum (Gruppen „Alle müssen gelten“ / „Eine reicht“, bis 3 Ebenen), Nebenwirkungen (Spielleiter-Hinweis, Fähigkeit ruht, stirbt selbst) und der Wirkung „Spielleiter-Hinweis“. Rollen-Werkstatt als eigene Seite: Live-Vorschau im Klartext, Reiter Grundlagen · Fähigkeiten · Eigenschaften · Sieg, Satzbaukasten mit antippbaren Lücken, Auswahlblätter ohne Listen, 10 Vorlagen. Nachts ein Schritt je Rolle mit allen Fähigkeiten untereinander; Wachsam und Hinweise per Knopf. Besuch zählt standardmäßig nur bei den Werwölfen, je Regel „zählt als Besuch“. Kein Springen mehr: gleiche Ansicht wird ohne Einblendung neu gezeichnet, Dialoge behalten die Scrollposition. Alte eigene Rollen werden automatisch umgerechnet.
+Offen: E2 Besuche, Schutz, Mitsterben, Angriffsstärken · E3 Informationen und Täuschung · E4 Rollenwechsel und Vererbung.
+
 ## M15 Daten und Pflege
 - Sicherungserinnerung, Gruppen per QR-Code oder Datei übertragen.
 - Automatische Tests bei jedem Push (GitHub Actions).

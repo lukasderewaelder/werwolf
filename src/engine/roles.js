@@ -2,6 +2,7 @@
 // Lager: village = Dorfbewohner, wolf = Werwölfe, twofold = Zweideutige (Lager kann wechseln), solo = Einzelgänger.
 // night: when = first | every | even (jede zweite Nacht); order = Aufrufreihenfolge; act = Art der Aktion (null = nur erwachen).
 
+import { sanitizeCond, sanitizeThen } from './rules.js';
 export const SETS = { basis: 'Basisspiel', neumond: 'Neumond', charaktere: 'Charaktere', gemeinde: 'Die Gemeinde', eigene: 'Eigene' };
 
 export const ROLES = [
@@ -365,6 +366,7 @@ export const BLOCKS = {
   shoot: { name: 'Am Tag: Person erschießen (Schütze)', short: 'Schuss', verb: 'erschießt', day: true },
   jail: { name: 'Am Tag: Person einsperren (in der Nacht geschützt, aber gesperrt)', short: 'Einsperren', verb: 'sperrt ein', day: true },
   jailkill: { name: 'Am Tag: Person einsperren und in der Nacht hinrichten (Kerkermeister)', short: 'Hinrichten', verb: 'richtet in der Nacht hin', day: true },
+  note: { name: 'Spielleiter-Hinweis (die App erinnert nur)', short: 'Hinweis', verb: 'wählt' },
 };
 export const BLOCK_WHEN = { every: 'Jede Nacht', first: 'Nur in der ersten Nacht', later: 'Ab der zweiten Nacht', even: 'Jede zweite Nacht' };
 export const BLOCK_WHEN_DAY = { every: 'Jeden Tag', first: 'Nur am ersten Tag', later: 'Ab dem zweiten Tag', even: 'Jeden zweiten Tag' };
@@ -403,7 +405,7 @@ export const custKey = (rid, i) => (i ? `${rid}#${i}` : rid);
 
 /** Bausteine bereinigen; gespeicherte Rollen mit nur `cact` werden in einen Baustein umgerechnet. */
 export function customBlocks(c) {
-  let list = Array.isArray(c.blocks) ? c.blocks : null;
+  let list = Array.isArray(c.rules) ? c.rules : Array.isArray(c.blocks) ? c.blocks : null;
   if (!list) {
     const k = c.cact && c.cact !== 'none' && BLOCKS[c.cact] ? c.cact : null;
     list = k ? [{ k, when: c.wake === 'first' ? 'first' : c.wake === 'even' ? 'even' : 'every', limit: c.wake === 'once' ? 1 : 0, self: !!c.cself }] : [];
@@ -411,9 +413,10 @@ export function customBlocks(c) {
   const out = list.filter((b) => b && BLOCKS[b.k]).slice(0, 8).map((b) => {
     const B = BLOCKS[b.k];
     return {
-      k: b.k, n: B.fixed ?? Math.max(1, Math.min(3, Math.round(+b.n) || 1)), when: BLOCK_WHEN[b.when] ? b.when : 'every',
+      k: b.k, n: B.fixed ?? (b.k === 'note' ? Math.max(0, Math.min(3, Math.round(+b.n) || 0)) : Math.max(1, Math.min(3, Math.round(+b.n) || 1))), when: BLOCK_WHEN[b.when] ? b.when : 'every',
       limit: B.limit1 ? 1 : Math.max(0, Math.min(9, Math.round(+b.limit) || 0)), self: B.selfOnly ? true : !!b.self, rep: !!b.rep, role: b.role || 'villager',
       chance: B.limit1 ? 100 : BLOCK_CHANCE.includes(+b.chance) ? +b.chance : 100,
+      if: sanitizeCond(b.if), then: sanitizeThen(b.then), visit: !!b.visit, ...(b.k === 'note' ? { text: String(b.text ?? '').slice(0, 200) } : {}),
     };
   });
   if ((c.win === 'bound' || c.win === 'hunt') && !out.some((b) => b.k === 'bind')) out.unshift({ ...blankBlock('bind'), when: 'first', limit: 1 });
@@ -431,7 +434,7 @@ export function registerRoles(list = []) {
     const night = blocks.some((b) => !BLOCKS[b.k].day) ? { when: 'every', order, act: 'cust' } : wake !== 'none' ? { when: wake, order, act: null } : null;
     const def = {
       id: c.id, name: c.name, set: 'eigene', camp: c.camp === 'wolf' && !SOLO_WINS.includes(win) ? 'wolf' : 'village', color: c.color || (c.camp === 'wolf' ? '#8a2a2a' : '#4a5f8f'),
-      sub: c.sub || 'Eigene Rolle', desc: c.desc || '', say: c.say || '', custom: true, icon: c.icon || '', win, blocks, passives, heir: c.heir && c.heir !== c.id ? c.heir : '', needUse: !!c.needUse,
+      sub: c.sub || 'Eigene Rolle', desc: c.desc || '', say: c.say || '', custom: true, icon: c.icon || '', win, blocks, rules: blocks, passives, heir: c.heir && c.heir !== c.id ? c.heir : '', needUse: !!c.needUse,
       ...(night ? { night } : {}),
     };
     const i = ROLES.findIndex((x) => x.id === c.id);

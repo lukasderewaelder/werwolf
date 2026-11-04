@@ -2,7 +2,7 @@
 // Der Block zwischen den Marken wird von tools/precache.mjs erzeugt (node tools/precache.mjs).
 
 // >>> precache
-const VERSION = '42af68d25b';
+const VERSION = '580d8026c9';
 const ASSETS = [
   './',
   './assets/audio/glocke.mp3',
@@ -61,6 +61,7 @@ const ASSETS = [
   './src/engine/events.js',
   './src/engine/game.js',
   './src/engine/roles.js',
+  './src/engine/rules.js',
   './src/engine/town.js',
   './src/main.js',
   './src/store-ref.js',
@@ -77,6 +78,7 @@ const ASSETS = [
   './src/ui/modals.js',
   './src/ui/pages.js',
   './src/ui/protocol.js',
+  './src/ui/roleeditor.js',
   './src/ui/saves.js',
   './src/ui/scene.js',
   './src/ui/setup.js',

@@ -139,35 +139,61 @@ test('Offline: nach dem ersten Besuch läuft die App ohne Netz', async () => {
   await context.close();
 });
 
-test('Eigene Rolle: anlegen, einplanen, in der Nacht aufgerufen', async () => {
-  const { page, problems } = await app.openApp();
+/** Zur Rollenwahl im Assistenten und die Werkstatt öffnen. */
+async function openWorkshop(page) {
   await page.click('[data-action=new-game]');
   await page.fill('#add-inp', 'Anna, Ben, Carla, David, Eva, Felix'); await page.press('#add-inp', 'Enter');
   await page.click('[data-action=wiz-next]'); await page.click('[data-action=wiz-next]');
   await page.click('[data-action=lib-set-setup][data-set=eigene]');
   await page.click('[data-action=custom-new]');
-  await page.fill('#custom-form input[name=name]', 'Nachtwächter');
-  await page.click('[data-action=custom-block-add]');
-  await page.selectOption('#bk-k-0', 'protect');
-  await page.click('[data-action=custom-block-add]');
-  await page.selectOption('#bk-k-1', 'swap');
-  assert.equal(await page.locator('#custom-form select[name=bk_n_1]').count(), 0, 'Tauschen hat feste Zielzahl');
-  await page.selectOption('#custom-form select[name=bk_limit_1]', '1');
-  await page.check('#custom-form input[name=pa_hardy]');
-  await page.selectOption('#custom-form select[name=win]', 'survive');
-  await page.click('#custom-form label.chip:has(input[value="🛡️"])');
-  await page.fill('#custom-form input[name=say]', 'Der Nachtwächter erwacht.');
-  await page.click('#custom-form button[type=submit]');
+  await page.waitForSelector('.re-page');
+}
+
+test('Rollen-Werkstatt: Satzbaukasten ohne Auswahllisten, Bedingungsgruppen, ein Nachtschritt je Rolle', async () => {
+  const { page, problems } = await app.openApp({ viewport: PHONE });
+  await openWorkshop(page);
+  await page.fill('#re-name', 'Nachtwächter');
+  assert.match(await page.locator('#re-preview').innerText(), /Nachtwächter/, 'Vorschau folgt der Eingabe');
+  await page.click('[data-action=re-icon][data-v="🛡️"]');
+  await page.fill('#re-say', 'Der Nachtwächter erwacht.');
+  await page.click('[data-action=re-tab][data-k=rules]');
+  // Fähigkeit 1: Schützen
+  await page.click('[data-action=re-gap][data-ri="-1"]');
+  await page.click('[data-action=re-effect][data-k=protect]');
+  // Fähigkeit 2: Tauschen, höchstens einmal, nur wenn (Nacht ≥ 3 oder Seherin tot)
+  await page.click('[data-action=re-gap][data-ri="-1"]');
+  await page.click('[data-action=re-effect][data-k=swap]');
+  const scroller = page.locator('.re-scroll');
+  await scroller.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+  const top = await scroller.evaluate((el) => el.scrollTop);
+  await page.click('[data-action=re-gap][data-ri="1"][data-f=freq]');
+  await page.click('[data-action=re-set][data-key=limit][data-v="1"]');
+  await page.click('[data-action=re-sheet-close][data-done]');
+  assert.equal(await scroller.evaluate((el) => el.scrollTop), top, 'kein Springen beim Ändern');
+  await page.click('[data-action=re-gap][data-ri="1"][data-f=cond]');
+  await page.click('[data-action=re-cmode][data-k=any]');
+  await page.click('[data-action=re-cpick][data-p=""]');
+  await page.click('[data-action=re-cadd][data-k=nightGte]');
+  await page.click('[data-action=re-cpick][data-p=""]');
+  await page.click('[data-action=re-cadd][data-k=roleDead]');
+  await page.click('[data-action=re-sheet-close][data-done]');
+  assert.match(await page.locator('#re-preview').innerText(), /wenn es mindestens Nacht 2 ist oder Seherin ausgeschieden ist/);
+  await page.click('[data-action=re-tab][data-k=traits]');
+  await page.click('[data-action=re-passive][data-k=hardy]');
+  await page.click('[data-action=re-tab][data-k=win]');
+  await page.click('[data-action=re-win][data-k=survive]');
+  assert.equal(await page.locator('.re-page select').count(), 0, 'keine Auswahllisten');
+  await page.click('[data-action=re-save]');
   await page.click('[data-action=role-inc]');
   assert.equal(await page.locator('.sumbar .s b').first().innerText(), '6/6');
+  const cr = await page.evaluate(() => window.__werwolf.S.customRoles[0]);
+  assert.deepEqual([cr.rules.map((b) => [b.k, b.limit]), cr.passives, cr.win, cr.icon], [[['protect', 0], ['swap', 1]], ['hardy'], 'survive', '🛡️']);
+  assert.deepEqual(cr.rules[1].if, { any: [{ k: 'nightGte', n: 2 }, { k: 'roleDead', role: 'seer' }] });
   await page.click('[data-action=wiz-next]');
   await page.click('[data-action=start-game]');
   await page.waitForSelector('.game');
-  assert.ok((await page.locator('.sdot').allInnerTexts()).some((t) => /Nachtwächter/.test(t)));
-  const cr = await page.evaluate(() => window.__werwolf.S.customRoles[0]);
-  assert.deepEqual([cr.blocks.map((b) => [b.k, b.limit]), cr.passives, cr.win, cr.icon], [[['protect', 0], ['swap', 1]], ['hardy'], 'survive', '🛡️']);
-  const keys = await page.evaluate(() => window.__werwolf.S.game && Array.from(document.querySelectorAll('.sdot')).map((e) => e.textContent.trim()));
-  assert.ok(keys.some((t) => /Nachtwächter: Schützen/.test(t)) && keys.some((t) => /Nachtwächter: Tauschen/.test(t)), 'zwei Schritte: ' + keys);
+  const dots = await page.locator('.sdot').allInnerTexts();
+  assert.equal(dots.filter((t) => /Nachtwächter/.test(t)).length, 1, 'ein Schritt je Rolle: ' + dots);
   // überlebt das Neuladen (Rolle ist im Spielstand gespeichert)
   await page.reload();
   await page.click('[data-action=resume]');
@@ -176,21 +202,17 @@ test('Eigene Rolle: anlegen, einplanen, in der Nacht aufgerufen', async () => {
   await page.context().close();
 });
 
-test('Eigene Rolle: Tagesfähigkeit mit Chance wird im Editor gebaut und am Tag eingesetzt', async () => {
+test('Rollen-Werkstatt: Vorlage Schütze, Tagesfähigkeit wird am Tag eingesetzt', async () => {
   const { page, problems } = await app.openApp();
-  await page.click('[data-action=new-game]');
-  await page.fill('#add-inp', 'Anna, Ben, Carla, David, Eva, Felix'); await page.press('#add-inp', 'Enter');
-  await page.click('[data-action=wiz-next]'); await page.click('[data-action=wiz-next]');
-  await page.click('[data-action=lib-set-setup][data-set=eigene]');
-  await page.click('[data-action=custom-new]');
-  await page.fill('#custom-form input[name=name]', 'Schütze');
-  await page.click('[data-action=custom-block-add]');
-  await page.selectOption('#bk-k-0', 'shoot');
-  assert.equal(await page.locator('#custom-form select[name=bk_chance_0]').count(), 1);
-  assert.equal(await page.locator('#custom-form select[name=bk_when_0] option').first().innerText(), 'Jeden Tag');
-  await page.selectOption('#custom-form select[name=bk_limit_0]', '1');
-  await page.selectOption('#custom-form select[name=win]', 'cult');
-  await page.click('#custom-form button[type=submit]');
+  await openWorkshop(page);
+  await page.click('[data-action=re-tpl][data-k=gunner]');
+  assert.equal(await page.inputValue('#re-name'), 'Schütze');
+  await page.click('[data-action=re-tab][data-k=rules]');
+  assert.equal(await page.locator('.rcard').count(), 1);
+  await page.click('[data-action=re-gap][data-ri="0"][data-f=timing]');
+  assert.ok(await page.locator('[data-action=re-set][data-key=when]:has-text("Jeden Tag")').count(), 'Tageszeiten');
+  await page.click('[data-action=re-sheet-close][data-done]');
+  await page.click('[data-action=re-save]');
   await page.click('[data-action=role-inc]');
   await page.click('[data-action=wiz-next]');
   await page.click('[data-action=start-game]');

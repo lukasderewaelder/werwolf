@@ -1,7 +1,7 @@
 // Spielansicht: Tisch mit Spielersteinen, Nachtschritte, Tag, Abfragen, Rollenvergabe, Ende.
 import { S, ui, views, on, go, dispatch, undo, canUndo, toast, buzz, afterRender, persist, clearUndo } from './core.js';
 import { esc, art, I, initials, circlePos, tokenSize, roleShort } from './art.js';
-import { RM, CAMP_LABEL, roleName, BLOCKS, targetsOf } from '../engine/roles.js';
+import { RM, CAMP_LABEL, roleName, BLOCKS, targetsOf, custKey } from '../engine/roles.js';
 import {
   alive, nm, isWolf, looksWolf, roleLabel, holders, livingHolders, seatNeighbors, stepContext, nightSteps, openDecision, unknownPool, livingIds, CAUSE, groupNames, powerOn, tally,
   eligibleVoters, voucherVictim, voucherStart, dayBlocks,
@@ -38,9 +38,9 @@ function marks(g, c) {
         case 'fire': if (d.fire) m.target.add(d.fire); break;
         case 'seance': if (d.medium) m.pick.add(d.medium); break;
         case 'cust': {
+          (step.blks ?? []).forEach((i, j) => { const b = r.blocks?.[i]; targetsOf(d.cust[step.keys[j]]).forEach((t) => (['protect', 'guard'].includes(b?.k) ? m.safe : ['kill', 'jailkill'].includes(b?.k) ? m.target : m.pick).add(t)); });
           const b = r.blocks?.[step.blk ?? 0];
-          targetsOf(d.cust[step.key]).forEach((t) => (b?.k === 'protect' ? m.safe : b?.k === 'kill' ? m.target : m.pick).add(t));
-          if (b?.rep) (g.clast?.[step.key] ?? []).forEach((t) => m.dim.add(t));
+          if (b?.rep) (g.clast?.[custKey(step.role, step.blk ?? 0)] ?? []).forEach((t) => m.dim.add(t));
           break;
         }
         case 'enchant': d.enchant.forEach((x) => m.pick.add(x)); Object.keys(g.enchanted).forEach((x) => m.dim.add(x)); break;
@@ -238,16 +238,25 @@ function taskBox(g, c) {
         break;
       case 'fire': prompt = d.fire ? `Das Gebäude von ${nm(g, d.fire)} brennt (${BUILDINGS[g.town.b[d.fire]]?.name ?? ''}).` : 'Welches Gebäude setzt der Brandstifter in Brand? Einmal im Spiel, Person im Kreis antippen oder Weiter.'; cls = d.fire ? 'ok' : ''; break;
       case 'cust': {
-        const b = r.blocks[step.blk ?? 0], B = BLOCKS[b.k], ts = targetsOf(d.cust[step.key]), names = ts.map((x) => nm(g, x)).join(' & ');
-        const need = B.fixed ?? 1, left = b.limit ? b.limit - (g.cuse?.[step.key] ?? 0) : 0;
-        const opt = b.limit ? ` (noch ${left}× im Spiel, sonst Weiter)` : ' (optional)';
-        if (!ts.length) prompt = `${r.name}: ${B.name}. ${B.dead ? 'Gestorbene Person im Kreis antippen' : b.n > 1 ? `Bis zu ${b.n} Personen im Kreis antippen` : 'Person im Kreis antippen'}${opt}.`;
-        else if (b.k === 'peek') prompt = ts.map((x) => (!g.roles[x] ? `${nm(g, x)}: Rolle noch nicht erfasst.` : `${nm(g, x)}: ${looksWolf(g, x) ? 'Werwolf (nicken)' : 'Kein Werwolf (Kopf schütteln)'}`)).join(' ');
-        else if (b.k === 'peekrole') prompt = ts.map((x) => (g.roles[x] ? `${nm(g, x)}: ${roleLabel(g, x)}` : `${nm(g, x)}: Rolle noch nicht erfasst.`)).join(' ');
-        else if (b.k === 'convert') prompt = `${r.name} verwandelt ${names} in ${roleName(b.role)}`;
-        else if (b.k === 'swap' || b.k === 'love') prompt = ts.length < need ? `${names}: noch ${need - ts.length} Person antippen (${ts.length}/${need})` : `${r.name} ${B.verb}: ${names}`;
-        else prompt = `${r.name} ${B.verb}: ${names}${b.n > 1 ? ` (${ts.length}/${b.n})` : ''}`;
-        cls = ts.length >= need ? 'ok' : '';
+        const rows = (step.blks ?? []).map((i, j) => {
+          const b = r.blocks[i], B = BLOCKS[b.k], key = step.keys[j], ts = targetsOf(d.cust[key]), on = i === step.blk, names = ts.map((x) => nm(g, x)).join(' & ');
+          const need = B.fixed ?? 1, toggle = !!B.selfOnly || (b.k === 'note' && !b.n), left = b.limit ? b.limit - (g.cuse?.[key] ?? 0) : 0;
+          const meta = [b.limit ? `noch ${left}× im Spiel` : 'freiwillig', b.chance < 100 ? `gelingt zu ${b.chance} %` : '', b.rep ? 'nicht dieselbe Person wie zuletzt' : ''].filter(Boolean).join(' · ');
+          let status;
+          if (toggle) status = ts.length ? (b.k === 'alert' ? 'ist heute wachsam' : 'eingesetzt') : 'nicht eingesetzt';
+          else if (!ts.length) status = B.dead ? 'gestorbene Person antippen' : b.n > 1 ? `bis zu ${b.n} Personen antippen` : need === 2 ? 'zwei Personen antippen' : 'Person im Kreis antippen';
+          else if (b.k === 'peek') status = ts.map((x) => (!g.roles[x] ? `${nm(g, x)}: Rolle noch nicht erfasst` : `${nm(g, x)}: ${looksWolf(g, x) ? 'Werwolf (nicken)' : 'kein Werwolf (Kopf schütteln)'}`)).join(' · ');
+          else if (b.k === 'peekrole') status = ts.map((x) => (g.roles[x] ? `${nm(g, x)}: ${roleLabel(g, x)}` : `${nm(g, x)}: Rolle noch nicht erfasst`)).join(' · ');
+          else if (b.k === 'convert') status = `${names} → ${roleName(b.role)}`;
+          else if (ts.length < need) status = `${names} · noch ${need - ts.length} antippen`;
+          else status = b.n > 1 ? `${names} (${ts.length}/${b.n})` : names;
+          const done = toggle ? ts.length > 0 : ts.length >= need;
+          const body = on ? `<div class="rbody"><span class="muted small">${esc(meta)}</span>${b.k === 'note' && b.text ? `<div class="hint">${I.book}<span>${esc(b.text)}</span></div>` : ''}${toggle ? `<button class="btn sm ${ts.length ? 'on' : ''}" data-action="rule-self" data-key="${key}">${ts.length ? I.check : ''}<span>${b.k === 'alert' ? (ts.length ? 'Ist wachsam' : 'Wachsam sein') : ts.length ? 'Eingesetzt' : 'Einsetzen'}</span></button>` : ''}</div>` : '';
+          return `<div class="rrow ${on ? 'on' : ''} ${done ? 'ok' : ''}"><button class="rhead" data-action="rule-sel" data-key="${key}" aria-pressed="${on}"><span class="rdot">${done ? I.check : ''}</span><b>${esc(B.short)}</b><span class="rst">${esc(status)}</span></button>${body}</div>`;
+        });
+        const many = rows.length > 1;
+        prompt = many ? 'Fähigkeit antippen, dann im Kreis die Person wählen.' : `${r.name}: ${BLOCKS[r.blocks[step.blk].k].name}`;
+        extra = `<div class="rrows">${rows.join('')}</div>`;
         break;
       }
       case 'mark': prompt = d.mark ? `Belastet: ${nm(g, d.mark)} (zwei Stimmen mehr)` : 'Wen belastet der Rabe? (optional)'; break;
@@ -261,6 +270,8 @@ function taskBox(g, c) {
   return { html: pin ? '' : task, pin: pin ? task : '' };
 }
 
+on('rule-sel', (el) => { dispatch({ t: 'rule-sel', key: el.dataset.key }, { undoable: false }); return false; });
+on('rule-self', (el) => { dispatch({ t: 'rule-self', key: el.dataset.key }); return false; });
 on('assign-mode', (el) => dispatch({ t: 'assign-mode', mode: el.dataset.mode }, { undoable: false }) || false);
 on('girl-caught', () => { dispatch({ t: 'girl-caught' }); return false; });
 on('actor-role', (el) => { dispatch({ t: 'actor-role', role: el.dataset.role }); return false; });
