@@ -467,6 +467,9 @@ function interruptPanel(g) {
   } else if (it.type === 'hunter') {
     body = `<div class="task warn"><div class="prompt">${I.target}<span>${esc(it.text ?? `${it.name ?? 'Jäger'} ${nm(g, it.id)} ist tot und schießt noch einmal. Tippe sein Ziel im Kreis an.`)}</span></div></div>`;
     foot = `<button class="btn primary" data-action="interrupt-skip">Er schießt niemanden</button>`;
+  } else if (it.type === 'heir') {
+    body = `<div class="task warn"><div class="prompt">${I.crown}<span>${esc(it.name)} ${esc(nm(g, it.id))} ist tot und vererbt die Rolle. Tippe die Person an, die sie bekommt.</span></div></div>`;
+    foot = `<button class="btn primary" data-action="interrupt-skip">Niemand erbt</button>`;
   } else if (it.type === 'captain') {
     body = `<div class="task warn"><div class="prompt">${I.crown}<span>Hauptmann ${esc(nm(g, it.id))} ist tot und ernennt seinen Nachfolger. Tippe die Person an.</span></div></div>`;
     foot = `<button class="btn primary" data-action="interrupt-skip">Kein Nachfolger</button>`;

@@ -67,7 +67,7 @@ function ruleCard(b, ri, n) {
     if (first) { first = false; return gap(ri, 'effect', t.replace(/:$/, ''), 'eff'); }
     return esc(t);
   }).join(' ');
-  const extra = [b.k === 'note' && !b.n && !b.on ? gap(ri, 'target', 'ohne Ziel', 'empty') : '', b.power != null ? gap(ri, 'power', powerText(b)) : '', b.k === 'trap' ? gap(ri, 'trap', `${TRAP_WHO[b.trapWho]} · ${b.trapArm === 'now' ? 'sofort' : 'ab nächster Nacht'}`) : '', b.k === 'frame' ? gap(ri, 'as', `${b.nights} ${b.nights === 1 ? 'Nacht' : 'Nächte'}`) : '', b.k === 'appear' && b.scope !== 'checks' ? gap(ri, 'as', b.scope === 'death' ? 'nur beim Tod' : 'auch beim Tod') : '', !b.on && b.who && b.who !== 'any' ? gap(ri, 'target', WHO[b.who]) : ''].filter(Boolean).join(' ');
+  const extra = [b.k === 'note' && !b.n && !b.on ? gap(ri, 'target', 'ohne Ziel', 'empty') : '', b.power != null ? gap(ri, 'power', powerText(b)) : '', b.keep != null ? gap(ri, 'keep', b.keep ? 'behält die alte Fähigkeit' : 'verliert die alte Fähigkeit') : '', b.k === 'trap' ? gap(ri, 'trap', `${TRAP_WHO[b.trapWho]} · ${b.trapArm === 'now' ? 'sofort' : 'ab nächster Nacht'}`) : '', b.k === 'frame' ? gap(ri, 'as', `${b.nights} ${b.nights === 1 ? 'Nacht' : 'Nächte'}`) : '', b.k === 'appear' && b.scope !== 'checks' ? gap(ri, 'as', b.scope === 'death' ? 'nur beim Tod' : 'auch beim Tod') : '', !b.on && b.who && b.who !== 'any' ? gap(ri, 'target', WHO[b.who]) : ''].filter(Boolean).join(' ');
   return `<div class="rcard" data-ri="${ri}">
     <div class="rc-top"><span class="no">${ri + 1}</span><b class="rc-name">${esc(B.short)}</b>${B.day ? '<span class="pill">Tag</span>' : ''}<span class="spacer"></span>
       <button type="button" class="mini" data-action="re-move" data-ri="${ri}" data-d="-1" aria-label="Nach oben" ${ri === 0 ? 'disabled' : ''}>${I.up}</button>
@@ -158,6 +158,10 @@ function sheetHtml(re) {
         ${b.k === 'appear' ? `<div class="re-sec"><span class="eyebrow">Wann?</span><div class="seg">${[['checks', 'Bei Prüfungen'], ['death', 'Beim Tod'], ['both', 'Beides']].map(([k, t]) => `<button type="button" class="${b.scope === k ? 'on' : ''}" data-action="re-set" data-key="scope" data-v="${k}">${t}</button>`).join('')}</div><p class="muted small">Beim Tod: Die App zeigt dir die Rolle, die du ansagst, und klein die echte.</p></div>` : ''}`;
       break;
     }
+    case 'keep':
+      title = 'Alte Fähigkeit?';
+      body = `<div class="re-tiles one">${[[true, 'Behält die alte Fähigkeit', 'Zählt heimlich als Werwolf, wird aber weiter als eigene Rolle aufgerufen.'], [false, 'Wird einfacher Werwolf', 'Die eigene Rolle ist weg.']].map(([v, t, h]) => pickRow('re-set', t, h, !!b.keep === v, `data-key="keep" data-v="${v ? 1 : 0}"`)).join('')}</div>`;
+      break;
     case 'power': {
       title = b.k === 'protect' ? 'Wie stark ist der Schutz?' : 'Wie stark ist der Angriff?';
       const opts = b.k === 'protect' ? [[1, 'Normal', 'Hält normale Angriffe ab, auch den der Werwölfe.'], [2, 'Stark', 'Hält auch durchdringende Angriffe ab.']]
@@ -261,7 +265,7 @@ on('re-effect', (el) => {
   d.rules[sh.ri] = fix({ ...d.rules[sh.ri], k });
   ui.re.sheet = null;
 });
-on('re-set', (el) => { const b = R(); if (!b) return false; const k = el.dataset.key, v = el.dataset.v; b[k] = ['limit', 'chance', 'power', 'n'].includes(k) ? +v : v; D().rules[ui.re.sheet.ri] = fix(b); });
+on('re-set', (el) => { const b = R(); if (!b) return false; const k = el.dataset.key, v = el.dataset.v; b[k] = ['limit', 'chance', 'power', 'n'].includes(k) ? +v : k === 'keep' ? v === '1' : v; D().rules[ui.re.sheet.ri] = fix(b); });
 on('re-num', (el) => { const b = R(); if (!b) return false; const k = el.dataset.key || 'n'; b[k] = Math.max(+el.dataset.min, Math.min(+el.dataset.max, (b[k] ?? 0) + +el.dataset.d)); D().rules[ui.re.sheet.ri] = fix(b); });
 on('re-flag', (el) => { const b = R(); if (!b) return false; b[el.dataset.key] = !b[el.dataset.key]; D().rules[ui.re.sheet.ri] = fix(b); });
 on('re-role', (el) => { const b = R(); if (b) b.role = el.dataset.v; ui.re.sheet = BLOCKS[b?.k]?.as ? { ...ui.re.sheet, f: 'as' } : null; });

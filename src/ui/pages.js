@@ -78,6 +78,7 @@ const GUIDE = [
       'Besuche und Orte: besuchen, einladen, Angriffe umlenken, Platz tauschen, Lockvogel, Falle, Fluch.',
       '<b>Bei einem Ereignis</b> wirkt eine Regel automatisch: wenn die Rolle angegriffen oder besucht wird, ihr Ziel angegriffen wird, ihr Gastgeber stirbt, sie stirbt oder hingerichtet wird.',
       'Angriffe haben eine Stärke (normal, durchdringend, unaufhaltbar), Schutz ist normal oder stark.',
+      'Rolle wechseln: verflucht werden, überlaufen, die Rolle eines Toten übernehmen, weitergeben, ausleihen, vererben oder dem Meister nachfolgen.',
       'Wissen und Täuschen: Partei, gleiche Partei, Wölfe zählen, Auskünfte am Morgen, „Erscheint als“, Verfälschen und Wirkungslos. Im Nachtschritt steht groß, was du ansagst, und klein, was wirklich stimmt.',
       'Am Tag: Schuss, Einsperren, Hinrichten. Du findest sie in der Karte <b>Fähigkeiten am Tag</b>.',
     ] },

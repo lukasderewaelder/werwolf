@@ -395,11 +395,20 @@ export const BLOCKS = {
   appear: { name: 'Erscheint bei Prüfungen als …', short: 'Erscheint als', verb: 'erscheint als', trig: ['always'], noTarget: true, as: true },
   frame: { name: 'Person erscheint bei Prüfungen als …', short: 'Verfälschen', verb: 'verfälscht', as: true },
   nullify: { name: 'Fähigkeit der Person heute unbemerkt wirkungslos machen', short: 'Wirkungslos', verb: 'macht wirkungslos' },
+  // E4: Rollenwechsel und Vererbung
+  becomeWolf: { name: 'Wird statt zu sterben zum Werwolf', short: 'Verflucht', verb: 'wird Werwolf', trig: ['attacked'], noTarget: true, keep: true },
+  turnSelf: { name: 'Wird selbst zum Werwolf', short: 'Seitenwechsel', verb: 'wird Werwolf', trig: ['dawn', 'targetAttacked', 'boundDies', 'hostDies'], noTarget: true, keep: true },
+  copyDead: { name: 'Übernimmt die Rolle einer gestorbenen Person', short: 'Rolle übernehmen', verb: 'übernimmt die Rolle von', dead: true },
+  passOn: { name: 'Gibt die eigene Rolle dauerhaft weiter (wird Dorfbewohner)', short: 'Weitergeben', verb: 'gibt die Rolle an' },
+  lend: { name: 'Leiht die eigene Rolle für die nächste Nacht aus', short: 'Ausleihen', verb: 'leiht die Rolle an' },
+  bequeath: { name: 'Vererbt die eigene Rolle beim Tod', short: 'Vererben', verb: 'vererbt die Rolle an', trig: ['death'] },
+  takeRole: { name: 'Übernimmt die Rolle des festgelegten Ziels, wenn es stirbt', short: 'Nachfolge', verb: 'übernimmt die Rolle', trig: ['boundDies'], noTarget: true },
+  unlock: { name: 'Schaltet eine gesperrte Fähigkeit frei', short: 'Freischalten', verb: 'schaltet frei', trig: ['dawn', 'attacked', 'targetAttacked', 'visited', 'boundDies', 'hostDies'], noTarget: true },
 };
 /** Ohne Ziel: Einsatz per Knopf im Nachtschritt. */
 export const isToggle = (b) => !!BLOCKS[b.k].selfOnly || (b.k === 'note' && !b.n) || (!!BLOCKS[b.k].noTarget && !b.on && !isTrigOnly(b.k));
 /** Nur über Auslöser nutzbar (kein Nachtschritt). */
-export const isTrigOnly = (k) => ['survive', 'strike', 'dieSelf', 'shield', 'appear'].includes(k);
+export const isTrigOnly = (k) => ['survive', 'strike', 'dieSelf', 'shield', 'appear', 'becomeWolf', 'turnSelf', 'bequeath', 'takeRole'].includes(k);
 export const BLOCK_WHEN = { every: 'Jede Nacht', first: 'Nur in der ersten Nacht', later: 'Ab der zweiten Nacht', even: 'Jede zweite Nacht' };
 export const BLOCK_WHEN_DAY = { every: 'Jeden Tag', first: 'Nur am ersten Tag', later: 'Ab dem zweiten Tag', even: 'Jeden zweiten Tag' };
 export const BLOCK_CHANCE = [100, 75, 50, 25];
@@ -462,16 +471,17 @@ function ruleExtras(b, B) {
   const on = B.trig && (isTrigOnly(b.k) || B.trig.includes(b.on)) ? (B.trig.includes(b.on) ? b.on : B.trig[0]) : null;
   if (on) out.on = on;
   if (B.power || b.k === 'kill' || b.k === 'protect') out.power = Math.max(1, Math.min(b.k === 'protect' ? 2 : 3, Math.round(+b.power) || 1));
-  if (on && (b.k === 'strike' || b.k === 'note')) out.tgt = TRIG_TARGETS[on].includes(b.tgt) ? b.tgt : TRIG_TARGETS[on][0];
+  if (on && (b.k === 'strike' || b.k === 'note' || b.k === 'bequeath')) out.tgt = TRIG_TARGETS[on].includes(b.tgt) ? b.tgt : TRIG_TARGETS[on][0];
   if (!on) { out.who = ['any', 'ownCamp', 'otherCamp', 'withAbility', 'noAbility'].includes(b.who) ? b.who : 'any'; out.once = !!b.once; }
   if (B.as) { out.as = ['village', 'wolf', 'role', 'random'].includes(b.as) ? b.as : 'village'; if (b.k === 'frame') out.nights = Math.max(1, Math.min(3, Math.round(+b.nights) || 1)); if (b.k === 'appear') out.scope = ['checks', 'death', 'both'].includes(b.scope) ? b.scope : 'checks'; }
+  if (B.keep) out.keep = !!b.keep;
   if (b.k === 'trap') { out.trapWho = ['first', 'all', 'wolves', 'nonWolves'].includes(b.trapWho) ? b.trapWho : 'first'; out.trapArm = b.trapArm === 'now' ? 'now' : 'next'; }
   return out;
 }
 /** Mögliche Ziele einer ausgelösten Wirkung je Auslöser (erste = Vorgabe). */
 export const TRIG_TARGETS = {
   always: ['none'], attacked: ['attacker', 'pick', 'none'], targetAttacked: ['attacker', 'none'], hostDies: ['none'], visited: ['visitors', 'none'],
-  death: ['pick', 'bound', 'host', 'attacker', 'none'], voted: ['pick', 'none'],
+  death: ['pick', 'bound', 'host', 'attacker', 'none'], voted: ['pick', 'none'], dawn: ['none'], boundDies: ['none'],
 };
 
 /** Eigene Rollen (Name, Lager village|wolf, Bausteine, Passive, Sieg) in die Rollentabelle eintragen. Ersetzt frühere Einträge gleicher Kennung. */

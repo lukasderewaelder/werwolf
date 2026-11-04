@@ -288,6 +288,23 @@ test('Rollen-Werkstatt E3: Täuschung mit Blatt „Erscheint als“, Auskunft mi
   await page.context().close();
 });
 
+test('Rollen-Werkstatt E4: Vorlage Verfluchter, alte Fähigkeit behalten umschalten', async () => {
+  const { page, problems } = await app.openApp({ viewport: PHONE });
+  await openWorkshop(page);
+  await page.click('[data-action=re-tpl][data-k=cursed]');
+  await page.click('[data-action=re-tab][data-k=rules]');
+  await page.click('[data-action=re-gap][data-ri="0"][data-f=keep]');
+  await page.click('[data-action=re-set][data-key=keep][data-v="1"]');
+  await page.click('[data-action=re-sheet-close][data-done]');
+  const prev = await page.locator('#re-preview').innerText();
+  assert.ok(prev.includes('wird Werwolf statt zu sterben, wenn der Angreifer ein Werwolf ist (behält die alte Fähigkeit, höchstens 1×)'), prev);
+  await page.click('[data-action=re-save]');
+  const cr = await page.evaluate(() => window.__werwolf.S.customRoles[0]);
+  assert.deepEqual([cr.rules[0].k, cr.rules[0].on, cr.rules[0].keep], ['becomeWolf', 'attacked', true]);
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});
+
 test('Verbitterter Greis: Gruppen lassen sich zuordnen', async () => {
   const { page, problems } = await app.openApp();
   await startGame(page, { names: NAMES.slice(0, 6), counts: { wolf: 1, greis: 1, villager: 4 }, mode: 'cards' });
