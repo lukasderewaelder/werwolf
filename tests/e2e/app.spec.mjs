@@ -222,7 +222,9 @@ test('Rollen-Werkstatt: Vorlage Schütze, Tagesfähigkeit wird am Tag eingesetzt
     g.roles = { [g.cfg.players[0].id]: id }; g.phase = 'day'; g.clock = 'day'; g.day = 1; g.dayMode = 'vote'; w.render();
   });
   await page.waitForSelector('text=Fähigkeiten am Tag');
-  await page.selectOption('[id^="dayt-"]', { label: 'Felix' });
+  assert.equal(await page.locator('.side select').count(), 0, 'keine Auswahlliste');
+  await page.click('[data-action=day-arm]');
+  await page.locator('.tok[aria-label="Felix"]:visible').first().click();
   await page.click('[data-action=day-cust]');
   const dead = await page.evaluate(() => Object.keys(window.__werwolf.S.game.dead));
   assert.equal(dead.length, 1);
@@ -301,6 +303,34 @@ test('Rollen-Werkstatt E4: Vorlage Verfluchter, alte Fähigkeit behalten umschal
   await page.click('[data-action=re-save]');
   const cr = await page.evaluate(() => window.__werwolf.S.customRoles[0]);
   assert.deepEqual([cr.rules[0].k, cr.rules[0].on, cr.rules[0].keep], ['becomeWolf', 'attacked', true]);
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});
+
+test('Tag E5: Sonderstimme in der Zählkarte, Aufdecken mit großer Karte, ohne Auswahlliste', async () => {
+  const { page, problems } = await app.openApp({ viewport: PHONE });
+  await page.evaluate(async () => {
+    const { createGame } = await import('/src/engine/game.js');
+    const { CUSTOM_TEMPLATES } = await import('/src/engine/rules.js');
+    const w = window.__werwolf, t = (k) => CUSTOM_TEMPLATES.find((x) => x.key === k).rules;
+    const players = ['Anna', 'Ben', 'Carla', 'David', 'Eva', 'Felix'].map((n, i) => ({ id: `p${i + 1}`, name: n }));
+    const g = createGame({ players, counts: { wolf: 1, c1: 1, c2: 1, villager: 3 }, mode: 'digital', custom: [{ id: 'c1', name: 'Bürgermeister', rules: t('mayor') }, { id: 'c2', name: 'Herold', rules: t('herald') }] });
+    g.roles = { p1: 'wolf', p2: 'c1', p3: 'c2', p4: 'villager', p5: 'villager', p6: 'villager' };
+    g.dealIdx = 6; g.phase = 'day'; g.clock = 'day'; g.day = 1; g.night = 1; g.dayMode = 'vote';
+    w.S.game = g; w.ui.view = 'game'; w.render();
+  });
+  await page.waitForSelector('[data-action=sv-arm]');
+  assert.match(await page.locator('[data-action=sv-arm]').innerText(), /Stimme von Ben \(×2\)/);
+  await page.click('[data-action=sv-arm]');
+  await page.locator('.tok[aria-label="Felix"]:visible').first().click();
+  assert.match(await page.locator('.vlist').innerText(), /Felix[\s\S]*2/);
+  await page.click('[data-action=day-arm] >> text=Aufdecken');
+  await page.locator('.tok[aria-label="Anna"]:visible').first().click();
+  await page.click('[data-action=day-cust]');
+  await page.waitForSelector('.reveal-big');
+  assert.match(await page.locator('.reveal-big').innerText(), /Werwolf/);
+  await page.click('.modal [data-action=close-modal]');
+  assert.equal(await page.locator('.side select').count(), 0);
   assert.deepEqual(problems, []);
   await page.context().close();
 });

@@ -1,10 +1,10 @@
 // Spielansicht: Tisch mit Spielersteinen, Nachtschritte, Tag, Abfragen, Rollenvergabe, Ende.
-import { S, ui, views, on, go, dispatch, undo, canUndo, toast, buzz, afterRender, persist, clearUndo } from './core.js';
+import { S, ui, views, on, go, dispatch, undo, canUndo, toast, buzz, afterRender, persist, clearUndo, render } from './core.js';
 import { esc, art, I, initials, circlePos, tokenSize, roleShort } from './art.js';
 import { RM, CAMP_LABEL, roleName, BLOCKS, targetsOf, custKey, isToggle } from '../engine/roles.js';
 import {
   alive, nm, isWolf, looksWolf, roleLabel, holders, livingHolders, seatNeighbors, stepContext, nightSteps, openDecision, unknownPool, livingIds, CAUSE, groupNames, powerOn, tally,
-  eligibleVoters, voucherVictim, voucherStart, dayBlocks, appearance, infoNow, isNullified,
+  eligibleVoters, voucherVictim, voucherStart, dayBlocks, appearance, infoNow, isNullified, specialVoters,
 } from '../engine/game.js';
 import { SPIRIT_CARDS } from '../engine/events.js';
 import { eventBlock } from './cards.js';
@@ -49,6 +49,8 @@ function marks(g, c) {
     }
   } else if (g.phase === 'day' || g.phase === 'interrupt') {
     if (g.phase === 'day') {
+      if (d.dayPick) m.pick.add(d.dayPick);
+      (d.vshield ?? []).forEach((x) => m.safe.add(x));
       if (d.voteMode === 'direct') { if (d.vote) m.target.add(d.vote); }
       else if (d.voteMode === 'voucher') { d.sit.forEach((x) => m.dim.add(x)); if (d.vote) m.target.add(d.vote); }
       else { const t = tally(g); t.rows.forEach((r) => { m.count[r.pid] = r.total; }); t.leaders.forEach((x) => m.target.add(x)); }
@@ -75,6 +77,7 @@ function tokHtml(g, p, i, n, mk, mode) {
   if (g.enchanted[p.id]) b.push(`<span class="bdg blue" title="Verzaubert">${I.flute}</span>`);
   if (g.charmed?.[p.id] && !dead && showRoles()) b.push(`<span class="bdg blue" title="Betört">${I.moon}</span>`);
   if (known && !dead && isWolf(g, p.id) && n <= 20) b.push(`<span class="bdg red" title="Werwolf">${I.wolf}</span>`);
+  if (g.revealed?.[p.id]) b.push(`<span class="bdg gold" title="Aufgedeckt">${I.eye}</span>`);
   if (g.idiotRevealed && rid === 'idiot') b.push(`<span class="bdg gold" title="Ohne Stimmrecht">${I.minus}</span>`);
   if (g.groups[p.id] && showRoles() && n <= 24) b.push(`<span class="bdg">${g.groups[p.id] === 'A' ? '1' : '2'}</span>`);
   const ava = known ? art(rid) : `<span>${esc(initials(p.name))}</span>`;
@@ -356,7 +359,7 @@ function timerCard() {
 function voteCard(g) {
   const d = g.draft, t = tally(g), mode = d.voteMode ?? 'count', count = mode === 'count', captainMode = g.dayMode === 'captain';
   const names = (ids) => ids.map((x) => nm(g, x)).join(' und ');
-  const rows = t.rows.map((r) => `<div class="vrow ${t.leaders.includes(r.pid) ? 'lead' : ''}"><b>${esc(nm(g, r.pid))}</b><span class="vnote">${[r.cap ? 'Hauptmann doppelt' : '', r.bonus ? 'Rabe +2' : ''].filter(Boolean).join(' · ')}</span><span class="vnum">${r.total}</span></div>`).join('');
+  const rows = t.rows.map((r) => `<div class="vrow ${t.leaders.includes(r.pid) ? 'lead' : ''}"><b>${esc(nm(g, r.pid))}</b><span class="vnote">${[r.cap ? 'Hauptmann doppelt' : '', r.bonus ? `+${r.bonus} Zusatz` : '', r.special?.length ? 'Sonderstimme' : ''].filter(Boolean).join(' · ')}</span><span class="vnum">${r.total}</span></div>`).join('');
   const result = !t.rows.length ? 'Noch keine Stimmen gezählt.' : t.tie ? `Gleichstand: ${names(t.leaders)} mit je ${t.max}.` : `Vorn: ${nm(g, t.leaders[0])} mit ${t.max} ${t.max === 1 ? 'Stimme' : 'Stimmen'}.`;
   const cap = !captainMode && g.captain && alive(g, g.captain);
   const voucherOn = g.cfg.rules.voucher && !captainMode;
@@ -373,28 +376,36 @@ function voteCard(g) {
       <div class="muted vhint">${t.cast} von ${t.eligible} Händen gezählt${t.cast < t.eligible ? '' : ', alle sind durch'}</div>
       <div class="acts">
         ${count ? townVoteHtml(g) : ''}
+        ${specialVoters(g).map((v) => `<button class="btn sm ${d.svArm === v.key ? 'on' : ''}" data-action="sv-arm" data-key="${v.key}">${I.scale}<span>${d.svotes?.[v.key] ? `${esc(v.label)}: ${esc(nm(g, d.svotes[v.key]))}` : d.svArm === v.key ? 'Jetzt Wahl antippen' : esc(v.label)}</span></button>`).join('')}
         ${cap ? `<button class="btn sm ${d.capArm ? 'on' : ''}" data-action="vote-cap-arm">${I.crown}<span>${d.capVote ? `Hauptmann: ${esc(nm(g, d.capVote))}` : d.capArm ? 'Jetzt Hauptmanns Wahl antippen' : 'Stimme des Hauptmanns'}</span></button>` : ''}
         <button class="btn sm" data-action="vote-undo" ${d.voteLog.length ? '' : 'disabled'}>${I.undo}<span>Letzte zurück</span></button>
         <button class="btn sm" data-action="vote-reset" ${d.voteLog.length ? '' : 'disabled'}>${I.reset}<span>Neu zählen</span></button>
       </div>` : `<div class="pickname">${d.vote ? esc(nm(g, d.vote)) : '<span class="muted">Person im Kreis antippen</span>'}</div>`;
-  return `<div class="card vote-card"><div class="eyebrow">${captainMode ? 'Hauptmannswahl' : 'Abstimmung'}</div>${seg}${body}</div>`;
+  const extraHint = d.accused ? `<div class="hint">${I.gavel}<span>Anklage gegen ${esc(nm(g, d.accused))}: Hände für Ja zählen. Mehrheit Ja → Hinrichten, sonst Niemand.</span></div>` : d.tieOpts ? `<div class="hint">${I.scale}<span>Gleichstand: Tippe die Person an, die entschieden wurde (${esc(d.tieOpts.map((x) => nm(g, x)).join(', '))}).</span></div>` : '';
+  return `<div class="card vote-card"><div class="eyebrow">${captainMode ? 'Hauptmannswahl' : 'Abstimmung'}</div>${extraHint}${seg}${body}</div>`;
 }
 
 /** Tagesfähigkeiten eigener Rollen (Schuss, Einsperren): Ziel wählen und einsetzen. */
 function dayAbilityCard(g) {
-  const list = dayBlocks(g);
+  const list = dayBlocks(g), d = g.draft;
   if (!list.length) return '';
-  const targets = livingIds(g);
   const rows = list.map((e) => {
-    const B = BLOCKS[e.b.k], opts = targets.filter((x) => e.b.self || !holders(g, e.r.id).some((h) => h.id === x));
-    const chance = e.b.chance < 100 ? ` · Chance ${e.b.chance} %` : '', left = e.b.limit ? ` · noch ${e.left}×` : '';
-    return `<div class="col" style="gap:6px"><b>${esc(e.r.name)} ${esc(e.holder.name)}: ${esc(B.short)}</b><span class="muted">${esc(B.name.replace(/^Am Tag: /, ''))}${chance}${left}</span>
-      <div class="row" style="gap:8px"><select class="inp" id="dayt-${esc(e.key)}" aria-label="Ziel">${opts.map((x) => `<option value="${x}">${esc(nm(g, x))}</option>`).join('')}</select>
-      <button class="btn sm" data-action="day-cust" data-key="${esc(e.key)}">${I.right}<span>Einsetzen</span></button></div></div>`;
+    const B = BLOCKS[e.b.k], on = d.dayArm === e.key, noT = !!B.noTarget;
+    const meta = [e.b.limit ? `noch ${e.left}× im Spiel` : '', e.b.chance < 100 ? `gelingt zu ${e.b.chance} %` : ''].filter(Boolean).join(' · ');
+    const status = noT ? B.name.replace(/^Am Tag: /, '') : on ? (d.dayPick ? nm(g, d.dayPick) : 'Person im Kreis antippen') : 'antippen zum Wählen';
+    const body = on || noT ? `<div class="rbody">${meta ? `<span class="muted small">${esc(meta)}</span>` : ''}<button class="btn sm ${noT || d.dayPick ? 'on' : ''}" data-action="day-cust" data-key="${esc(e.key)}" ${noT || d.dayPick ? '' : 'disabled'}>${I.right}<span>Einsetzen</span></button></div>` : '';
+    return `<div class="rrow ${on ? 'on' : ''}"><button class="rhead" data-action="day-arm" data-key="${esc(e.key)}" aria-pressed="${on}" ${noT ? 'disabled' : ''}><span class="rdot"></span><b>${esc(e.r.name)} ${esc(e.holder.name)}: ${esc(B.short)}</b><span class="rst">${esc(status)}</span></button>${body}</div>`;
   }).join('');
-  return `<div class="card col"><div class="eyebrow">Fähigkeiten am Tag</div>${rows}</div>`;
+  return `<div class="card col"><div class="eyebrow">Fähigkeiten am Tag</div><div class="rrows">${rows}</div></div>`;
 }
-on('day-cust', (el) => { const sel = document.getElementById(`dayt-${el.dataset.key}`); if (sel?.value) { buzz(30); dispatch({ t: 'day-cust', key: el.dataset.key, pid: sel.value }); } return false; });
+on('day-arm', (el) => { dispatch({ t: 'day-arm', key: el.dataset.key }, { undoable: false }); return false; });
+on('sv-arm', (el) => { dispatch({ t: 'sv-arm', key: el.dataset.key }, { undoable: false }); return false; });
+on('day-cust', (el) => {
+  const before = S.game.revealShow;
+  buzz(30); dispatch({ t: 'day-cust', key: el.dataset.key });
+  if (S.game.revealShow && S.game.revealShow !== before) { ui.modal = { type: 'reveal-show' }; render(); }
+  return false;
+});
 
 function dayPanel(g) {
   const d = g.draft;
@@ -419,9 +430,11 @@ function dayPanel(g) {
     body += voteCard(g);
     if (judge && !g.judgeUsed) body += `<button class="btn ${g.judgeArmed ? 'on' : ''}" data-action="judge-sign">${I.scale}<span>${g.judgeArmed ? 'Richter-Zeichen gegeben: zweite Abstimmung folgt' : 'Richter-Zeichen erhalten'}</span></button>`;
     if (g.captain) body += `<div class="hint">${I.crown}<span>Hauptmann: <b>${esc(nm(g, g.captain))}</b>. Seine Stimme zählt doppelt.</span></div>`;
-    foot = `<button class="btn primary" data-action="day-execute" ${chosen ? '' : 'disabled'}>${I.gavel}<span>Hinrichten</span></button>
+    if (d.noVote) { body += `<div class="task warn"><div class="prompt">${I.close}<span>Heute findet keine Abstimmung statt.</span></div></div>`; }
+    foot = d.noVote ? `<button class="btn primary" data-action="day-none">${I.moon}<span>Tag beenden</span></button>` : `<button class="btn primary" data-action="day-execute" ${chosen ? '' : 'disabled'}>${I.gavel}<span>Hinrichten</span></button>
       <button class="btn ${count && t.tie ? 'on' : ''}" data-action="day-tie" aria-label="Gleichstand${sg ? ', der Sündenbock stirbt' : ''}">${I.scale}<span>Gleichstand</span></button>
       <button class="btn" data-action="day-none">${I.close}<span>Niemand</span></button>`;
+    if (d.noVote) foot = `<button class="btn primary" data-action="day-none">${I.moon}<span>Tag beenden</span></button>`;
   }
   return `<div class="side"><div class="side-scroll" data-keep="side">${body}</div>${foot ? `<div class="side-foot">${foot}</div>` : ''}</div>`;
 }

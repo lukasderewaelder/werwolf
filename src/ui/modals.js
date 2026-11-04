@@ -78,6 +78,11 @@ views.modal = () => {
       const items = ROLES.filter((r) => g.cfg.counts[r.id]).map((r) => `<button class="ov" data-action="role-info" data-role="${r.id}">${art(r.id)}<b>${esc(r.name)}${g.cfg.counts[r.id] > 1 ? ` × ${g.cfg.counts[r.id]}` : ''}</b><small>${esc(r.sub)}</small></button>`).join('');
       return sheet(`<h2>Rollen im Spiel</h2><div class="ov-grid">${items}</div>${closeBtn()}`, { wide: true });
     }
+    case 'reveal-show': {
+      const r = S.game?.revealShow;
+      if (!r) return '';
+      return sheet(`<div class="reveal-big">${art(r.role)}<h2>${esc(nm(S.game, r.id))}</h2><div class="pickname">${esc(roleName(r.role))}</div>${r.truth !== r.role ? `<span class="truth small">Echt: ${esc(roleName(r.truth))} (nur für dich)</span>` : ''}<p class="muted small">Zeig diese Karte dem Dorf.</p></div>${closeBtn()}`);
+    }
     case 'who': {
       const rows = g.cfg.players.map((p) => `<button class="death" data-action="player-open" data-id="${p.id}" style="text-align:left;width:100%">${art(g.roles[p.id])}<div><b>${esc(p.name)}${g.captain === p.id ? ' · Hauptmann' : ''}${g.town?.b[p.id] ? ` · ${esc(BUILDINGS[g.town.b[p.id]].job)}` : ''}</b><small>${esc(g.roles[p.id] ? roleLabel(g, p.id) : 'Rolle noch nicht erfasst')} · ${alive(g, p.id) ? 'lebt' : `† ${esc(CAUSE[g.dead[p.id].cause] ?? g.dead[p.id].cause)}`}</small></div></button>`).join('');
       return sheet(`<h2>Wer ist wer</h2><div class="deaths">${rows}</div>${closeBtn()}`);

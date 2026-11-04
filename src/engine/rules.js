@@ -46,6 +46,7 @@ export const MAX_DEPTH = 3;
 export const THENS = {
   note: { name: 'Spielleiter-Hinweis', hint: 'Die App erinnert dich mit deinem Text.', text: (t) => `Hinweis an dich: „${t.text || '…'}“` },
   selfBlock: { name: 'Eigene Fähigkeit ruht eine Nacht', hint: 'In der nächsten Nacht wird die Rolle nicht aufgerufen.', text: () => 'in der nächsten Nacht ruht die eigene Fähigkeit' },
+  noVoteToday: { name: 'Heute keine Abstimmung', hint: 'Nur bei Tagesfähigkeiten: der Tag endet ohne Abstimmung.', text: () => 'findet heute keine Abstimmung statt' },
   selfDie: { name: 'Stirbt danach selbst', hint: 'Der Einsatz kostet das eigene Leben.', text: () => 'stirbt die Rolle selbst' },
 };
 
@@ -55,6 +56,7 @@ export const EFFECT_GROUPS = [
   ['Wissen', ['peek', 'peekrole', 'party', 'same', 'count', 'threeRoles', 'roleAlive', 'roleIn', 'deadRole', 'deathCause']],
   ['Wissen am Morgen', ['watch', 'whomVisited', 'whoActive', 'attackedAll', 'wasProtected', 'myAttacker']],
   ['Täuschen', ['appear', 'frame', 'nullify']],
+  ['Abstimmung und Tag', ['voteBoost', 'votePenalty', 'voteShield', 'noVote', 'extraVote', 'accuse', 'reveal', 'selfVote', 'secretVote', 'tieBreak']],
   ['Rolle wechseln', ['becomeWolf', 'turnSelf', 'copyDead', 'passOn', 'lend', 'bequeath', 'takeRole', 'unlock']],
   ['Angreifen', ['kill', 'delayed', 'trap', 'shoot', 'jailkill']],
   ['Besuche und Orte', ['visit', 'invite', 'decoy', 'redirect', 'swapPlace']],
@@ -79,7 +81,10 @@ export const EFFECT_HINT = {
   deadRole: 'Die echte Rolle einer gestorbenen Person.', deathCause: 'Wie die Person gestorben ist.', whomVisited: 'Wen die Person heute besucht hat.', whoActive: 'Alle, die heute etwas eingesetzt haben.',
   attackedAll: 'Alle, die heute angegriffen wurden.', wasProtected: 'Ja oder nein.', myAttacker: 'Wer sie heute angegriffen hat.',
   appear: 'Dauerhaft: Prüfungen zeigen etwas Falsches.',
-  becomeWolf: 'Ein Angriff macht sie zum Werwolf statt zu töten.', turnSelf: 'Zum Beispiel nach drei Einsätzen jeden Morgen geprüft.', copyDead: 'Wird zur Rolle einer gestorbenen Person.',
+  becomeWolf: 'Ein Angriff macht sie zum Werwolf statt zu töten.',
+  voteBoost: 'Für heute: ×2, ×½ oder gestrichen.', votePenalty: 'Wie der Rabe: Stimmen mehr gegen die Person.', voteShield: 'Die Person scheidet heute nicht durch Abstimmung aus.',
+  noVote: 'Der Tag endet ohne Abstimmung.', extraVote: 'Wie beim Stotternden Richter.', accuse: 'Ja oder Nein über die angeklagte Person.', reveal: 'Große Karte zum Zeigen, danach Abzeichen.',
+  selfVote: 'Dauerhaft ×2 oder ×3, auf Wunsch nur jeden zweiten Tag.', secretVote: 'Zeigt dir ihre Wahl heimlich, du trägst sie ein.', tieBreak: 'Statt des Sündenbocks wählt sie aus dem Gleichstand.', turnSelf: 'Zum Beispiel nach drei Einsätzen jeden Morgen geprüft.', copyDead: 'Wird zur Rolle einer gestorbenen Person.',
   passOn: 'Die Person bekommt die Rolle, du wirst Dorfbewohner.', lend: 'Eine Nacht lang tauschen, danach zurück.', bequeath: 'Beim Tod bekommt jemand die Rolle.',
   takeRole: 'Lehrling: stirbt das Ziel, übernimmt sie dessen Rolle.', unlock: 'Für Fähigkeiten mit der Bedingung „Freigeschaltet“.', frame: 'Für 1 bis 3 Nächte: Prüfungen zeigen etwas Falsches.', nullify: 'Die Fähigkeit wirkt heute nicht, ohne dass es jemand merkt.', strike: 'Angriff auf Angreifer, Besucher oder eine Person nach Wahl.', dieSelf: 'Zum Beispiel, wenn der Gastgeber stirbt.', shield: 'Wehrt den nächsten normalen Angriff ab.',
 };
@@ -95,7 +100,9 @@ export const PHRASE = {
   roleAlive: 'erfährt, ob {r} noch lebt', roleIn: 'erfährt, ob {r} im Spiel ist', deadRole: 'erfährt die Rolle von {t}', deathCause: 'erfährt die Todesursache von {t}',
   whomVisited: 'erfährt am Morgen, wen {t} besucht hat', whoActive: 'erfährt am Morgen, wer aktiv war', attackedAll: 'erfährt am Morgen, wer angegriffen wurde', wasProtected: 'erfährt am Morgen, ob {t} geschützt war', myAttacker: 'erfährt am Morgen, wer sie angegriffen hat',
   appear: 'erscheint bei Prüfungen als {a}',
-  becomeWolf: 'wird Werwolf statt zu sterben', turnSelf: 'wird selbst Werwolf', copyDead: 'übernimmt die Rolle von {t}', passOn: 'gibt die eigene Rolle an {t}', lend: 'leiht die eigene Rolle für eine Nacht an {t}',
+  becomeWolf: 'wird Werwolf statt zu sterben',
+  voteBoost: 'ändert die Stimme von {t}', votePenalty: 'belastet {t} mit Strafstimmen', voteShield: 'bewahrt {t} heute vor der Hinrichtung', noVote: 'verhindert die heutige Abstimmung', extraVote: 'verlangt eine zweite Abstimmung',
+  accuse: 'klagt {t} an', reveal: 'deckt die Rolle von {t} auf', selfVote: 'hat eine starke Stimme', secretVote: 'hat eine geheime Zusatzstimme', tieBreak: 'entscheidet bei Gleichstand', turnSelf: 'wird selbst Werwolf', copyDead: 'übernimmt die Rolle von {t}', passOn: 'gibt die eigene Rolle an {t}', lend: 'leiht die eigene Rolle für eine Nacht an {t}',
   bequeath: 'vererbt die Rolle an {t}', takeRole: 'übernimmt die Rolle des Ziels', unlock: 'schaltet die Fähigkeiten frei', frame: 'lässt {t} bei Prüfungen als {a} erscheinen', nullify: 'macht die Fähigkeit von {t} heute wirkungslos', trap: 'stellt eine Falle bei {t}', survive: 'übersteht es', strike: 'greift {t} an', dieSelf: 'wird selbst angegriffen', shield: 'bekommt einen Schild',
 };
 const WHEN_TXT = { night: { every: 'Jede Nacht', first: 'In der ersten Nacht', later: 'Ab der zweiten Nacht', even: 'Jede zweite Nacht' }, day: { every: 'Jeden Tag', first: 'Am ersten Tag', later: 'Ab dem zweiten Tag', even: 'Jeden zweiten Tag' } };
@@ -125,7 +132,7 @@ const WHO_TXT = { ownCamp: 'nur aus der eigenen Partei', otherCamp: 'nur aus der
 const TRAP_TXT = { first: 'trifft den ersten Besucher', all: 'trifft alle Besucher', wolves: 'trifft nur Werwölfe', nonWolves: 'trifft alle außer Werwölfen' };
 export const asText = (b) => ({ village: 'Dorfbewohner', wolf: 'Werwolf', role: roleName(b.role), random: 'zufällige Rolle' }[b.as] ?? '');
 export const effectText = (b) => PHRASE[b.k].replace('{t}', targetText(b) || (b.k === 'strike' ? 'niemanden' : 'sich')).replace('{a}', asText(b)).replace('{r}', roleName(b.role)).replace('{x}', b.text || '…');
-export const extrasText = (b) => [b.power > 1 ? powerText(b) : '', b.k === 'trap' ? `${TRAP_TXT[b.trapWho]}, ${b.trapArm === 'now' ? 'sofort scharf' : 'ab der nächsten Nacht scharf'}` : '', b.k === 'frame' ? `${b.nights} ${b.nights === 1 ? 'Nacht' : 'Nächte'}` : '', b.keep != null ? (b.keep ? 'behält die alte Fähigkeit' : 'verliert die alte Fähigkeit') : '', b.k === 'appear' && b.scope !== 'checks' ? (b.scope === 'death' ? 'nur beim Tod' : 'auch beim Tod') : '', WHO_TXT[b.who] ?? '', b.once ? 'jede Person nur einmal im Spiel' : '', b.limit ? `höchstens ${b.limit}×` : '', b.chance < 100 ? `gelingt zu ${b.chance} %` : '', b.rep ? 'nie zweimal hintereinander dieselbe Person' : '', b.visit && b.k !== 'visit' ? 'zählt als Besuch' : ''].filter(Boolean).join(', ');
+export const extrasText = (b) => [b.power > 1 ? powerText(b) : '', b.k === 'trap' ? `${TRAP_TXT[b.trapWho]}, ${b.trapArm === 'now' ? 'sofort scharf' : 'ab der nächsten Nacht scharf'}` : '', b.k === 'frame' ? `${b.nights} ${b.nights === 1 ? 'Nacht' : 'Nächte'}` : '', b.keep != null ? (b.keep ? 'behält die alte Fähigkeit' : 'verliert die alte Fähigkeit') : '', b.mult != null ? (b.mult === 0 ? 'Stimme gestrichen' : b.mult === 0.5 ? 'Stimme zählt halb' : `Stimme zählt ${b.mult}×`) : '', b.even ? 'nur jeden zweiten Tag' : '', b.plus ? `${b.plus} Strafstimmen` : '', b.k === 'appear' && b.scope !== 'checks' ? (b.scope === 'death' ? 'nur beim Tod' : 'auch beim Tod') : '', WHO_TXT[b.who] ?? '', b.once ? 'jede Person nur einmal im Spiel' : '', b.limit ? `höchstens ${b.limit}×` : '', b.chance < 100 ? `gelingt zu ${b.chance} %` : '', b.rep ? 'nie zweimal hintereinander dieselbe Person' : '', b.visit && b.k !== 'visit' ? 'zählt als Besuch' : ''].filter(Boolean).join(', ');
 
 /** Klartext einer Regel: „Ab der zweiten Nacht: tötet eine andere Person, wenn … (höchstens 2×). Danach …“ */
 export function describeRule(b) {
@@ -155,6 +162,9 @@ export const sanitizeThen = (list) => (Array.isArray(list) ? list : []).filter((
 /* ---------- Vorlagen ---------- */
 const R = (k, o = {}) => ({ k, n: 1, when: 'every', limit: 0, self: false, rep: false, role: 'villager', chance: 100, ...o });
 export const CUSTOM_TEMPLATES = [
+  { key: 'mayor', name: 'Bürgermeister', sub: 'Starke Stimme, entscheidet Gleichstände', icon: '⚖️', rules: [R('selfVote', { on: 'always', mult: 2 }), R('tieBreak', { on: 'always' })] },
+  { key: 'lawyer', name: 'Anwalt', sub: 'Bewahrt einmal jemanden vor dem Galgen', icon: '📜', rules: [R('voteShield', { limit: 1 }), R('secretVote', { on: 'always' })] },
+  { key: 'herald', name: 'Herold', sub: 'Deckt einmal eine Rolle auf, dann keine Abstimmung', icon: '🔔', rules: [R('reveal', { limit: 1 }), R('noVote', { limit: 1 })] },
   { key: 'cursed', name: 'Verfluchter', sub: 'Wird vom Wolfsbiss zum Werwolf', icon: '🌕', rules: [R('becomeWolf', { on: 'attacked', keep: false, limit: 1, if: { all: [{ k: 'attackerWolf' }] } })] },
   { key: 'amnesiac', name: 'Vergessliche', sub: 'Übernimmt einmal die Rolle eines Toten', icon: '🕯️', rules: [R('copyDead', { when: 'later', limit: 1 })] },
   { key: 'apprentice', name: 'Lehrling', sub: 'Folgt seinem Meister nach', icon: '📜', rules: [R('bind', { when: 'first', limit: 1 }), R('takeRole', { on: 'boundDies' })] },

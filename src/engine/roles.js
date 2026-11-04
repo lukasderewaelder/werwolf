@@ -403,12 +403,23 @@ export const BLOCKS = {
   lend: { name: 'Leiht die eigene Rolle für die nächste Nacht aus', short: 'Ausleihen', verb: 'leiht die Rolle an' },
   bequeath: { name: 'Vererbt die eigene Rolle beim Tod', short: 'Vererben', verb: 'vererbt die Rolle an', trig: ['death'] },
   takeRole: { name: 'Übernimmt die Rolle des festgelegten Ziels, wenn es stirbt', short: 'Nachfolge', verb: 'übernimmt die Rolle', trig: ['boundDies'], noTarget: true },
+  // E5: Abstimmung und Tag
+  voteBoost: { name: 'Am Tag: Stimme einer Person verdoppeln, halbieren oder streichen', short: 'Stimmgewicht', verb: 'ändert die Stimme von', day: true },
+  votePenalty: { name: 'Am Tag: Person bekommt Strafstimmen', short: 'Strafstimmen', verb: 'belastet', day: true },
+  voteShield: { name: 'Am Tag: Person kann heute nicht hingerichtet werden', short: 'Freispruch', verb: 'schützt vor der Hinrichtung', day: true },
+  noVote: { name: 'Am Tag: Heute findet keine Abstimmung statt', short: 'Keine Abstimmung', verb: 'verhindert die Abstimmung', day: true, noTarget: true },
+  extraVote: { name: 'Am Tag: Nach der Hinrichtung folgt eine zweite Abstimmung', short: 'Zweite Abstimmung', verb: 'verlangt eine zweite Abstimmung', day: true, noTarget: true },
+  accuse: { name: 'Am Tag: Person anklagen, das Dorf stimmt nur über sie ab', short: 'Anklage', verb: 'klagt an', day: true },
+  reveal: { name: 'Am Tag: Rolle einer Person öffentlich aufdecken', short: 'Aufdecken', verb: 'deckt auf', day: true },
+  selfVote: { name: 'Eigene Stimme zählt mehrfach', short: 'Starke Stimme', verb: 'stimmt mehrfach', trig: ['always'], noTarget: true },
+  secretVote: { name: 'Hat eine geheime Zusatzstimme', short: 'Geheime Stimme', verb: 'stimmt geheim', trig: ['always'], noTarget: true },
+  tieBreak: { name: 'Entscheidet bei Gleichstand', short: 'Gleichstand', verb: 'entscheidet', trig: ['always'], noTarget: true },
   unlock: { name: 'Schaltet eine gesperrte Fähigkeit frei', short: 'Freischalten', verb: 'schaltet frei', trig: ['dawn', 'attacked', 'targetAttacked', 'visited', 'boundDies', 'hostDies'], noTarget: true },
 };
 /** Ohne Ziel: Einsatz per Knopf im Nachtschritt. */
 export const isToggle = (b) => !!BLOCKS[b.k].selfOnly || (b.k === 'note' && !b.n) || (!!BLOCKS[b.k].noTarget && !b.on && !isTrigOnly(b.k));
 /** Nur über Auslöser nutzbar (kein Nachtschritt). */
-export const isTrigOnly = (k) => ['survive', 'strike', 'dieSelf', 'shield', 'appear', 'becomeWolf', 'turnSelf', 'bequeath', 'takeRole'].includes(k);
+export const isTrigOnly = (k) => ['survive', 'strike', 'dieSelf', 'shield', 'appear', 'becomeWolf', 'turnSelf', 'bequeath', 'takeRole', 'selfVote', 'secretVote', 'tieBreak'].includes(k);
 export const BLOCK_WHEN = { every: 'Jede Nacht', first: 'Nur in der ersten Nacht', later: 'Ab der zweiten Nacht', even: 'Jede zweite Nacht' };
 export const BLOCK_WHEN_DAY = { every: 'Jeden Tag', first: 'Nur am ersten Tag', later: 'Ab dem zweiten Tag', even: 'Jeden zweiten Tag' };
 export const BLOCK_CHANCE = [100, 75, 50, 25];
@@ -475,6 +486,9 @@ function ruleExtras(b, B) {
   if (!on) { out.who = ['any', 'ownCamp', 'otherCamp', 'withAbility', 'noAbility'].includes(b.who) ? b.who : 'any'; out.once = !!b.once; }
   if (B.as) { out.as = ['village', 'wolf', 'role', 'random'].includes(b.as) ? b.as : 'village'; if (b.k === 'frame') out.nights = Math.max(1, Math.min(3, Math.round(+b.nights) || 1)); if (b.k === 'appear') out.scope = ['checks', 'death', 'both'].includes(b.scope) ? b.scope : 'checks'; }
   if (B.keep) out.keep = !!b.keep;
+  if (b.k === 'voteBoost') out.mult = [2, 0.5, 0].includes(+b.mult) ? +b.mult : 2;
+  if (b.k === 'selfVote') { out.mult = [2, 3].includes(+b.mult) ? +b.mult : 2; out.even = !!b.even; }
+  if (b.k === 'votePenalty') out.plus = Math.max(1, Math.min(3, Math.round(+b.plus) || 2));
   if (b.k === 'trap') { out.trapWho = ['first', 'all', 'wolves', 'nonWolves'].includes(b.trapWho) ? b.trapWho : 'first'; out.trapArm = b.trapArm === 'now' ? 'now' : 'next'; }
   return out;
 }

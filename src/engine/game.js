@@ -42,11 +42,12 @@ const emptyDraft = () => ({
   bigkill: null, whitekill: null, model: null, side: null, fox: null, mark: null, enchant: [], vote: null,
   actorRole: null, thiefRole: null, seance: null, spCard: null, spQ: null, medium: null, sit: [],
   cust: {}, fire: null, ban: [], banArm: false, innVote: null, innArm: false,
-  votes: {}, capVote: null, capArm: false, voteLog: [], voteMode: 'count',   // Stimmenzähler
+  votes: {}, capVote: null, capArm: false, voteLog: [], voteMode: 'count',
+  vmods: {}, vplus: {}, vshield: [], noVote: false, svotes: {}, svArm: null, dayArm: null, dayPick: null, tieOpts: null, accused: null,   // Stimmenzähler
 });
 
 /** Ältere Spielstände ohne Stimmenzähler ergänzen. */
-export function normalizeGame(g) { if (g) { g.draft = { ...emptyDraft(), ...g.draft }; g.charmed ??= {}; g.customUsed ??= {}; g.cuse ??= {}; g.clast ??= {}; g.bound ??= {}; g.blocked ??= {}; g.mutes ??= []; g.hardyUsed ??= {}; g.cult ??= {}; g.jail ??= []; g.traps ??= []; g.delayed ??= []; g.shields ??= {}; g.chist ??= {}; g.ckills ??= {}; g.host ??= {}; g.attackers ??= {}; g.frames ??= {}; g.nullified ??= {}; g.unlocked ??= {}; g.lends ??= []; g.ev ??= null; g.town ??= null; } return g; }
+export function normalizeGame(g) { if (g) { g.draft = { ...emptyDraft(), ...g.draft }; g.charmed ??= {}; g.customUsed ??= {}; g.cuse ??= {}; g.clast ??= {}; g.bound ??= {}; g.blocked ??= {}; g.mutes ??= []; g.hardyUsed ??= {}; g.cult ??= {}; g.jail ??= []; g.traps ??= []; g.delayed ??= []; g.shields ??= {}; g.chist ??= {}; g.ckills ??= {}; g.host ??= {}; g.attackers ??= {}; g.frames ??= {}; g.nullified ??= {}; g.unlocked ??= {}; g.lends ??= []; g.revealed ??= {}; g.ev ??= null; g.town ??= null; } return g; }
 
 /* ---------- Zustand anlegen ---------- */
 
@@ -81,7 +82,7 @@ export function createGame(cfg, rnd = Math.random) {
     judgeUsed: false, judgeArmed: false, secondVote: false, voters: null, votersDay: -1,
     angelWin: false, angelWindow: true, winner: null, collectMorning: false,
     queue: [], interrupts: [], resume: null, dayMode: 'vote', draft: emptyDraft(),
-    morning: [], lastDeaths: [], log: [], dealIdx: 0, dealShown: false, charmed: {}, customUsed: {}, cuse: {}, clast: {}, bound: {}, blocked: {}, mutes: [], hardyUsed: {}, cult: {}, jail: [], traps: [], delayed: [], shields: {}, chist: {}, ckills: {}, host: {}, attackers: {}, frames: {}, nullified: {}, unlocked: {}, lends: [], execWin: null, ev: null, town: null, pendingBarber: null,
+    morning: [], lastDeaths: [], log: [], dealIdx: 0, dealShown: false, charmed: {}, customUsed: {}, cuse: {}, clast: {}, bound: {}, blocked: {}, mutes: [], hardyUsed: {}, cult: {}, jail: [], traps: [], delayed: [], shields: {}, chist: {}, ckills: {}, host: {}, attackers: {}, frames: {}, nullified: {}, unlocked: {}, lends: [], revealed: {}, execWin: null, ev: null, town: null, pendingBarber: null,
   };
   g.ev = initEvents(g, cfg, rnd);
   if (g.cfg.rules.town) { g.cfg.town = { ...(cfg.town ?? DEFAULT_TOWN) }; g.town = { b: {}, used: {}, free: [], gone: [], fireUsed: false, innLost: false }; if (cfg.townMap) g.town.b = { ...cfg.townMap }; }
@@ -581,6 +582,22 @@ export function eligibleVoters(g) {
   return ids;
 }
 
+/** Stimmen mit Gewicht oder geheim (eigene Rollen, Stimmgewicht des Tages). Der Spielleiter trägt sie einzeln ein. */
+export function specialVoters(g) {
+  if (g.phase !== 'day' || g.dayMode === 'captain') return [];
+  const d = g.draft, out = [], el = new Set(eligibleVoters(g));
+  for (const p of g.cfg.players) {
+    if (!alive(g, p.id)) continue;
+    const r = RM[g.roles[p.id]], rules = r?.custom && !g.charmed?.[p.id] ? r.blocks ?? [] : [];
+    const sv = rules.find((b) => b.k === 'selfVote' && (!b.even || g.day % 2 === 0));
+    let w = sv ? sv.mult : 1;
+    if (d.vmods?.[p.id] != null) w *= d.vmods[p.id];
+    if (el.has(p.id) && w !== 1) out.push({ key: `w:${p.id}`, pid: p.id, weight: w, extra: false, label: `Stimme von ${p.name} (${w === 0 ? 'gestrichen' : `×${String(w).replace('.', ',')}`})` });
+    if (rules.some((b) => b.k === 'secretVote')) out.push({ key: `s:${p.id}`, pid: p.id, weight: 1, extra: true, label: `Geheime Stimme von ${p.name}` });
+  }
+  return out;
+}
+
 /** Auszählung: gezählte Hände, doppelte Stimme des Hauptmanns, +2 durch den Raben (nur bei der Hinrichtung). Führende und Gleichstand. */
 export function tally(g) {
   const d = g.draft, exec = g.dayMode !== 'captain';
@@ -589,10 +606,13 @@ export function tally(g) {
   for (const [pid, n] of Object.entries(d.votes ?? {})) if (n > 0 && alive(g, pid)) row(pid).hands += n;
   if (exec && d.capVote && alive(g, d.capVote)) { const r = row(d.capVote); r.hands += 2; r.cap = true; }
   if (exec && g.ravenMark && alive(g, g.ravenMark)) row(g.ravenMark).bonus += 2;
+  const sp = exec ? specialVoters(g) : [];
+  for (const v of sp) { const t = d.svotes?.[v.key]; if (t && alive(g, t)) { const r = row(t); r.hands += v.weight; (r.special ??= []).push(v.label); } }
+  if (exec) for (const [pid, n] of Object.entries(d.vplus ?? {})) if (alive(g, pid)) row(pid).bonus += n;
   const rows = Object.values(map).map((r) => ({ ...r, total: r.hands + r.bonus })).filter((r) => r.total > 0).sort((a, b) => b.total - a.total);
   const max = rows[0]?.total ?? 0;
   const leaders = rows.filter((r) => r.total === max).map((r) => r.pid);
-  const cast = Object.values(d.votes ?? {}).reduce((x, y) => x + y, 0) + (d.capVote ? 1 : 0);
+  const cast = Object.values(d.votes ?? {}).reduce((x, y) => x + y, 0) + (d.capVote ? 1 : 0) + sp.filter((v) => !v.extra && d.svotes?.[v.key]).length;
   return { rows, leaders, tie: leaders.length > 1, cast, eligible: eligibleVoters(g).length, max };
 }
 
@@ -611,7 +631,7 @@ export function voucherStart(g) {
   return null;
 }
 
-const resetVote = (g) => { const d = g.draft; d.vote = null; d.votes = {}; d.capVote = null; d.capArm = false; d.voteLog = []; d.sit = []; d.innVote = null; d.innArm = false; d.banArm = false; };
+const resetVote = (g) => { const d = g.draft; d.vote = null; d.votes = {}; d.capVote = null; d.capArm = false; d.voteLog = []; d.sit = []; d.svotes = {}; d.svArm = null; d.tieOpts = null; d.accused = null; d.innVote = null; d.innArm = false; d.banArm = false; };
 
 export function checkWinner(g) {
   if (g.interrupts.length || g.queue.length) return null;
@@ -1055,6 +1075,12 @@ function votersNote(g) {
 
 function endDay(g) {
   resetVote(g); g.ravenMark = null; g.collectMorning = false;
+  if (g.extraVoteArmed) {
+    g.extraVoteArmed = false; g.secondVote = true;
+    log(g, 'Zweite Abstimmung, ohne weitere Diskussion');
+    afterDeaths(g, 'day');
+    return;
+  }
   if (g.judgeArmed && !g.judgeUsed) {
     g.judgeArmed = false; g.judgeUsed = true; g.secondVote = true;
     log(g, 'Der Stotternde Richter verlangt eine zweite Abstimmung – ohne weitere Diskussion');
@@ -1187,6 +1213,12 @@ function tap(g, pid, toast) {
   }
   if (g.phase === 'day') {
     if (!alive(g, pid)) return;
+    if (d.dayArm) {
+      if (dayBlocks(g).some((e) => e.key === d.dayArm)) { d.dayPick = d.dayPick === pid ? null : pid; return; }
+      d.dayArm = null;
+    }
+    if (d.svArm) { d.svotes[d.svArm] = pid; d.voteLog.push({ k: 's', key: d.svArm }); d.svArm = null; return; }
+    if (d.tieOpts && d.voteMode === 'direct' && !d.tieOpts.includes(pid)) { toast?.('Nur eine Person aus dem Gleichstand.'); return; }
     if (d.banArm) {
       d.banArm = false;
       const i = d.ban.indexOf(pid);
@@ -1461,12 +1493,15 @@ export function apply(g0, a, toast) {
       if (e?.k === 'i') { d.votes[e.pid] = Math.max(0, (d.votes[e.pid] ?? 1) - 1); if (!d.votes[e.pid]) delete d.votes[e.pid]; d.innVote = null; }
       if (e?.k === 'v') { d.votes[e.pid] = Math.max(0, (d.votes[e.pid] ?? 1) - 1); if (!d.votes[e.pid]) delete d.votes[e.pid]; }
       if (e?.k === 'c') d.capVote = null;
+      if (e?.k === 's') delete d.svotes[e.key];
       d.capArm = false; d.innArm = false; d.banArm = false;
       break;
     }
     case 'vote-reset': resetVote(g); break;
     case 'day-execute': {
+      if (d.noVote) { toast?.('Heute findet keine Abstimmung statt.'); break; }
       if (!d.vote && d.voteMode === 'count') { const t = tally(g); if (t.leaders.length === 1) d.vote = t.leaders[0]; }
+      if (d.vote && (d.vshield ?? []).includes(d.vote)) { log(g, `${nm(g, d.vote)} ist heute vor der Hinrichtung geschützt`); toast?.(`${nm(g, d.vote)} ist heute geschützt: niemand wird hingerichtet.`); endDay(g); break; }
       if (d.vote) executeVote(g);
       break;
     }
@@ -1478,6 +1513,10 @@ export function apply(g0, a, toast) {
       break;
     }
     case 'day-tie': {
+      if (d.noVote) { toast?.('Heute findet keine Abstimmung statt.'); break; }
+      const tb = g.cfg.players.find((p) => alive(g, p.id) && RM[g.roles[p.id]]?.custom && !g.charmed?.[p.id] && RM[g.roles[p.id]].blocks?.some((b) => b.k === 'tieBreak'));
+      const tt = tally(g);
+      if (tb && !d.tieOpts && tt.tie) { d.tieOpts = [...tt.leaders]; d.voteMode = 'direct'; d.vote = null; log(g, `Gleichstand: ${RM[g.roles[tb.id]].name} ${tb.name} entscheidet`); toast?.(`${tb.name} entscheidet: Person aus dem Gleichstand antippen, dann Hinrichten.`); break; }
       g.collectMorning = false;
       const sg = livingHolders(g, 'scapegoat')[0];
       if (sg && powerOn(g, 'scapegoat')) kill(g, sg.id, 'tie'); else log(g, 'Gleichstand – niemand wird hingerichtet');
@@ -1487,21 +1526,32 @@ export function apply(g0, a, toast) {
     case 'skip-to-night': endDay(g); break;
     case 'set-captain': g.captain = a.pid; g.dayMode = 'vote'; resetVote(g); log(g, `Hauptmann: ${nm(g, a.pid)}`); fixBeadle(g); break;
     case 'skip-captain': g.dayMode = 'vote'; resetVote(g); break;
+    case 'day-arm': d.dayArm = d.dayArm === a.key ? null : a.key; d.dayPick = null; d.svArm = null; break;
+    case 'sv-arm': d.svArm = d.svArm === a.key ? null : a.key; d.dayArm = null; break;
     case 'day-cust': {
-      const e = dayBlocks(g).find((x) => x.key === a.key), t = a.pid;
-      if (!e || !t || !alive(g, t)) break;
+      const e = dayBlocks(g).find((x) => x.key === a.key), t = a.pid ?? d.dayPick, noT = !!BLOCKS[e?.b.k]?.noTarget;
+      if (!e || (!noT && (!t || !alive(g, t)))) break;
+      d.dayArm = null; d.dayPick = null;
       if (!e.b.self && holders(g, e.r.id).some((x) => x.id === t)) { toast?.(`${e.r.name} kann sich nicht selbst wählen.`); break; }
       if (e.b.rep && (g.clast?.[e.key] ?? []).includes(t)) { toast?.('Nicht zweimal hintereinander dieselbe Person.'); break; }
       const B = BLOCKS[e.b.k], by = `${e.r.name} ${e.holder.name}`;
       g.cuse[e.key] = (g.cuse[e.key] ?? 0) + 1; g.customUsed[e.r.id] = true; g.clast[e.key] = [t];
       if (e.b.chance < 100 && rand() * 100 >= e.b.chance) { log(g, `${by}: ${B.short} bei ${nm(g, t)} ist diesmal gescheitert (Chance ${e.b.chance} %)`); toast?.('Diesmal gescheitert – nichts passiert.'); break; }
       if (e.b.k === 'shoot') { log(g, `${by} erschießt ${nm(g, t)}`); g.collectMorning = false; kill(g, t, 'custom'); }
+      else if (e.b.k === 'voteBoost') { d.vmods[t] = e.b.mult; log(g, `${by}: Stimme von ${nm(g, t)} ${e.b.mult === 0 ? 'gestrichen' : e.b.mult === 0.5 ? 'zählt halb' : `zählt ${e.b.mult}×`}`); toast?.(`${nm(g, t)}: Stimme einzeln eintragen.`); }
+      else if (e.b.k === 'votePenalty') { d.vplus[t] = (d.vplus[t] ?? 0) + e.b.plus; log(g, `${by}: ${e.b.plus} Strafstimmen gegen ${nm(g, t)}`); }
+      else if (e.b.k === 'voteShield') { d.vshield.push(t); log(g, `${by} bewahrt ${nm(g, t)} heute vor der Hinrichtung`); toast?.(`${nm(g, t)} kann heute nicht hingerichtet werden.`); }
+      else if (e.b.k === 'noVote') { d.noVote = true; log(g, `${by}: Heute findet keine Abstimmung statt`); }
+      else if (e.b.k === 'extraVote') { g.extraVoteArmed = true; log(g, `${by} verlangt eine zweite Abstimmung`); }
+      else if (e.b.k === 'accuse') { resetVote(g); d.voteMode = 'direct'; d.vote = t; d.accused = t; log(g, `${by} klagt ${nm(g, t)} an: Das Dorf stimmt mit Ja oder Nein`); }
+      else if (e.b.k === 'reveal') { g.revealed[t] = true; const shown = appearance(g, t, { death: true }).role; g.revealShow = { id: t, role: shown, truth: g.roles[t] }; log(g, `${by} deckt ${nm(g, t)} auf: ${roleName(shown)}${shown !== g.roles[t] ? ` (echt: ${roleName(g.roles[t])})` : ''}`); }
       else { g.jail.push({ id: t, by: e.r.id, kill: e.b.k === 'jailkill' }); g.blocked[t] = g.night + 1; log(g, `${by} sperrt ${nm(g, t)} ein`); toast?.(`${nm(g, t)} ist eingesperrt.`); }
       for (const n of e.b.then ?? []) {
         if (n.k === 'note') { log(g, `${by}: Hinweis „${n.text}“`); toast?.(`Hinweis: ${n.text}`); }
         else if (n.k === 'selfBlock') g.blocked[e.holder.id] = g.night + 1;
         else if (n.k === 'selfDie' && alive(g, e.holder.id)) { g.collectMorning = false; kill(g, e.holder.id, 'custom'); }
       }
+      if (e.b.k === 'noVote' || (e.b.then ?? []).some((n) => n.k === 'noVoteToday')) d.noVote = true;
       if (g.queue.length) afterDeaths(g, 'day');
       break;
     }
