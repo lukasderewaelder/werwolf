@@ -57,7 +57,7 @@ Festgelegt ohne Rückfrage (ändere es, wenn es dich stört): Stirbt der Alte an
 
 Abnahme: Du spielst die Fälle durch, die dich interessieren, und bestätigst das Verhalten.
 
-## M11 Bedienung (umgesetzt, wartet auf deine Abnahme)
+## M11 Bedienung (abgenommen)
 - Sitzordnung per Ziehen und Vorschau des Kreises schon beim Einrichten.
 - Spielerblatt per langem Tippen auf den Stein.
 - Sperrbildschirm („Display nach unten“) mit kurzem Code.
@@ -78,7 +78,7 @@ Abnahme: Eine Partie mit 20 Personen lässt sich ohne Umwege einrichten und leit
 - Zyklus 1: Rollenreihe und Karte werden nicht mehr gequetscht (es scrollt nur der Bereich dazwischen), 5 Spieler passen am Handy in eine Reihe, Höhen richten sich nach der gemessenen App-Höhe, nutzbarer Bildschirm als zusätzliche Obergrenze, gelber Streifen und Regler „Unterer Abstand“ entfernt, Diagnose zeigt Höhen und Unterkanten der Spielansicht.
 - Zyklus 2: Abstände und Größen am Handy feiner abgestimmt, Rollenbeschriftungen unter den Spielern werden gekürzt statt zu überlappen.
 
-## M12 Neumond: Ereigniskarten (umgesetzt, wartet auf deine Abnahme)
+## M12 Neumond: Ereigniskarten (abgenommen)
 - Entscheidung: zuerst das Gerüst (Ziehen am Morgen, Wirkdauer sofort / zeitlich begrenzt / dauerhaft, Büttel, Zigeunerin mit Spiritualismus-Karten, Karteneditor, ein paar Beispielkarten). Die 36 Originaltexte stehen nicht im Regelheft, die Karten folgen später.
 - Varianten als wählbare Spielregel: Neumond (Ereigniskarten), Lykanthropische Betörung, Erntefest, Schwarzer Tod, „Er ist es ganz sicher nicht“ (Bürgen-Abstimmung), Doppel-Ich. Mondschein, Gemeinschaft der Dörfer und Sprechende Mauer nur als Hinweistext.
 - Auswahl der aktiven Karten beim Einrichten, Ziehen am Morgen.
@@ -95,7 +95,7 @@ Offen: Doppel-Ich (zwei Karten pro Spieler) ist noch nicht umgesetzt. Die 36 Ori
 
 Abnahme: Eine Partie mit Ereigniskarten läuft durch (Karte am zweiten Morgen, Büttel, Wahrsagerin), eine kurze Partie mit Betörung und eine mit „Bürgen“ funktionieren wie im Regelheft.
 
-## M13 Die Gemeinde (umgesetzt, wartet auf deine Abnahme)
+## M13 Die Gemeinde (abgenommen)
 - Gebäude und Berufe, Brandstifter, Rabe mit anonymem Brief nach Originalregel, Vogt, Wirt, Bäcker, Barbier u. a.
 - Zuordnung der Gebäude beim Start, Anzeige am Spielerstein.
 
@@ -110,38 +110,38 @@ Bekannt: Schlossherr-Knopf nur im Modus „Stimmen zählen“; Wirt-Immunität u
 
 Abnahme: Eine Partie mit Gebäuden läuft durch (Verteilen, Wirt, Lehrerin, Barbier, Brandstifter).
 
-## M14 Eigene Rollen mit Aktion (umgesetzt, wartet auf deine Abnahme)
+## M14 Eigene Rollen mit Aktion (abgenommen)
 Umgesetzt: Eigene Rollen haben eine frei wählbare Nachtaktion (Person markieren, töten, vor den Wölfen schützen oder erfahren, ob sie ein Werwolf ist), optional mit Selbstwahl; Aufruf jede Nacht, jede zweite, nur in der ersten oder Aktion nur einmal im Spiel; Siegbedingung (mit dem Lager, allein als Letzter, Überleben und Mitgewinn); Symbol aus 24 Emojis statt Buchstabe (kein Foto, Entscheidung). Menü „Karten in der Mitte“ zeigt Mittelkarten von Dieb und Gaukler jederzeit. Grenze: je eigene Rolle genau eine Aktion; Foto nicht umgesetzt.
 - Eigene Rollen mit Zielwahl und eigener Siegbedingung, eigenes Bild (Symbol oder Foto).
 - Mittelkarten von Gaukler und Dieb sichtbar, auch im Modus ohne Karten.
 
 Abnahme: Eine selbst gebaute Rolle mit Aktion funktioniert in einer Partie.
 
-## M14b Eigene Rollen aus Bausteinen (umgesetzt, wartet auf deine Abnahme)
+## M14b Eigene Rollen aus Bausteinen (abgenommen)
 Umgesetzt: Eine eigene Rolle besteht aus bis zu 8 Bausteinen, jeder ein eigener Nachtschritt mit Zielzahl 1–3, Zeitpunkt (jede Nacht, nur Nacht 1, ab Nacht 2, jede zweite), Grenze (unbegrenzt bis dreimal), Selbstwahl und „nicht zweimal dieselbe Person“. Aktionen: töten, schützen, markieren, Werwolf prüfen, echte Rolle erfahren, stumm schalten (Stimmrecht weg), Fähigkeit sperren (nächste Nacht), Rollen tauschen, verlieben, zum Werwolf machen, in feste Rolle verwandeln, Gestorbene wiederbeleben, Ziel festlegen. Passive: übersteht ersten Wolfsangriff, gilt als Werwolf für Fuchs/Bär/Prüfungen, Rache beim Tod, stirbt mit seinem Ziel; erbt eine Rolle, wenn sie stirbt. Siege: Ziel lebt am Ende, Ziel ausgeschieden, Narr (Hinrichtung), optional nur nach Einsatz der Fähigkeit. Alte Rollen mit einer Aktion laufen unverändert weiter.
 Grenzen: Wiederbelebte behalten Rolle und Verliebte-Bindung; Tausch und Verwandlung brauchen bekannte Karten (im Kartenmodus erst nach Zuordnung).
 
 Abnahme: Eine Rolle mit zwei Bausteinen und einer passiven Eigenschaft funktioniert in einer Partie.
 
-## M14c Weitere Bausteine aus der Recherche (umgesetzt, wartet auf deine Abnahme)
+## M14c Weitere Bausteine aus der Recherche (abgenommen)
 Neu: Leibwächter (stirbt an Stelle des Schützlings), Erfolgschance an jedem Baustein (die App würfelt, Ergebnis nur für den Spielleiter), Siegbedingungen „stirbt“ und „von den Wölfen getötet“, Sektenführer (Anwerben, Sieg wenn alle Lebenden dazugehören), Beobachter (wer hat das Ziel besucht), Wachsam (unangreifbar, Besucher sterben), Tagesfähigkeiten Schuss, Einsperren und Hinrichten über die Karte „Fähigkeiten am Tag“.
 Grenzen: Besucher zählen die Wölfe, Seherin, Heiler, Hexe, Rabe und alle eigenen Bausteine; Sektenmitglieder stehen nur im Verlauf und in den Morgenhinweisen; Brandstifter mit verzögertem Entflammen und Zylinderwolf sind nicht umgesetzt.
 
-## M14d Einheitliches Erscheinungsbild und neue Anleitung (umgesetzt, wartet auf deine Abnahme)
+## M14d Einheitliches Erscheinungsbild und neue Anleitung (abgenommen)
 Umgesetzt: Schriftskala mit sechs Stufen (am Handy kleiner), Serifenschrift nur für Titel, Namen und Ansagen, keine festen Inline-Größen mehr, einheitliche Rundungen. Am Handy kompaktere Knöpfe (44 px, Hauptknopf 48 px), Chips, Eingaben und Kacheln. Anleitung neu: acht Kapitel mit nummerierten Schritten und Hinweiskästen, bündiger Text, neues Kapitel „App installieren“ für iPhone/iPad und Android (erkanntes Gerät zuerst), derselbe Text im Installationsdialog.
 
 Abnahme: Anleitung und die Hauptansichten wirken am Handy aus einem Guss.
 
-## M14e Regel-System und Rollen-Werkstatt, Etappe E1 (umgesetzt, wartet auf deine Abnahme)
+## M14e Regel-System und Rollen-Werkstatt, Etappen E1–E8 (abgenommen)
 Umgesetzt: Fähigkeiten eigener Rollen sind Regeln mit Bedingungsbaum (Gruppen „Alle müssen gelten“ / „Eine reicht“, bis 3 Ebenen), Nebenwirkungen (Spielleiter-Hinweis, Fähigkeit ruht, stirbt selbst) und der Wirkung „Spielleiter-Hinweis“. Rollen-Werkstatt als eigene Seite: Live-Vorschau im Klartext, Reiter Grundlagen · Fähigkeiten · Eigenschaften · Sieg, Satzbaukasten mit antippbaren Lücken, Auswahlblätter ohne Listen, 10 Vorlagen. Nachts ein Schritt je Rolle mit allen Fähigkeiten untereinander; Wachsam und Hinweise per Knopf. Besuch zählt standardmäßig nur bei den Werwölfen, je Regel „zählt als Besuch“. Kein Springen mehr: gleiche Ansicht wird ohne Einblendung neu gezeichnet, Dialoge behalten die Scrollposition. Alte eigene Rollen werden automatisch umgerechnet.
-E2 umgesetzt (wartet auf Abnahme): Angriffe mit Stärke (normal, durchdringend, unaufhaltbar) gegen Schutz (normal, stark; Heiler zählt als normal); Wirkungen Besuchen, Einladen, Umlenken, Platz tauschen, Lockvogel, Fluch (Angriff in der nächsten Nacht), Falle (wen, ab wann); Auslöser ohne Nachtschritt: angegriffen, Ziel angegriffen, besucht, Gastgeber stirbt, stirbt, hingerichtet, mit Wirkungen überlebt, greift an (Angreifer, Besucher, Gastgeber, Ziel, nach Wahl), wird selbst angegriffen, Schild, Hinweis; Bedingungen der Lage (unterwegs, zu Hause, Besucherzahl, Partei lebt, noch nie getötet, heute eingesetzt, Angreifer ist Wolf); Zielfilter (Partei, mit/ohne Fähigkeit, jede Person nur einmal); Vorlagen Dorfmatratze, Schattenwache, Fallensteller, Lockvogel. Grenzen: Auslöser „stirbt“ nimmt Personen direkt mit (ohne Schutzprüfung); Umlenken betrifft nur Angriffe, nicht Prüfungen.
-E3 umgesetzt (wartet auf Abnahme): Auskünfte sofort im Nachtschritt (Partei, gleiche Partei, Wölfe zählen, drei Rollen, Rolle lebt, Rolle im Spiel, Rolle und Todesursache Gestorbener) und am Morgen (wen besucht, wer aktiv, wer angegriffen, geschützt, eigener Angreifer); Täuschung: dauerhaft „Erscheint als“ (Dorf, Wolf, feste oder zufällige Rolle, bei Prüfungen und/oder beim Tod), Verfälschen einer Person für 1–3 Nächte (wirkt sofort für spätere Schritte), Fähigkeit heute unbemerkt wirkungslos (eigene Rollen, Heiler, Hexe, Seherin-Hinweis); Anzeige: Ergebnis zum Ansagen groß, „Echt: …“ klein; Vorlagen Intrigant, Maskenwolf, Detektiv. Grenzen: Umlenken des Ziels einer fremden Fähigkeit ist nicht umgesetzt.
-E4 umgesetzt (wartet auf Abnahme): Verflucht (Angriff macht zum Werwolf statt zu töten), Seitenwechsel (auch „jeden Morgen“ mit Bedingung, z. B. nach 3 Einsätzen), alte Fähigkeit behalten oder verlieren, Rolle einer gestorbenen Person übernehmen, Rolle dauerhaft weitergeben oder für eine Nacht ausleihen, beim Tod vererben (nach Wahl über Rückfrage oder an das festgelegte Ziel), Nachfolge beim Tod des Ziels, Freischalten mit Bedingungen „freigeschaltet/noch nicht“ und „mindestens n× eingesetzt“; neue Auslöser „Jeden Morgen“ und „Wenn ihr festgelegtes Ziel stirbt“; Vorlagen Verfluchter, Vergessliche, Lehrling, Überläufer. Grenzen: keine Zweitrolle; Wechsel gelten ab der nächsten Nacht.
+E2 umgesetzt: Angriffe mit Stärke (normal, durchdringend, unaufhaltbar) gegen Schutz (normal, stark; Heiler zählt als normal); Wirkungen Besuchen, Einladen, Umlenken, Platz tauschen, Lockvogel, Fluch (Angriff in der nächsten Nacht), Falle (wen, ab wann); Auslöser ohne Nachtschritt: angegriffen, Ziel angegriffen, besucht, Gastgeber stirbt, stirbt, hingerichtet, mit Wirkungen überlebt, greift an (Angreifer, Besucher, Gastgeber, Ziel, nach Wahl), wird selbst angegriffen, Schild, Hinweis; Bedingungen der Lage (unterwegs, zu Hause, Besucherzahl, Partei lebt, noch nie getötet, heute eingesetzt, Angreifer ist Wolf); Zielfilter (Partei, mit/ohne Fähigkeit, jede Person nur einmal); Vorlagen Dorfmatratze, Schattenwache, Fallensteller, Lockvogel. Grenzen: Auslöser „stirbt“ nimmt Personen direkt mit (ohne Schutzprüfung); Umlenken betrifft nur Angriffe, nicht Prüfungen.
+E3 umgesetzt: Auskünfte sofort im Nachtschritt (Partei, gleiche Partei, Wölfe zählen, drei Rollen, Rolle lebt, Rolle im Spiel, Rolle und Todesursache Gestorbener) und am Morgen (wen besucht, wer aktiv, wer angegriffen, geschützt, eigener Angreifer); Täuschung: dauerhaft „Erscheint als“ (Dorf, Wolf, feste oder zufällige Rolle, bei Prüfungen und/oder beim Tod), Verfälschen einer Person für 1–3 Nächte (wirkt sofort für spätere Schritte), Fähigkeit heute unbemerkt wirkungslos (eigene Rollen, Heiler, Hexe, Seherin-Hinweis); Anzeige: Ergebnis zum Ansagen groß, „Echt: …“ klein; Vorlagen Intrigant, Maskenwolf, Detektiv. Grenzen: Umlenken des Ziels einer fremden Fähigkeit ist nicht umgesetzt.
+E4 umgesetzt: Verflucht (Angriff macht zum Werwolf statt zu töten), Seitenwechsel (auch „jeden Morgen“ mit Bedingung, z. B. nach 3 Einsätzen), alte Fähigkeit behalten oder verlieren, Rolle einer gestorbenen Person übernehmen, Rolle dauerhaft weitergeben oder für eine Nacht ausleihen, beim Tod vererben (nach Wahl über Rückfrage oder an das festgelegte Ziel), Nachfolge beim Tod des Ziels, Freischalten mit Bedingungen „freigeschaltet/noch nicht“ und „mindestens n× eingesetzt“; neue Auslöser „Jeden Morgen“ und „Wenn ihr festgelegtes Ziel stirbt“; Vorlagen Verfluchter, Vergessliche, Lehrling, Überläufer. Grenzen: keine Zweitrolle; Wechsel gelten ab der nächsten Nacht.
 E5 umgesetzt: Tagesfähigkeiten ohne Auswahlliste (Fähigkeit antippen, dann Person im Kreis); Stimmgewicht des Tages (×2, ×½, gestrichen), Strafstimmen, Freispruch (heute keine Hinrichtung), keine Abstimmung, zweite Abstimmung, Anklage, Aufdecken mit großer Karte und Abzeichen (Täuschung wirkt); dauerhaft starke Stimme (×2/×3, auf Wunsch jeden 2. Tag), geheime Zusatzstimme, entscheidet bei Gleichstand; Sonderstimmen trägt der Spielleiter einzeln in der Zählkarte ein; Vorlagen Bürgermeister, Anwalt, Herold.
 E6 umgesetzt: eigene Gegenstände in der Werkstatt (Rollenwahl → Eigene → Gegenstände) mit Name, Symbol, Ladungen, verdeckt, schlecht und eigenen Regeln; Träger nutzen sie über Nachtschritt (eigener Schritt je Gegenstand), Tageskarte und Auslöser, auch Täuschung und Stimmgewicht; Wirkungen Gegenstand geben, stehlen, zerstören, reinigen, bei Ereignis erhalten, Startausstattung, Vererben mit Gegenständen; Bedingungen „trägt Gegenstand“, „mindestens n Gegenstände“; Spielerblatt: geben und wegnehmen; Abzeichen im Kreis (verdeckte nur bei eingeblendeten Rollen); Vorlagen Rüstung, Gift, Fluch-Amulett, Kristallkugel, Glocke und Rolle Schmied.
 E7 umgesetzt: Geister (Nachtfähigkeiten „als Geist“, optional nur n Nächte nach dem Tod; Schritt „Geist: …“), eigene Parteien in der Werkstatt (Name, Farbe, Sieg: alle Lebenden, mindestens n Mitglieder oder alle tragen Gegenstand X; eigenständig blockiert den Dorfsieg), Mitgliedschaft über die Rolle, Anwerben in Partei und Austreiben; neue Alleinsiege: n getötet, n verwandelt oder angeworben, n Nächte überlebt, n Einsätze, Ziel selbst getötet, alle tragen Gegenstand; Vorlagen Poltergeist und Kopfgeldjäger. Die Sekte bleibt wie bisher eine Siegbedingung der Rolle.
 E8 umgesetzt: Fähigkeit umlenken (Seherin, Heiler, Hexe, Rabe, Wölfe und eigene Rollen treffen heute eine andere Person; Anzeige „Umgelenkt auf …“), Zweitrolle als Wirkung oder zu Beginn (wird für beide Rollen geweckt, Sieg nach der Hauptrolle, keine Werwolf-Zweitrolle), Mitnehmen beim Tod prüft Schutz der Nacht, „überlebt“, Schild und „übersteht den ersten Angriff“ nach Stärke; Vorlagen Gaukler der Nacht und Mentor.
-Regel-System E1–E8 komplett, Gesamtabnahme am Handy steht aus.
+Regel-System E1–E8 komplett und abgenommen (2026-11-04).
 
 ## M15 Daten und Pflege
 - Sicherungserinnerung, Gruppen per QR-Code oder Datei übertragen.
