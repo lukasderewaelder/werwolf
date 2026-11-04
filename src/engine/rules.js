@@ -1,6 +1,6 @@
 // Regeln eigener Rollen: Bedingungen (Wenn), Nebenwirkungen (Danach), Klartext und Vorlagen.
 // Die Wirkungen selbst stehen in BLOCKS (roles.js); eine Regel ist ein Baustein mit Bedingungsbaum.
-import { BLOCKS, roleName } from './roles.js';
+import { BLOCKS, RM, roleName } from './roles.js';
 
 /** Bedingungen. arg: 'n' (Zahl) oder 'role' (Rollenkennung). Ausgewertet in game.js (evalCond). */
 export const CONDS = {
@@ -26,11 +26,13 @@ export const CONDS = {
   usedTonight: { name: 'Sie hat heute eine Fähigkeit eingesetzt', ctx: true, text: () => 'sie heute eine Fähigkeit eingesetzt hat' },
   notUsedTonight: { name: 'Sie hat heute nichts eingesetzt', ctx: true, text: () => 'sie heute nichts eingesetzt hat' },
   attackerWolf: { name: 'Der Angreifer ist ein Werwolf', ctx: true, text: () => 'der Angreifer ein Werwolf ist' },
+  hasItem: { name: 'Sie trägt einen bestimmten Gegenstand', arg: 'item', text: (c) => `sie „${itemName(c.item)}“ trägt` },
+  itemGte: { name: 'Sie trägt mindestens so viele Gegenstände', arg: 'n', min: 1, max: 5, def: 1, text: (c) => `sie mindestens ${c.n} Gegenst${c.n === 1 ? 'and' : 'ände'} trägt` },
   usedGte: { name: 'Fähigkeiten der Rolle mindestens so oft eingesetzt', arg: 'n', min: 1, max: 9, def: 3, text: (c) => `die Rolle ihre Fähigkeiten mindestens ${c.n}× eingesetzt hat` },
   unlocked: { name: 'Freigeschaltet', text: () => 'sie freigeschaltet ist' },
   locked: { name: 'Noch nicht freigeschaltet', text: () => 'sie noch nicht freigeschaltet ist' },
 };
-export const COND_GROUPS = [['In diesem Moment', ['away', 'home', 'visitedNone', 'visitedGte2', 'attackerWolf', 'usedTonight', 'notUsedTonight', 'partyAlive', 'neverKilled']], ['Zeit und Verlauf', ['nightGte', 'deathLast', 'noDeathLast', 'used', 'unused', 'usedGte', 'unlocked', 'locked']], ['Andere Rollen', ['roleAlive', 'roleDead', 'wolvesGte']], ['Spielstand', ['aliveGte', 'aliveLte', 'boundAlive', 'boundDead']]];
+export const COND_GROUPS = [['In diesem Moment', ['away', 'home', 'visitedNone', 'visitedGte2', 'attackerWolf', 'usedTonight', 'notUsedTonight', 'partyAlive', 'neverKilled']], ['Zeit und Verlauf', ['nightGte', 'deathLast', 'noDeathLast', 'used', 'unused', 'usedGte', 'unlocked', 'locked']], ['Andere Rollen', ['roleAlive', 'roleDead', 'wolvesGte']], ['Gegenstände', ['hasItem', 'itemGte']], ['Spielstand', ['aliveGte', 'aliveLte', 'boundAlive', 'boundDead']]];
 
 /** Auslöser: Die Regel wirkt automatisch, ohne Nachtschritt. */
 export const TRIGGERS = {
@@ -56,6 +58,7 @@ export const EFFECT_GROUPS = [
   ['Wissen', ['peek', 'peekrole', 'party', 'same', 'count', 'threeRoles', 'roleAlive', 'roleIn', 'deadRole', 'deathCause']],
   ['Wissen am Morgen', ['watch', 'whomVisited', 'whoActive', 'attackedAll', 'wasProtected', 'myAttacker']],
   ['Täuschen', ['appear', 'frame', 'nullify']],
+  ['Gegenstände', ['giveItem', 'stealItem', 'destroyItem', 'cleanse', 'gainItem', 'startItem']],
   ['Abstimmung und Tag', ['voteBoost', 'votePenalty', 'voteShield', 'noVote', 'extraVote', 'accuse', 'reveal', 'selfVote', 'secretVote', 'tieBreak']],
   ['Rolle wechseln', ['becomeWolf', 'turnSelf', 'copyDead', 'passOn', 'lend', 'bequeath', 'takeRole', 'unlock']],
   ['Angreifen', ['kill', 'delayed', 'trap', 'shoot', 'jailkill']],
@@ -82,6 +85,7 @@ export const EFFECT_HINT = {
   attackedAll: 'Alle, die heute angegriffen wurden.', wasProtected: 'Ja oder nein.', myAttacker: 'Wer sie heute angegriffen hat.',
   appear: 'Dauerhaft: Prüfungen zeigen etwas Falsches.',
   becomeWolf: 'Ein Angriff macht sie zum Werwolf statt zu töten.',
+  giveItem: 'Zum Beispiel eine Rüstung.', stealItem: 'Nimmt den ersten Gegenstand der Person an sich.', destroyItem: 'Alle Gegenstände der Person sind weg.', cleanse: 'Entfernt alle schlechten Gegenstände.', gainItem: 'Bei einem Ereignis bekommt sie einen Gegenstand.', startItem: 'Liegt ab Spielbeginn bereit.',
   voteBoost: 'Für heute: ×2, ×½ oder gestrichen.', votePenalty: 'Wie der Rabe: Stimmen mehr gegen die Person.', voteShield: 'Die Person scheidet heute nicht durch Abstimmung aus.',
   noVote: 'Der Tag endet ohne Abstimmung.', extraVote: 'Wie beim Stotternden Richter.', accuse: 'Ja oder Nein über die angeklagte Person.', reveal: 'Große Karte zum Zeigen, danach Abzeichen.',
   selfVote: 'Dauerhaft ×2 oder ×3, auf Wunsch nur jeden zweiten Tag.', secretVote: 'Zeigt dir ihre Wahl heimlich, du trägst sie ein.', tieBreak: 'Statt des Sündenbocks wählt sie aus dem Gleichstand.', turnSelf: 'Zum Beispiel nach drei Einsätzen jeden Morgen geprüft.', copyDead: 'Wird zur Rolle einer gestorbenen Person.',
@@ -101,6 +105,7 @@ export const PHRASE = {
   whomVisited: 'erfährt am Morgen, wen {t} besucht hat', whoActive: 'erfährt am Morgen, wer aktiv war', attackedAll: 'erfährt am Morgen, wer angegriffen wurde', wasProtected: 'erfährt am Morgen, ob {t} geschützt war', myAttacker: 'erfährt am Morgen, wer sie angegriffen hat',
   appear: 'erscheint bei Prüfungen als {a}',
   becomeWolf: 'wird Werwolf statt zu sterben',
+  giveItem: 'gibt {t} {i}', stealItem: 'stiehlt {t} einen Gegenstand', destroyItem: 'zerstört die Gegenstände von {t}', cleanse: 'befreit {t} von schlechten Gegenständen', gainItem: 'erhält {i}', startItem: 'beginnt mit {i}',
   voteBoost: 'ändert die Stimme von {t}', votePenalty: 'belastet {t} mit Strafstimmen', voteShield: 'bewahrt {t} heute vor der Hinrichtung', noVote: 'verhindert die heutige Abstimmung', extraVote: 'verlangt eine zweite Abstimmung',
   accuse: 'klagt {t} an', reveal: 'deckt die Rolle von {t} auf', selfVote: 'hat eine starke Stimme', secretVote: 'hat eine geheime Zusatzstimme', tieBreak: 'entscheidet bei Gleichstand', turnSelf: 'wird selbst Werwolf', copyDead: 'übernimmt die Rolle von {t}', passOn: 'gibt die eigene Rolle an {t}', lend: 'leiht die eigene Rolle für eine Nacht an {t}',
   bequeath: 'vererbt die Rolle an {t}', takeRole: 'übernimmt die Rolle des Ziels', unlock: 'schaltet die Fähigkeiten frei', frame: 'lässt {t} bei Prüfungen als {a} erscheinen', nullify: 'macht die Fähigkeit von {t} heute wirkungslos', trap: 'stellt eine Falle bei {t}', survive: 'übersteht es', strike: 'greift {t} an', dieSelf: 'wird selbst angegriffen', shield: 'bekommt einen Schild',
@@ -130,8 +135,10 @@ export const whenText = (b) => (b.on === 'always' ? 'Immer' : b.on ? TRIGGERS[b.
 export const powerText = (b) => (b.power == null ? '' : b.k === 'protect' ? PROTECT_TXT[b.power] : POWER_TXT[b.power]);
 const WHO_TXT = { ownCamp: 'nur aus der eigenen Partei', otherCamp: 'nur aus der anderen Partei', withAbility: 'nur Personen mit Nachtfähigkeit', noAbility: 'nur Personen ohne Nachtfähigkeit' };
 const TRAP_TXT = { first: 'trifft den ersten Besucher', all: 'trifft alle Besucher', wolves: 'trifft nur Werwölfe', nonWolves: 'trifft alle außer Werwölfen' };
+/** Name eines eigenen Gegenstands (ohne Import des Speichers: über die registrierte Regelquelle). */
+export const itemName = (iid) => RM[`it_${iid}`]?.name ?? 'Gegenstand';
 export const asText = (b) => ({ village: 'Dorfbewohner', wolf: 'Werwolf', role: roleName(b.role), random: 'zufällige Rolle' }[b.as] ?? '');
-export const effectText = (b) => PHRASE[b.k].replace('{t}', targetText(b) || (b.k === 'strike' ? 'niemanden' : 'sich')).replace('{a}', asText(b)).replace('{r}', roleName(b.role)).replace('{x}', b.text || '…');
+export const effectText = (b) => PHRASE[b.k].replace('{t}', targetText(b) || (b.k === 'strike' ? 'niemanden' : 'sich')).replace('{a}', asText(b)).replace('{i}', b.item ? `„${itemName(b.item)}“` : 'einen Gegenstand').replace('{r}', roleName(b.role)).replace('{x}', b.text || '…');
 export const extrasText = (b) => [b.power > 1 ? powerText(b) : '', b.k === 'trap' ? `${TRAP_TXT[b.trapWho]}, ${b.trapArm === 'now' ? 'sofort scharf' : 'ab der nächsten Nacht scharf'}` : '', b.k === 'frame' ? `${b.nights} ${b.nights === 1 ? 'Nacht' : 'Nächte'}` : '', b.keep != null ? (b.keep ? 'behält die alte Fähigkeit' : 'verliert die alte Fähigkeit') : '', b.mult != null ? (b.mult === 0 ? 'Stimme gestrichen' : b.mult === 0.5 ? 'Stimme zählt halb' : `Stimme zählt ${b.mult}×`) : '', b.even ? 'nur jeden zweiten Tag' : '', b.plus ? `${b.plus} Strafstimmen` : '', b.k === 'appear' && b.scope !== 'checks' ? (b.scope === 'death' ? 'nur beim Tod' : 'auch beim Tod') : '', WHO_TXT[b.who] ?? '', b.once ? 'jede Person nur einmal im Spiel' : '', b.limit ? `höchstens ${b.limit}×` : '', b.chance < 100 ? `gelingt zu ${b.chance} %` : '', b.rep ? 'nie zweimal hintereinander dieselbe Person' : '', b.visit && b.k !== 'visit' ? 'zählt als Besuch' : ''].filter(Boolean).join(', ');
 
 /** Klartext einer Regel: „Ab der zweiten Nacht: tötet eine andere Person, wenn … (höchstens 2×). Danach …“ */
@@ -155,13 +162,23 @@ export function sanitizeCond(c, depth = 1) {
   const out = { k: c.k };
   if (C.arg === 'n') out.n = Math.max(C.min, Math.min(C.max, Math.round(+c.n) || C.def));
   if (C.arg === 'role') out.role = typeof c.role === 'string' && c.role ? c.role : 'seer';
+  if (C.arg === 'item') out.item = typeof c.item === 'string' ? c.item : '';
   return out;
 }
 export const sanitizeThen = (list) => (Array.isArray(list) ? list : []).filter((t) => t && THENS[t.k]).slice(0, 3).map((t) => (t.k === 'note' ? { k: 'note', text: String(t.text ?? '').slice(0, 200) } : { k: t.k }));
 
 /* ---------- Vorlagen ---------- */
+/** Gegenstands-Vorlagen. Rollen-Vorlagen mit needItems legen den Gegenstand bei Bedarf mit an. */
+export const ITEM_TEMPLATES = [
+  { key: 'armor', name: 'Rüstung', icon: '🛡️', charges: 1, rules: [{ k: 'survive', on: 'attacked' }] },
+  { key: 'poison', name: 'Gift', icon: '🧪', charges: 1, bad: true, hidden: true, rules: [{ k: 'dieSelf', on: 'dawn', power: 2, chance: 50 }] },
+  { key: 'amulet', name: 'Fluch-Amulett', icon: '🧿', bad: true, hidden: true, rules: [{ k: 'strike', on: 'attacked', tgt: 'attacker', power: 2 }] },
+  { key: 'crystal', name: 'Kristallkugel', icon: '🔮', charges: 3, rules: [{ k: 'peek', n: 1, when: 'every' }] },
+  { key: 'bell', name: 'Glocke', icon: '🔔', charges: 1, rules: [{ k: 'shield', on: 'visited' }] },
+];
 const R = (k, o = {}) => ({ k, n: 1, when: 'every', limit: 0, self: false, rep: false, role: 'villager', chance: 100, ...o });
 export const CUSTOM_TEMPLATES = [
+  { key: 'smith', name: 'Schmied', sub: 'Verteilt zweimal eine Rüstung', icon: '🪓', rules: [R('giveItem', { limit: 2, item: '@armor' })], needItems: ['armor'] },
   { key: 'mayor', name: 'Bürgermeister', sub: 'Starke Stimme, entscheidet Gleichstände', icon: '⚖️', rules: [R('selfVote', { on: 'always', mult: 2 }), R('tieBreak', { on: 'always' })] },
   { key: 'lawyer', name: 'Anwalt', sub: 'Bewahrt einmal jemanden vor dem Galgen', icon: '📜', rules: [R('voteShield', { limit: 1 }), R('secretVote', { on: 'always' })] },
   { key: 'herald', name: 'Herold', sub: 'Deckt einmal eine Rolle auf, dann keine Abstimmung', icon: '🔔', rules: [R('reveal', { limit: 1 }), R('noVote', { limit: 1 })] },

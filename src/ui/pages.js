@@ -82,6 +82,7 @@ const GUIDE = [
       'Wissen und Täuschen: Partei, gleiche Partei, Wölfe zählen, Auskünfte am Morgen, „Erscheint als“, Verfälschen und Wirkungslos. Im Nachtschritt steht groß, was du ansagst, und klein, was wirklich stimmt.',
       'Am Tag: Schuss, Einsperren, Hinrichten, Stimmgewicht, Freispruch, Anklage, Aufdecken. In der Karte <b>Fähigkeiten am Tag</b> die Fähigkeit antippen, dann die Person im Kreis, dann Einsetzen.',
       'Starke oder geheime Stimmen trägst du in der Zählkarte einzeln über ihren Knopf ein.',
+      'Gegenstände legst du unter „Eigene“ → „Gegenstände“ an. Rollen verteilen sie, oder du gibst sie im Spielerblatt (lange auf eine Person tippen).',
     ] },
     { h: 'Sonderkarten', dots: [
       'Dieb und Gaukler: Karten in der Mitte stehen im Menü.',

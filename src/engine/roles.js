@@ -315,8 +315,8 @@ export const roleShort = (id) => RM[id]?.short ?? RM[id]?.name ?? 'Unbekannt';
 /** Sucht Rollen nach Name, Kurzname oder altem Namen (ohne Groß-/Kleinschreibung). */
 export function findRoles(query) {
   const q = query.trim().toLowerCase();
-  if (!q) return ROLES;
-  return ROLES.filter((r) => [r.name, r.short, ...(r.alt ?? [])].some((n) => n?.toLowerCase().includes(q)));
+  if (!q) return ROLES.filter((r) => !r.item);
+  return ROLES.filter((r) => !r.item).filter((r) => [r.name, r.short, ...(r.alt ?? [])].some((n) => n?.toLowerCase().includes(q)));
 }
 
 /** Vorschlag für die Kartenverteilung nach Spielerzahl (Rest wird mit Dorfbewohnern aufgefüllt). */
@@ -403,6 +403,13 @@ export const BLOCKS = {
   lend: { name: 'Leiht die eigene Rolle für die nächste Nacht aus', short: 'Ausleihen', verb: 'leiht die Rolle an' },
   bequeath: { name: 'Vererbt die eigene Rolle beim Tod', short: 'Vererben', verb: 'vererbt die Rolle an', trig: ['death'] },
   takeRole: { name: 'Übernimmt die Rolle des festgelegten Ziels, wenn es stirbt', short: 'Nachfolge', verb: 'übernimmt die Rolle', trig: ['boundDies'], noTarget: true },
+  // E6: Gegenstände
+  giveItem: { name: 'Gibt einer Person einen Gegenstand', short: 'Gegenstand geben', verb: 'gibt', item: true },
+  stealItem: { name: 'Stiehlt einer Person einen Gegenstand', short: 'Stehlen', verb: 'stiehlt' },
+  destroyItem: { name: 'Zerstört die Gegenstände einer Person', short: 'Zerstören', verb: 'zerstört' },
+  cleanse: { name: 'Befreit eine Person von schlechten Gegenständen', short: 'Reinigen', verb: 'reinigt' },
+  gainItem: { name: 'Erhält einen Gegenstand', short: 'Erhält', verb: 'erhält', item: true, trig: ['dawn', 'attacked', 'targetAttacked', 'visited', 'boundDies', 'hostDies', 'death'], noTarget: true },
+  startItem: { name: 'Beginnt das Spiel mit einem Gegenstand', short: 'Startausstattung', verb: 'beginnt mit', item: true, trig: ['always'], noTarget: true },
   // E5: Abstimmung und Tag
   voteBoost: { name: 'Am Tag: Stimme einer Person verdoppeln, halbieren oder streichen', short: 'Stimmgewicht', verb: 'ändert die Stimme von', day: true },
   votePenalty: { name: 'Am Tag: Person bekommt Strafstimmen', short: 'Strafstimmen', verb: 'belastet', day: true },
@@ -419,7 +426,7 @@ export const BLOCKS = {
 /** Ohne Ziel: Einsatz per Knopf im Nachtschritt. */
 export const isToggle = (b) => !!BLOCKS[b.k].selfOnly || (b.k === 'note' && !b.n) || (!!BLOCKS[b.k].noTarget && !b.on && !isTrigOnly(b.k));
 /** Nur über Auslöser nutzbar (kein Nachtschritt). */
-export const isTrigOnly = (k) => ['survive', 'strike', 'dieSelf', 'shield', 'appear', 'becomeWolf', 'turnSelf', 'bequeath', 'takeRole', 'selfVote', 'secretVote', 'tieBreak'].includes(k);
+export const isTrigOnly = (k) => ['survive', 'strike', 'dieSelf', 'shield', 'appear', 'becomeWolf', 'turnSelf', 'bequeath', 'takeRole', 'selfVote', 'secretVote', 'tieBreak', 'gainItem', 'startItem'].includes(k);
 export const BLOCK_WHEN = { every: 'Jede Nacht', first: 'Nur in der ersten Nacht', later: 'Ab der zweiten Nacht', even: 'Jede zweite Nacht' };
 export const BLOCK_WHEN_DAY = { every: 'Jeden Tag', first: 'Nur am ersten Tag', later: 'Ab dem zweiten Tag', even: 'Jeden zweiten Tag' };
 export const BLOCK_CHANCE = [100, 75, 50, 25];
@@ -488,6 +495,8 @@ function ruleExtras(b, B) {
   if (B.keep) out.keep = !!b.keep;
   if (b.k === 'voteBoost') out.mult = [2, 0.5, 0].includes(+b.mult) ? +b.mult : 2;
   if (b.k === 'selfVote') { out.mult = [2, 3].includes(+b.mult) ? +b.mult : 2; out.even = !!b.even; }
+  if (B.item) out.item = typeof b.item === 'string' ? b.item : '';
+  if (b.k === 'bequeath') out.items = !!b.items;
   if (b.k === 'votePenalty') out.plus = Math.max(1, Math.min(3, Math.round(+b.plus) || 2));
   if (b.k === 'trap') { out.trapWho = ['first', 'all', 'wolves', 'nonWolves'].includes(b.trapWho) ? b.trapWho : 'first'; out.trapArm = b.trapArm === 'now' ? 'now' : 'next'; }
   return out;
@@ -515,5 +524,19 @@ export function registerRoles(list = []) {
     const i = ROLES.findIndex((x) => x.id === c.id);
     if (i >= 0) ROLES[i] = def; else ROLES.push(def);
     RM[c.id] = def;
+  }
+}
+
+/** Eigene Gegenstände als Regelquelle registrieren: Kennung it_<id>, Träger stehen in g.items. */
+export const itemRid = (iid) => `it_${iid}`;
+export function registerItems(list = []) {
+  for (const c of list) {
+    const rid = itemRid(c.id), blocks = customBlocks({ rules: c.rules ?? [] });
+    const def = { id: rid, iid: c.id, name: c.name || 'Gegenstand', set: 'items', camp: 'village', custom: true, item: true, icon: c.icon || '🎒', hidden: !!c.hidden, bad: !!c.bad,
+      charges: Math.max(0, Math.min(9, Math.round(+c.charges) || 0)), sub: c.hidden ? 'Verdeckter Gegenstand' : 'Gegenstand', desc: '', say: '', win: 'camp', blocks, rules: blocks, passives: [], heir: '', needUse: false,
+      ...(blocks.some((b) => !BLOCKS[b.k].day && !b.on && !isTrigOnly(b.k)) ? { night: { when: 'every', order: 270, act: 'cust' } } : {}) };
+    const i = ROLES.findIndex((x) => x.id === rid);
+    if (i >= 0) ROLES[i] = def; else ROLES.push(def);
+    RM[rid] = def;
   }
 }

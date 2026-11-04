@@ -77,6 +77,7 @@ function tokHtml(g, p, i, n, mk, mode) {
   if (g.enchanted[p.id]) b.push(`<span class="bdg blue" title="Verzaubert">${I.flute}</span>`);
   if (g.charmed?.[p.id] && !dead && showRoles()) b.push(`<span class="bdg blue" title="Betört">${I.moon}</span>`);
   if (known && !dead && isWolf(g, p.id) && n <= 20) b.push(`<span class="bdg red" title="Werwolf">${I.wolf}</span>`);
+  for (const it of (g.items?.[p.id] ?? []).slice(0, 3)) { const R2 = RM[`it_${it.iid}`]; if (R2 && (!R2.hidden || showRoles())) b.push(`<span class="bdg" title="${esc(R2.name)}${R2.hidden ? ' (verdeckt)' : ''}">${esc(R2.icon)}</span>`); }
   if (g.revealed?.[p.id]) b.push(`<span class="bdg gold" title="Aufgedeckt">${I.eye}</span>`);
   if (g.idiotRevealed && rid === 'idiot') b.push(`<span class="bdg gold" title="Ohne Stimmrecht">${I.minus}</span>`);
   if (g.groups[p.id] && showRoles() && n <= 24) b.push(`<span class="bdg">${g.groups[p.id] === 'A' ? '1' : '2'}</span>`);

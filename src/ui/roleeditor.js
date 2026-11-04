@@ -3,8 +3,8 @@
 import { S, ui, views, on, go, toast } from './core.js';
 import { esc, art, I } from './art.js';
 import { topBar } from './home.js';
-import { ROLES, RM, CAMP_LABEL, CUSTOM_WIN, PASSIVES, BLOCKS, BLOCK_WHEN, BLOCK_WHEN_DAY, BLOCK_CHANCE, registerRoles, customBlocks, blankBlock, fillVillagers, TRIG_TARGETS, isTrigOnly } from '../engine/roles.js';
-import { asText } from '../engine/rules.js';
+import { ROLES, RM, CAMP_LABEL, CUSTOM_WIN, PASSIVES, BLOCKS, BLOCK_WHEN, BLOCK_WHEN_DAY, BLOCK_CHANCE, registerRoles, customBlocks, blankBlock, fillVillagers, TRIG_TARGETS, isTrigOnly, registerItems, itemRid } from '../engine/roles.js';
+import { asText, ITEM_TEMPLATES, itemName } from '../engine/rules.js';
 import { CONDS, COND_GROUPS, MAX_DEPTH, THENS, EFFECT_GROUPS, EFFECT_HINT, PHRASE, CUSTOM_TEMPLATES, describeRule, condText, condCount, targetText, whenText, sanitizeCond, TRIGGERS, TGT_TXT, POWER_TXT, PROTECT_TXT, powerText } from '../engine/rules.js';
 
 const WHO = { any: 'Alle', ownCamp: 'Eigene Partei', otherCamp: 'Andere Partei', withAbility: 'Mit Nachtfähigkeit', noAbility: 'Ohne Nachtfähigkeit' };
@@ -13,6 +13,8 @@ import { uid, presentPlayers } from '../store.js';
 
 export const CUSTOM_ICONS = ['🔮', '🗡️', '🛡️', '👁️', '🔥', '🌙', '⭐', '🍀', '🕯️', '🗝️', '🎭', '🧪', '📜', '🐺', '🦉', '🐍', '⚖️', '🏹', '🪓', '🎲', '🧿', '🌹', '💀', '🔔'];
 const TABS = [['basis', 'Grundlagen'], ['rules', 'Fähigkeiten'], ['traits', 'Eigenschaften'], ['win', 'Sieg']];
+const ITEM_TABS = [['basis', 'Grundlagen'], ['rules', 'Fähigkeiten']];
+const isItem = () => ui.re?.kind === 'item';
 const WIN_GROUPS = [['Mit dem Lager', ['camp']], ['Gewinnt mit dem Sieger', ['survive', 'bound', 'hunt']], ['Gewinnt allein', ['solo', 'executed', 'dies', 'killed', 'cult']]];
 const WAKE = [['none', 'Nie'], ['first', 'Nacht 1'], ['every', 'Jede Nacht'], ['even', 'Jede 2.']];
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -28,8 +30,28 @@ export function openRoleEditor(id = null) {
   go('roleeditor');
 }
 
+/** Gegenstand bearbeiten: gleiche Werkstatt, nur Grundlagen und Fähigkeiten. */
+export function openItemEditor(id = null) {
+  const it = id ? (S.customItems ?? []).find((x) => x.id === id) : null;
+  const draft = { name: '', icon: '🎒', hidden: false, bad: false, charges: 1, ...(it ? clone(it) : {}), rules: it ? customBlocks({ rules: it.rules ?? [] }) : [] };
+  ui.re = { kind: 'item', id: it?.id ?? null, draft, tab: 'basis', sheet: null, lastDel: null, from: ui.view };
+  go('roleeditor');
+}
+/** Vorlagen-Gegenstand anlegen, falls er noch fehlt (für Rollen-Vorlagen wie den Schmied). Liefert die Kennung. */
+function ensureItem(key) {
+  const t = ITEM_TEMPLATES.find((x) => x.key === key);
+  S.customItems ??= [];
+  let it = S.customItems.find((x) => x.tpl === key);
+  if (!it && t) { it = { id: uid('t'), tpl: key, name: t.name, icon: t.icon, charges: t.charges ?? 0, hidden: !!t.hidden, bad: !!t.bad, rules: customBlocks({ rules: clone(t.rules) }) }; S.customItems.push(it); registerItems([it]); }
+  return it?.id ?? '';
+}
+
 /* ---------- Vorschau ---------- */
 function previewHtml(d) {
+  if (isItem()) {
+    const lines = [...d.rules.map((b) => describeRule(b)), d.charges ? `Hält ${d.charges} ${d.charges === 1 ? 'Einsatz' : 'Einsätze'}, dann ist er weg.` : 'Hält unbegrenzt.', d.hidden ? 'Verdeckt: Der Träger weiß nichts davon.' : '', d.bad ? 'Schlechter Gegenstand (Reinigen entfernt ihn).' : ''].filter(Boolean);
+    return `<div class="re-prev card flat"><div class="re-prev-head"><span class="re-ic">${esc(d.icon || '🎒')}</span><div class="t"><b>${esc(d.name.trim() || 'Neuer Gegenstand')}</b><span class="camp">Gegenstand</span></div></div><ul class="re-lines" data-keep="re-prev">${lines.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
+  }
   const lines = [
     ...d.rules.map((b) => describeRule(b)),
     ...(d.rules.length ? [] : d.wake !== 'none' ? [`${{ first: 'In der ersten Nacht', every: 'Jede Nacht', even: 'Jede zweite Nacht' }[d.wake]}: wird nur aufgerufen.`] : ['Keine Fähigkeit in der Nacht.']),
@@ -58,10 +80,11 @@ function ruleCard(b, ri, n) {
   const then = (b.then ?? []).length ? b.then.map((t) => THENS[t.k].name).join(', ') : 'nichts';
   // Satzbaustein in Text und Lücken zerlegen: der erste Text ist die Wirkung, {t} Ziel, {r} Rolle, {a} Erscheinen als, {x} Hinweistext
   let first = true;
-  const sent = PHRASE[b.k].split(/(\{[trax]\})/).filter((p) => p.trim()).map((p) => {
+  const sent = PHRASE[b.k].split(/(\{[traxi]\})/).filter((p) => p.trim()).map((p) => {
     if (p === '{t}') return tt ? gap(ri, 'target', tt) : b.k === 'strike' ? gap(ri, 'target', 'niemanden', 'empty') : esc('sich');
     if (p === '{r}') return gap(ri, 'role', RM[b.role]?.name ?? '?');
     if (p === '{a}') return gap(ri, 'as', asText(b));
+    if (p === '{i}') return gap(ri, 'item', b.item ? `„${itemName(b.item)}“` : 'Gegenstand wählen', b.item ? '' : 'empty');
     if (p === '{x}') return gap(ri, 'text', b.text ? `„${b.text}“` : 'Text eingeben', b.text ? '' : 'empty');
     const t = p.replace(/[„“]/g, '').trim();
     if (first) { first = false; return gap(ri, 'effect', t.replace(/:$/, ''), 'eff'); }
@@ -82,6 +105,14 @@ function ruleCard(b, ri, n) {
 
 function tabHtml(re) {
   const d = re.draft;
+  if (isItem() && re.tab === 'basis') return `
+      <div class="re-sec"><div class="eyebrow">Mit Vorlage beginnen</div><div class="chips">${ITEM_TEMPLATES.map((t) => chip('re-itpl', `${t.icon} ${esc(t.name)}`, false, `data-k="${t.key}"`)).join('')}</div></div>
+      <label class="re-sec"><span class="eyebrow">Name</span><input class="inp" id="re-name" value="${esc(d.name)}" maxlength="28" placeholder="z. B. Rüstung" autocomplete="off"></label>
+      <div class="re-sec"><span class="eyebrow">Symbol</span><div class="chips wrap">${['🎒', ...CUSTOM_ICONS].map((ic) => chip('re-icon', ic, d.icon === ic, `data-v="${ic}"`)).join('')}</div></div>
+      <div class="re-sec"><span class="eyebrow">Ladungen</span>${stepper('re-icharge', d.charges, d.charges ? `${d.charges}× nutzbar` : 'unbegrenzt')}</div>
+      ${toggleRow('re-iflag', 'Verdeckt', 'Der Träger weiß nicht, was er hat. Nur du siehst es.', !!d.hidden, 'data-k="hidden"')}
+      ${toggleRow('re-iflag', 'Schlechter Gegenstand', 'Zum Beispiel ein Fluch. „Reinigen“ entfernt ihn.', !!d.bad, 'data-k="bad"')}
+      ${re.id ? `<button type="button" class="btn danger" data-action="re-delete">${I.close}<span>Gegenstand löschen</span></button>` : ''}`;
   switch (re.tab) {
     case 'basis': return `
       <div class="re-sec"><div class="eyebrow">Mit Vorlage beginnen</div><div class="chips">${CUSTOM_TEMPLATES.map((t) => chip('re-tpl', `${t.icon} ${esc(t.name)}`, false, `data-k="${t.key}"`)).join('')}</div></div>
@@ -122,7 +153,7 @@ function condGroupHtml(grp, path) {
     const p = path === '' ? `${i}` : `${path}.${i}`;
     if (c.all || c.any) return condGroupHtml(c, p);
     const C = CONDS[c.k];
-    const arg = C.arg === 'n' ? stepper('re-cnum', c.n, String(c.n), `data-p="${p}"`) : C.arg === 'role' ? `<button type="button" class="chip" data-action="re-crole" data-p="${p}">${art(c.role)}${esc(RM[c.role]?.name ?? '?')}</button>` : '';
+    const arg = C.arg === 'item' ? `<button type="button" class="chip" data-action="re-citem" data-p="${p}">${esc(c.item ? itemName(c.item) : 'Gegenstand wählen')}</button>` : C.arg === 'n' ? stepper('re-cnum', c.n, String(c.n), `data-p="${p}"`) : C.arg === 'role' ? `<button type="button" class="chip" data-action="re-crole" data-p="${p}">${art(c.role)}${esc(RM[c.role]?.name ?? '?')}</button>` : '';
     return `<div class="crow"><span class="ctext">${esc(C.name)}</span>${arg}<button type="button" class="mini bad" data-action="re-cdel" data-p="${p}" aria-label="Bedingung entfernen">${I.close}</button></div>`;
   }).join('');
   return `<div class="cgrp d${depth}"><div class="cg-head"><div class="seg">${[['all', 'Alle müssen gelten'], ['any', 'Eine reicht']].map(([k, t]) => `<button type="button" class="${grp[k] ? 'on' : ''}" data-action="re-cmode" data-p="${path}" data-k="${k}">${t}</button>`).join('')}</div>${path !== '' ? `<button type="button" class="mini bad" data-action="re-cdel" data-p="${path}" aria-label="Gruppe entfernen">${I.close}</button>` : ''}</div>
@@ -210,6 +241,13 @@ function sheetHtml(re) {
       title = 'Bedingung wählen';
       body = COND_GROUPS.filter(([, ks]) => b.on || !CONDS[ks[0]].ctx).map(([t, ks]) => `<div class="eyebrow">${t}</div><div class="re-tiles">${ks.map((k) => `<button type="button" class="re-tile" data-action="re-cadd" data-k="${k}"><b>${esc(CONDS[k].name)}</b></button>`).join('')}</div>`).join('');
       break;
+    case 'item': case 'condItem': {
+      title = 'Welcher Gegenstand?';
+      const cur = sh.f === 'item' ? b.item : condAt(b.if, sh.path).item, list = S.customItems ?? [];
+      body = list.length ? `<div class="re-tiles">${list.map((it) => `<button type="button" class="re-tile ${cur === it.id ? 'on' : ''}" data-action="re-item" data-v="${it.id}"><b>${esc(it.icon || '🎒')} ${esc(it.name)}</b><span>${it.charges ? `${it.charges} Ladung${it.charges === 1 ? '' : 'en'}` : 'unbegrenzt'}${it.hidden ? ' · verdeckt' : ''}</span></button>`).join('')}</div>` : '<p class="muted">Noch keine Gegenstände. Lege sie bei der Rollenwahl unter „Eigene“ → „Gegenstände“ an.</p>';
+      body += `<div class="eyebrow">Aus Vorlage anlegen</div><div class="chips wrap">${ITEM_TEMPLATES.map((t) => chip('re-item-tpl', `${t.icon} ${esc(t.name)}`, false, `data-k="${t.key}"`)).join('')}</div>`;
+      break;
+    }
     case 'condRole': title = 'Welche Rolle?'; body = rolePicker('re-crole-set', condAt(b.if, sh.path).role); break;
     case 'role': title = 'In welche Rolle?'; body = rolePicker('re-role', b.role); break;
     case 'heir': title = 'Erbt welche Rolle?'; body = rolePicker('re-heir', d.heir, { none: true }); break;
@@ -224,7 +262,7 @@ function sheetHtml(re) {
       break;
     default: break;
   }
-  const back = sh.f === 'condPick' || sh.f === 'condRole' ? `<button type="button" class="ibtn" data-action="re-sheet-back" aria-label="Zurück">${I.left}</button>` : '';
+  const back = sh.f === 'condPick' || sh.f === 'condRole' || sh.f === 'condItem' ? `<button type="button" class="ibtn" data-action="re-sheet-back" aria-label="Zurück">${I.left}</button>` : '';
   return `<div class="backdrop sheet" data-action="re-sheet-close"><div class="modal sheet re-sheet" data-stop role="dialog" aria-modal="true" data-keep="re-sheet-${sh.f}">
     <div class="re-sheet-head">${back}<h2>${title}</h2><span class="spacer"></span><button type="button" class="btn sm" data-action="re-sheet-close" data-done="1">Fertig</button></div>${body}</div></div>`;
 }
@@ -232,9 +270,9 @@ function sheetHtml(re) {
 views.roleeditor = () => {
   const re = ui.re;
   if (!re) return views.home();
-  return `<div class="view re">${topBar(re.id ? 'Rolle bearbeiten' : 'Neue Rolle', 'Rollen-Werkstatt', { back: 're-back', right: '<button class="btn primary sm" data-action="re-save">Speichern</button>' })}
+  return `<div class="view re">${topBar(isItem() ? (re.id ? 'Gegenstand bearbeiten' : 'Neuer Gegenstand') : re.id ? 'Rolle bearbeiten' : 'Neue Rolle', 'Rollen-Werkstatt', { back: 're-back', right: '<button class="btn primary sm" data-action="re-save">Speichern</button>' })}
     <div class="page re-page"><div id="re-preview">${previewHtml(re.draft)}</div>
-      <div class="seg re-tabs" role="tablist">${TABS.map(([k, t]) => `<button type="button" role="tab" class="${re.tab === k ? 'on' : ''}" data-action="re-tab" data-k="${k}" aria-selected="${re.tab === k}">${t}${k === 'rules' && re.draft.rules.length ? ` <em>${re.draft.rules.length}</em>` : ''}</button>`).join('')}</div>
+      <div class="seg re-tabs" role="tablist">${(isItem() ? ITEM_TABS : TABS).map(([k, t]) => `<button type="button" role="tab" class="${re.tab === k ? 'on' : ''}" data-action="re-tab" data-k="${k}" aria-selected="${re.tab === k}">${t}${k === 'rules' && re.draft.rules.length ? ` <em>${re.draft.rules.length}</em>` : ''}</button>`).join('')}</div>
       <div class="re-scroll scroll" data-keep="re-${re.tab}">${tabHtml(re)}</div></div>${re.sheet ? sheetHtml(re) : ''}</div>`;
 };
 
@@ -252,9 +290,21 @@ for (let i = 0; i < 3; i++) on(`input:re-then-${i}`, (el) => { const t = R()?.th
 on('re-tpl', (el) => {
   const t = CUSTOM_TEMPLATES.find((x) => x.key === el.dataset.k); if (!t) return false;
   const d = D();
-  Object.assign(d, { camp: t.camp ?? d.camp, name: d.name.trim() ? d.name : t.name, sub: d.sub.trim() ? d.sub : t.sub, icon: t.icon, rules: customBlocks({ rules: clone(t.rules) }), passives: [...(t.passives ?? [])], win: t.win ?? 'camp', needUse: false });
+  const ids = Object.fromEntries((t.needItems ?? []).map((k) => [`@${k}`, ensureItem(k)]));
+  const rules = clone(t.rules).map((b) => (b.item && ids[b.item] != null ? { ...b, item: ids[b.item] } : b));
+  Object.assign(d, { camp: t.camp ?? d.camp, name: d.name.trim() ? d.name : t.name, sub: d.sub.trim() ? d.sub : t.sub, icon: t.icon, rules: customBlocks({ rules }), passives: [...(t.passives ?? [])], win: t.win ?? 'camp', needUse: false });
   toast(`Vorlage „${t.name}“ übernommen. Alles lässt sich ändern.`);
 });
+on('re-itpl', (el) => {
+  const t = ITEM_TEMPLATES.find((x) => x.key === el.dataset.k); if (!t) return false;
+  Object.assign(D(), { name: D().name.trim() ? D().name : t.name, icon: t.icon, charges: t.charges ?? 0, hidden: !!t.hidden, bad: !!t.bad, rules: customBlocks({ rules: clone(t.rules) }), tpl: t.key });
+  toast(`Vorlage „${t.name}“ übernommen.`);
+});
+on('re-icharge', (el) => { D().charges = Math.max(0, Math.min(9, (D().charges ?? 0) + +el.dataset.d)); });
+on('re-iflag', (el) => { D()[el.dataset.k] = !D()[el.dataset.k]; });
+on('re-item', (el) => { const sh = ui.re.sheet, b = R(); if (sh.f === 'item') { b.item = el.dataset.v; ui.re.sheet = null; } else { condAt(condRoot(), sh.path).item = el.dataset.v; ui.re.sheet = { ...sh, f: 'cond', path: '' }; } });
+on('re-item-tpl', (el) => { const id = ensureItem(el.dataset.k), sh = ui.re.sheet, b = R(); if (sh.f === 'item') { b.item = id; ui.re.sheet = null; } else { condAt(condRoot(), sh.path).item = id; ui.re.sheet = { ...sh, f: 'cond', path: '' }; } toast('Gegenstand angelegt.'); });
+on('re-citem', (el) => { ui.re.sheet = { ...ui.re.sheet, f: 'condItem', path: el.dataset.p }; });
 on('re-camp', (el) => { D().camp = el.dataset.v === 'wolf' ? 'wolf' : 'village'; });
 on('re-icon', (el) => { D().icon = el.dataset.v; });
 on('re-after', (el) => { D().after = el.dataset.v === '1'; });
@@ -290,7 +340,7 @@ on('re-cmode', (el) => { const g = condAt(condRoot(), el.dataset.p), list = g.al
 on('re-cpick', (el) => { ui.re.sheet = { ...ui.re.sheet, f: 'condPick', path: el.dataset.p }; });
 on('re-cadd', (el) => {
   const C = CONDS[el.dataset.k], g = condAt(condRoot(), ui.re.sheet.path), list = g.all ?? g.any;
-  list.push({ k: el.dataset.k, ...(C.arg === 'n' ? { n: C.def } : C.arg === 'role' ? { role: 'seer' } : {}) });
+  list.push({ k: el.dataset.k, ...(C.arg === 'n' ? { n: C.def } : C.arg === 'role' ? { role: 'seer' } : C.arg === 'item' ? { item: (S.customItems ?? [])[0]?.id ?? '' } : {}) });
   condSave(); ui.re.sheet = { ...ui.re.sheet, f: 'cond' };
 });
 on('re-cgrp', (el) => { const g = condAt(condRoot(), el.dataset.p); (g.all ?? g.any).push({ any: [] }); });
@@ -305,6 +355,14 @@ on('re-tdel', (el) => { R().then.splice(+el.dataset.i, 1); });
 on('re-save', () => {
   const re = ui.re, d = re.draft;
   if (!d.name.trim()) { re.tab = 'basis'; toast('Bitte einen Namen eingeben.'); return; }
+  if (isItem()) {
+    const it = { ...clone(d), name: d.name.trim(), id: re.id ?? uid('t'), rules: customBlocks({ rules: d.rules }) };
+    S.customItems ??= [];
+    const j = S.customItems.findIndex((x) => x.id === it.id);
+    if (j >= 0) S.customItems[j] = it; else S.customItems.push(it);
+    registerItems([it]); ui.ownTab = 'items';
+    const from = re.from ?? 'setup'; ui.re = null; toast(`„${it.name}“ gespeichert.`); go(from); return false;
+  }
   const role = { ...clone(d), name: d.name.trim(), id: re.id ?? uid('c') };
   role.rules = customBlocks(role);
   delete role.blocks;
@@ -318,6 +376,7 @@ on('re-save', () => {
 });
 on('re-delete', () => {
   const id = ui.re.id;
+  if (isItem()) { S.customItems = (S.customItems ?? []).filter((x) => x.id !== id); const k = ROLES.findIndex((x) => x.id === itemRid(id)); if (k >= 0) ROLES.splice(k, 1); delete RM[itemRid(id)]; const from = ui.re.from ?? 'setup'; ui.re = null; go(from); return false; }
   S.customRoles = S.customRoles.filter((x) => x.id !== id);
   const i = ROLES.findIndex((x) => x.id === id); if (i >= 0) ROLES.splice(i, 1);
   delete RM[id];

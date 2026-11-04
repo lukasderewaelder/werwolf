@@ -1,6 +1,6 @@
 // Spiellogik ohne Oberfläche: Zustand ist reines JSON, jede Aktion liefert einen neuen Zustand.
 // Regelgrundlage: Regelheft "Die Werwölfe von Düsterwald – Der Pakt" (siehe docs/regelabgleich.md).
-import { ROLES, RM, ACTOR_POOL, roleName, requiredCards, registerRoles, isWolfRole, BLOCKS, targetsOf, custKey, whenOk, isTrigOnly, isToggle } from './roles.js';
+import { ROLES, RM, ACTOR_POOL, roleName, requiredCards, registerRoles, isWolfRole, BLOCKS, targetsOf, custKey, whenOk, isTrigOnly, isToggle, registerItems, itemRid } from './roles.js';
 import { CONDS } from './rules.js';
 import { SPIRIT_CARDS, KINDS, MAX_BEADLE } from './events.js';
 import { BUILDINGS, DEFAULT_TOWN } from './town.js';
@@ -47,7 +47,7 @@ const emptyDraft = () => ({
 });
 
 /** Ältere Spielstände ohne Stimmenzähler ergänzen. */
-export function normalizeGame(g) { if (g) { g.draft = { ...emptyDraft(), ...g.draft }; g.charmed ??= {}; g.customUsed ??= {}; g.cuse ??= {}; g.clast ??= {}; g.bound ??= {}; g.blocked ??= {}; g.mutes ??= []; g.hardyUsed ??= {}; g.cult ??= {}; g.jail ??= []; g.traps ??= []; g.delayed ??= []; g.shields ??= {}; g.chist ??= {}; g.ckills ??= {}; g.host ??= {}; g.attackers ??= {}; g.frames ??= {}; g.nullified ??= {}; g.unlocked ??= {}; g.lends ??= []; g.revealed ??= {}; g.ev ??= null; g.town ??= null; } return g; }
+export function normalizeGame(g) { if (g) { g.draft = { ...emptyDraft(), ...g.draft }; g.charmed ??= {}; g.customUsed ??= {}; g.cuse ??= {}; g.clast ??= {}; g.bound ??= {}; g.blocked ??= {}; g.mutes ??= []; g.hardyUsed ??= {}; g.cult ??= {}; g.jail ??= []; g.traps ??= []; g.delayed ??= []; g.shields ??= {}; g.chist ??= {}; g.ckills ??= {}; g.host ??= {}; g.attackers ??= {}; g.frames ??= {}; g.nullified ??= {}; g.unlocked ??= {}; g.lends ??= []; g.revealed ??= {}; g.items ??= {}; g.granted ??= {}; g.cfg.items ??= []; g.ev ??= null; g.town ??= null; } return g; }
 
 /* ---------- Zustand anlegen ---------- */
 
@@ -69,9 +69,10 @@ export function setupProblems(cfg) {
 /** cfg: { players:[{id,name}], counts:{roleId:n}, mode:'cards'|'digital', rules:{...} } */
 export function createGame(cfg, rnd = Math.random) {
   registerRoles(cfg.custom);
+  registerItems(cfg.items);
   const g = {
     v: 1,
-    cfg: { players: cfg.players.map((p) => ({ id: p.id, name: p.name })), custom: cfg.custom ?? [], counts: { ...cfg.counts }, mode: cfg.mode ?? 'cards', rules: { ...DEFAULT_RULES, ...(cfg.rules ?? {}) } },
+    cfg: { players: cfg.players.map((p) => ({ id: p.id, name: p.name })), custom: cfg.custom ?? [], items: cfg.items ?? [], counts: { ...cfg.counts }, mode: cfg.mode ?? 'cards', rules: { ...DEFAULT_RULES, ...(cfg.rules ?? {}) } },
     phase: 'night', clock: 'night', night: 1, day: 0, stepIdx: 0, subMode: null,
     roles: {}, auto: {}, dead: {}, lovers: [], captain: null, captainLost: false,
     potions: { heal: false, poison: false },        // true = Trank verbraucht
@@ -82,13 +83,14 @@ export function createGame(cfg, rnd = Math.random) {
     judgeUsed: false, judgeArmed: false, secondVote: false, voters: null, votersDay: -1,
     angelWin: false, angelWindow: true, winner: null, collectMorning: false,
     queue: [], interrupts: [], resume: null, dayMode: 'vote', draft: emptyDraft(),
-    morning: [], lastDeaths: [], log: [], dealIdx: 0, dealShown: false, charmed: {}, customUsed: {}, cuse: {}, clast: {}, bound: {}, blocked: {}, mutes: [], hardyUsed: {}, cult: {}, jail: [], traps: [], delayed: [], shields: {}, chist: {}, ckills: {}, host: {}, attackers: {}, frames: {}, nullified: {}, unlocked: {}, lends: [], revealed: {}, execWin: null, ev: null, town: null, pendingBarber: null,
+    morning: [], lastDeaths: [], log: [], dealIdx: 0, dealShown: false, charmed: {}, customUsed: {}, cuse: {}, clast: {}, bound: {}, blocked: {}, mutes: [], hardyUsed: {}, cult: {}, jail: [], traps: [], delayed: [], shields: {}, chist: {}, ckills: {}, host: {}, attackers: {}, frames: {}, nullified: {}, unlocked: {}, lends: [], revealed: {}, items: {}, granted: {}, execWin: null, ev: null, town: null, pendingBarber: null,
   };
   g.ev = initEvents(g, cfg, rnd);
   if (g.cfg.rules.town) { g.cfg.town = { ...(cfg.town ?? DEFAULT_TOWN) }; g.town = { b: {}, used: {}, free: [], gone: [], fireUsed: false, innLost: false }; if (cfg.townMap) g.town.b = { ...cfg.townMap }; }
   if (g.cfg.counts.actor) pickActorPool(g, rnd);
   if (g.cfg.counts.greis) suggestGroups(g);
   if (g.cfg.mode === 'digital') dealRoles(g, rnd);
+  grantStartItems(g);
   if (g.cfg.counts.angel) { g.phase = 'day'; g.clock = 'day'; g.day = 0; g.dayMode = g.cfg.rules.captain ? 'captain' : 'vote'; log(g, '— Tag 0: Abstimmung vor der ersten Nacht (Engel im Spiel) —'); }
   return g;
 }
@@ -165,7 +167,38 @@ export const livingIds = (g) => g.cfg.players.filter((p) => alive(g, p.id)).map(
 const cnt = (g, id) => g.cfg.counts[id] || 0;
 
 export function holders(g, r) {
+  if (typeof r === 'string' && r.startsWith('it_')) { const iid = r.slice(3); return g.cfg.players.filter((p) => (g.items?.[p.id] ?? []).some((x) => x.iid === iid)); }
   return g.cfg.players.filter((p) => g.roles[p.id] === r || (r === 'thief' && p.id === g.thiefId) || (r === 'actor' && p.id === g.actorId));
+}
+/** Regelquellen einer Person: Rolle und getragene Gegenstände. */
+export const sourcesOf = (g, pid) => [...new Set([g.roles[pid], ...(g.items?.[pid] ?? []).map((x) => itemRid(x.iid))].filter(Boolean))];
+/** Gegenstand geben (mit Ladungen des Typs) und wieder nehmen. */
+export function giveItem(g, pid, iid, why = '') {
+  const it = RM[itemRid(iid)];
+  if (!it || !pid) return;
+  (g.items[pid] ??= []).push({ iid, uid: `${iid}-${Object.values(g.items).flat().length + 1}-${g.night}`, charges: it.charges });
+  log(g, `${nm(g, pid)} erhält ${it.name}${why ? ` (${why})` : ''}`);
+}
+export function takeItem(g, pid, uid) {
+  const list = g.items[pid] ?? [], i = uid ? list.findIndex((x) => x.uid === uid) : 0;
+  if (i < 0 || !list[i]) return null;
+  const [x] = list.splice(i, 1);
+  return x;
+}
+/** Erfolgreicher Einsatz eines Gegenstands verbraucht eine Ladung; bei 0 ist er weg. */
+function spendItem(g, rid, pid) {
+  if (!rid?.startsWith('it_')) return;
+  const list = g.items[pid] ?? [], x = list.find((y) => itemRid(y.iid) === rid);
+  if (!x || !x.charges) return;
+  x.charges--;
+  if (x.charges <= 0) { list.splice(list.indexOf(x), 1); log(g, `${RM[rid].name} von ${nm(g, pid)} ist verbraucht`); g.morning?.push(`Nur für den Spielleiter: ${RM[rid].name} von ${nm(g, pid)} ist verbraucht.`); }
+}
+/** Startausstattung der Rollen verteilen (einmal je Person und Gegenstand). */
+export function grantStartItems(g) {
+  for (const p of g.cfg.players) {
+    const r = RM[g.roles[p.id]];
+    for (const b of r?.custom ? r.blocks ?? [] : []) if (b.k === 'startItem' && b.item && !g.granted[`${p.id}:${b.item}`]) { g.granted[`${p.id}:${b.item}`] = true; giveItem(g, p.id, b.item, 'Startausstattung'); }
+  }
 }
 export const livingHolders = (g, r) => holders(g, r).filter((p) => alive(g, p.id) && !g.charmed?.[p.id]);   // Betörte haben keine Fähigkeiten mehr
 
@@ -201,8 +234,7 @@ export function appearance(g, id, { death = false } = {}) {
     const fr = g.frames?.[id];
     if (fr && fr.until >= g.night) return asLook(g, id, fr);
   }
-  const r = RM[g.roles[id]];
-  const ap = r?.custom && !g.charmed?.[id] ? r.blocks?.find((b) => b.k === 'appear' && (death ? b.scope !== 'checks' : b.scope !== 'death')) : null;
+  const ap = g.charmed?.[id] ? null : sourcesOf(g, id).map((x) => RM[x]).filter((r) => r?.custom).flatMap((r) => r.blocks ?? []).find((b) => b.k === 'appear' && (death ? b.scope !== 'checks' : b.scope !== 'death'));
   return ap ? asLook(g, id, ap) : real;
 }
 export const looksWolf = (g, id) => appearance(g, id).wolf;
@@ -301,6 +333,8 @@ export function evalCond(g, rid, c, key, ctx) {
     case 'boundAlive': return !!t && alive(g, t);
     case 'boundDead': return !!t && !alive(g, t);
     case 'used': return (g.cuse?.[key] ?? 0) > 0;
+    case 'hasItem': { const me = ctx?.pid ?? livingHolders(g, rid)[0]?.id; return (g.items?.[me] ?? []).some((x) => x.iid === c.item); }
+    case 'itemGte': { const me = ctx?.pid ?? livingHolders(g, rid)[0]?.id; return (g.items?.[me] ?? []).length >= c.n; }
     case 'usedGte': return Object.entries(g.cuse ?? {}).filter(([k]) => k === rid || k.startsWith(`${rid}#`)).reduce((a, [, v]) => a + v, 0) >= c.n;
     case 'unlocked': return !!g.unlocked?.[rid];
     case 'locked': return !g.unlocked?.[rid];
@@ -380,7 +414,7 @@ export function nightSteps(g) {
   const wolfSide = Object.keys(g.cfg.counts).some((id) => isWolfRole(id) && cnt(g, id) > 0) || g.cfg.players.some((p) => isWolf(g, p.id));
   const entries = ROLES.filter((r) => r.id !== 'villager').map((r) => ({ r, order: orderOf(g, r) })).sort((a, b) => a.order - b.order);
   for (const { r } of entries) {
-    const inPlay = cnt(g, r.id) > 0 || r.id === borrowed || (r.id === 'wolf' && wolfSide);
+    const inPlay = cnt(g, r.id) > 0 || r.id === borrowed || (r.id === 'wolf' && wolfSide) || (r.item && livingHolders(g, r.id).length > 0);
     if (!inPlay) continue;
     const act = actApplies(g, r);
     const wakes = r.night && nightMatches(g, r);          // wacht in dieser Nacht (auch ohne Eingabe, z. B. Schwestern)
@@ -394,7 +428,7 @@ export function nightSteps(g) {
     if (input && r.custom && r.blocks) {
       const on = r.blocks.map((b, i) => i).filter((i) => blockApplies(g, r, r.blocks[i], i));
       const sel = g.ruleSel?.[r.id], blk = on.includes(sel) ? sel : on[0];
-      out.push({ key: r.id, keys: on.map((i) => custKey(r.id, i)), blks: on, role: r.id, act: 'cust', blk, gone: false, label: r.name, say: r.say ?? '' });
+      out.push({ key: r.id, keys: on.map((i) => custKey(r.id, i)), blks: on, role: r.id, act: 'cust', blk, gone: false, label: r.item ? `${r.icon} ${r.name} (${livingHolders(g, r.id).map((p) => p.name).join(', ')})` : r.name, say: r.item ? (r.hidden ? 'Verdeckt: Träger nicht wecken, du entscheidest.' : 'Der Träger des Gegenstands erwacht.') : r.say ?? '' });
       continue;
     }
     out.push({ key: r.id, role: r.id, act: input ? r.night.act : null, gone, label: r.id === borrowed && !cnt(g, r.id) ? `${r.name} (Gaukler)` : r.name, say: r.say ?? '' });
@@ -519,9 +553,9 @@ export function settle(g) {
     }
     if (rid === 'hunter' && powerOn(g, 'hunter') && !g.charmed?.[x]) g.interrupts.push({ type: 'hunter', id: x });
     if (RM[rid]?.passives?.includes('revenge') && !g.charmed?.[x]) g.interrupts.push({ type: 'hunter', id: x, name: RM[rid].name });
-    if (RM[rid]?.custom && !g.charmed?.[x]) (RM[rid].blocks ?? []).forEach((b, i) => {
+    for (const sid of sourcesOf(g, x)) if (RM[sid]?.custom && !g.charmed?.[x]) (RM[sid].blocks ?? []).forEach((b, i) => {
       if (b.on !== 'death') return;
-      const key = custKey(rid, i), by = `${RM[rid].name} ${nm(g, x)}`;
+      const key = custKey(sid, i), by = `${RM[rid].name} ${nm(g, x)}`;
       if ((b.limit && (g.cuse[key] ?? 0) >= b.limit) || !evalCond(g, rid, b.if, key)) return;
       g.cuse[key] = (g.cuse[key] ?? 0) + 1; g.customUsed[rid] = true;
       if (b.chance < 100 && rand() * 100 >= b.chance) { log(g, `${by}: ${BLOCKS[b.k].short} ist diesmal gescheitert`); return; }
@@ -529,8 +563,9 @@ export function settle(g) {
       if (b.k === 'strike' && b.tgt === 'pick') g.interrupts.push({ type: 'hunter', id: x, name: RM[rid].name });
       else if (b.k === 'strike') tg.forEach((y) => { log(g, `${by} nimmt ${nm(g, y)} mit in den Tod`); kill(g, y, 'custom'); });
       else if (b.k === 'note') { log(g, `${by}: Hinweis „${b.text}“`); g.morning.push(`Nur für den Spielleiter: ${by}: ${b.text || 'Hinweis'}`); }
-      else if (b.k === 'bequeath' && b.tgt === 'pick') g.interrupts.push({ type: 'heir', id: x, role: rid, name: RM[rid].name });
-      else if (b.k === 'bequeath') tg.forEach((y) => giveRole(g, y, rid, `erbt von ${nm(g, x)}`));
+      else if (b.k === 'bequeath' && b.tgt === 'pick') g.interrupts.push({ type: 'heir', id: x, role: rid, name: RM[rid].name, items: !!b.items });
+      else if (b.k === 'bequeath') tg.forEach((y) => { if (!sid.startsWith('it_')) giveRole(g, y, rid, `erbt von ${nm(g, x)}`); if (b.items) { (g.items[y] ??= []).push(...(g.items[x] ?? [])); g.items[x] = []; } });
+      else if (b.k === 'gainItem' && b.item) { const h = g.bound?.[rid]; if (h && !g.dead[h]) giveItem(g, h, b.item, by); }
     });
     for (const h of ROLES) {
       if (!h.custom || g.bound?.[h.id] !== x) continue;
@@ -588,7 +623,7 @@ export function specialVoters(g) {
   const d = g.draft, out = [], el = new Set(eligibleVoters(g));
   for (const p of g.cfg.players) {
     if (!alive(g, p.id)) continue;
-    const r = RM[g.roles[p.id]], rules = r?.custom && !g.charmed?.[p.id] ? r.blocks ?? [] : [];
+    const rules = g.charmed?.[p.id] ? [] : sourcesOf(g, p.id).map((x) => RM[x]).filter((r) => r?.custom).flatMap((r) => r.blocks ?? []);
     const sv = rules.find((b) => b.k === 'selfVote' && (!b.even || g.day % 2 === 0));
     let w = sv ? sv.mult : 1;
     if (d.vmods?.[p.id] != null) w *= d.vmods[p.id];
@@ -765,6 +800,7 @@ function beginNight(g, n) {
 function finishNight(g) {
   const d = g.draft, rules = g.cfg.rules;
   for (const p of g.cfg.players) if (!g.roles[p.id]) { g.roles[p.id] = 'villager'; }
+  grantStartItems(g);
   g.auto = {};
   g.morning = []; g.lastDeaths = []; g.collectMorning = true;
   if (g.ev) g.ev.shown = [];
@@ -820,7 +856,12 @@ function finishNight(g) {
     g.chist[key] = [...new Set([...(g.chist[key] ?? []), ...ts])]; (tgtOf[holder.id] ??= new Set()); ts.forEach((x) => tgtOf[holder.id].add(x));
     const by = `${rr.name} ${holder.name}`, names = ts.map((x) => nm(g, x)).join(' & '), note = (t) => g.morning.push(`Nur für den Spielleiter: ${t}`);
     if (b.chance < 100 && rand() * 100 >= b.chance) { log(g, `${by}: ${B.short} bei ${names} ist diesmal gescheitert (Chance ${b.chance} %)`); note(`${by}: ${B.short} hat diesmal nicht gewirkt.`); continue; }
+    spendItem(g, rid, holder.id);
     switch (b.k) {
+      case 'giveItem': if (b.item) ts.forEach((x) => { giveItem(g, x, b.item, by); note(`${nm(g, x)} hat jetzt ${RM[itemRid(b.item)]?.name ?? 'einen Gegenstand'}${RM[itemRid(b.item)]?.hidden ? ' (verdeckt, nicht verraten)' : ''}.`); }); break;
+      case 'stealItem': ts.forEach((x) => { const it = takeItem(g, x); if (it) { (g.items[holder.id] ??= []).push(it); log(g, `${by} stiehlt ${nm(g, x)} ${RM[itemRid(it.iid)]?.name}`); note(`${by} hat ${RM[itemRid(it.iid)]?.name} von ${nm(g, x)}.`); } else log(g, `${by}: ${nm(g, x)} hat nichts`); }); break;
+      case 'destroyItem': ts.forEach((x) => { const n = (g.items[x] ?? []).length; g.items[x] = []; log(g, `${by} zerstört ${n} Gegenstände von ${nm(g, x)}`); }); break;
+      case 'cleanse': ts.forEach((x) => { const before = (g.items[x] ?? []).length; g.items[x] = (g.items[x] ?? []).filter((it) => !RM[itemRid(it.iid)]?.bad); log(g, `${by} reinigt ${nm(g, x)} (${before - g.items[x].length} entfernt)`); }); break;
       case 'guard': ts.forEach((x) => cguard.push({ t: x, by: holder.id })); log(g, `${by} bewacht ${names}`); break;
       case 'recruit': {
         const t = ts.filter((x) => x !== holder.id && g.cult[x] !== rid);
@@ -896,17 +937,17 @@ function finishNight(g) {
   let depth = 0;
   /** Auslöser einer eigenen Rolle (wird angegriffen, Ziel angegriffen, besucht, Gastgeber stirbt). Liefert true, wenn sie den Angriff übersteht. */
   const fire = (pid, on, extra = {}) => {
-    const r = RM[g.roles[pid]];
-    if (!r?.custom || !r.blocks || !alive(g, pid) || g.charmed?.[pid] || depth > 4) return false;
+    if (!alive(g, pid) || g.charmed?.[pid] || depth > 4) return false;
     depth++;
     let survived = false;
-    r.blocks.forEach((b, i) => {
+    for (const r of sourcesOf(g, pid).map((x) => RM[x]).filter((x) => x?.custom && x.blocks)) r.blocks.forEach((b, i) => {
       if (b.on !== on) return;
       const key = custKey(r.id, i), by = `${r.name} ${nm(g, pid)}`;
       if (b.limit && (g.cuse[key] ?? 0) >= b.limit) return;
       if (!evalCond(g, r.id, b.if, key, { pid, out, visits, used, attackers: extra.attackers, where: extra.where })) return;
       g.cuse[key] = (g.cuse[key] ?? 0) + 1; g.customUsed[r.id] = true;
       if (b.chance < 100 && rand() * 100 >= b.chance) { log(g, `${by}: ${BLOCKS[b.k].short} ist diesmal gescheitert (Chance ${b.chance} %)`); return; }
+      spendItem(g, r.id, pid);
       const tg = { attacker: extra.attackers ?? [], visitors: extra.visitors ?? [], host: host[pid] ? [host[pid]] : [], bound: g.bound?.[r.id] ? [g.bound[r.id]] : [], none: [] }[b.tgt ?? 'none'] ?? [];
       switch (b.k) {
         case 'survive': survived = true; break;
@@ -920,6 +961,7 @@ function finishNight(g) {
           tg.filter((x) => x !== pid).forEach((x) => { log(g, `${by} greift ${nm(g, x)} an`); attack(x, b.power ?? 1, 'custom', pid); });
           break;
         case 'note': note2(`${by}: ${b.text || 'Hinweis'}${tg.length ? ` (${tg.map((x) => nm(g, x)).join(', ')})` : ''}`); break;
+        case 'gainItem': if (b.item) giveItem(g, pid, b.item, r.name); break;
         default: break;
       }
     });
@@ -1194,6 +1236,7 @@ function tap(g, pid, toast) {
       if (pid === it.id || !alive(g, pid)) return;
       g.interrupts.shift();
       giveRole(g, pid, it.role, `erbt von ${nm(g, it.id)}`);
+      if (it.items) { (g.items[pid] ??= []).push(...(g.items[it.id] ?? [])); g.items[it.id] = []; }
       resumeAfter(g);
       return;
     }
@@ -1537,6 +1580,7 @@ export function apply(g0, a, toast) {
       const B = BLOCKS[e.b.k], by = `${e.r.name} ${e.holder.name}`;
       g.cuse[e.key] = (g.cuse[e.key] ?? 0) + 1; g.customUsed[e.r.id] = true; g.clast[e.key] = [t];
       if (e.b.chance < 100 && rand() * 100 >= e.b.chance) { log(g, `${by}: ${B.short} bei ${nm(g, t)} ist diesmal gescheitert (Chance ${e.b.chance} %)`); toast?.('Diesmal gescheitert – nichts passiert.'); break; }
+      spendItem(g, e.r.id, e.holder.id);
       if (e.b.k === 'shoot') { log(g, `${by} erschießt ${nm(g, t)}`); g.collectMorning = false; kill(g, t, 'custom'); }
       else if (e.b.k === 'voteBoost') { d.vmods[t] = e.b.mult; log(g, `${by}: Stimme von ${nm(g, t)} ${e.b.mult === 0 ? 'gestrichen' : e.b.mult === 0.5 ? 'zählt halb' : `zählt ${e.b.mult}×`}`); toast?.(`${nm(g, t)}: Stimme einzeln eintragen.`); }
       else if (e.b.k === 'votePenalty') { d.vplus[t] = (d.vplus[t] ?? 0) + e.b.plus; log(g, `${by}: ${e.b.plus} Strafstimmen gegen ${nm(g, t)}`); }
@@ -1563,6 +1607,8 @@ export function apply(g0, a, toast) {
       d.cust[a.key] = targetsOf(d.cust[a.key]).length ? [] : [h.id];
       break;
     }
+    case 'item-give': if (RM[itemRid(a.iid)] && g.cfg.players.some((p) => p.id === a.pid)) giveItem(g, a.pid, a.iid, 'vom Spielleiter'); break;
+    case 'item-take': { const x = takeItem(g, a.pid, a.uid); if (x) log(g, `${RM[itemRid(x.iid)]?.name} von ${nm(g, a.pid)} entfernt`); break; }
     case 'manual-kill': if (g.phase === 'day' && alive(g, a.pid)) { kill(g, a.pid, 'manual'); afterDeaths(g, 'day'); } break;
     case 'rename': { const p = g.cfg.players.find((x) => x.id === a.pid); if (p && a.name) p.name = a.name; break; }
     case 'deal-next': g.dealIdx++; g.dealShown = false; break;

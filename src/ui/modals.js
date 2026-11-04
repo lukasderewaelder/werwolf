@@ -23,6 +23,8 @@ on('close-modal', (el, e) => {
   ui.modal = null;
 });
 on('modal-back', () => { ui.modal = ui.modal?.from ?? null; });
+on('item-give', (el) => { dispatch({ t: 'item-give', pid: ui.modal.id, iid: el.dataset.iid }); return true; });
+on('item-take', (el) => { dispatch({ t: 'item-take', pid: ui.modal.id, uid: el.dataset.uid }); return true; });
 on('show-who', () => { ui.modal = { type: 'who' }; });
 on('show-roles', () => { ui.modal = { type: 'roles' }; });
 on('middle-open', () => { ui.modal = { type: 'middle' }; });
@@ -97,6 +99,9 @@ views.modal = () => {
         <div class="row wrap"><button class="btn" data-action="player-captain" ${alive(g, p.id) ? '' : 'disabled'}>${I.crown}Zum Hauptmann machen</button>
         <button class="btn danger" data-action="player-kill" ${alive(g, p.id) && g.phase === 'day' ? '' : 'disabled'}>${I.skull}Als tot markieren</button></div>
         ${g.phase !== 'day' ? '<span class="muted small">„Als tot markieren“ geht nur am Tag.</span>' : ''}
+        ${(g.cfg.items ?? []).length ? `<div class="eyebrow">Gegenstände</div>
+          <div class="chips wrap">${(g.items?.[p.id] ?? []).map((it) => { const R2 = RM[`it_${it.iid}`]; return `<button class="chip on" data-action="item-take" data-uid="${it.uid}" aria-label="${esc(R2?.name ?? '')} wegnehmen">${esc(R2?.icon ?? '')} ${esc(R2?.name ?? '?')}${it.charges ? ` (${it.charges})` : ''} ✕</button>`; }).join('') || '<span class="muted small">Trägt nichts.</span>'}</div>
+          <div class="chips wrap">${g.cfg.items.map((it) => `<button class="chip" data-action="item-give" data-iid="${it.id}">${I.plus}${esc(it.icon ?? '')} ${esc(it.name)}</button>`).join('')}</div>` : ''}
         <button class="btn" data-action="show-who">Zurück</button>`);
     }
     case 'member': {

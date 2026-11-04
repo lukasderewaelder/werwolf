@@ -335,6 +335,39 @@ test('Tag E5: Sonderstimme in der Zählkarte, Aufdecken mit großer Karte, ohne 
   await page.context().close();
 });
 
+test('Werkstatt E6: Gegenstand anlegen, Schmied-Vorlage verweist darauf, Spielerblatt gibt und nimmt', async () => {
+  const { page, problems } = await app.openApp({ viewport: PHONE });
+  await openWorkshop(page);
+  await page.click('[data-action=re-back]');
+  await page.click('[data-action=own-tab][data-k=items]');
+  await page.click('[data-action=item-new]');
+  await page.click('[data-action=re-itpl][data-k=armor]');
+  await page.click('[data-action=re-icharge][data-d="1"]');
+  assert.ok((await page.locator('#re-preview').innerText()).includes('Hält 2 Einsätze'));
+  assert.equal(await page.locator('.re-page select').count(), 0);
+  await page.click('[data-action=re-save]');
+  assert.equal(await page.locator('[data-action=item-edit]').count(), 1);
+  await page.click('[data-action=own-tab][data-k=roles]');
+  await page.click('[data-action=custom-new]');
+  await page.click('[data-action=re-tpl][data-k=smith]');
+  const items = await page.evaluate(() => window.__werwolf.S.customItems.map((x) => x.tpl));
+  assert.deepEqual(items, ['armor'], 'vorhandene Rüstung wird wiederverwendet');
+  assert.ok((await page.locator('#re-preview').innerText()).includes('„Rüstung“'));
+  await page.click('[data-action=re-save]');
+  await page.click('[data-action=role-inc]');
+  await page.click('[data-action=wiz-next]');
+  await page.click('[data-action=start-game]');
+  await page.waitForSelector('.game');
+  const iid = await page.evaluate(() => window.__werwolf.S.customItems[0].id);
+  await page.evaluate(() => { const w = window.__werwolf; w.ui.modal = { type: 'player', id: w.S.game.cfg.players[2].id }; w.render(); });
+  await page.click(`[data-action=item-give][data-iid="${iid}"]`);
+  assert.equal(await page.evaluate(() => (window.__werwolf.S.game.items[window.__werwolf.S.game.cfg.players[2].id] ?? []).length), 1);
+  await page.click('[data-action=item-take]');
+  assert.equal(await page.evaluate(() => (window.__werwolf.S.game.items[window.__werwolf.S.game.cfg.players[2].id] ?? []).length), 0);
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});
+
 test('Verbitterter Greis: Gruppen lassen sich zuordnen', async () => {
   const { page, problems } = await app.openApp();
   await startGame(page, { names: NAMES.slice(0, 6), counts: { wolf: 1, greis: 1, villager: 4 }, mode: 'cards' });
