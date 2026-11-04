@@ -462,7 +462,7 @@ function interruptPanel(g) {
     body = `<div class="task"><div class="prompt">${I.eye}<span>Welche Karte hatte ${esc(nm(g, it.id))}? Tippe die aufgedeckte Rolle an.</span></div></div>
       <div class="ov-grid">${pool.map((id) => `<button class="ov" data-action="reveal" data-role="${id}">${art(id)}<b>${esc(RM[id].name)}</b></button>`).join('')}</div>`;
   } else if (it.type === 'hunter') {
-    body = `<div class="task warn"><div class="prompt">${I.target}<span>${esc(it.name ?? 'Jäger')} ${esc(nm(g, it.id))} ist tot und schießt noch einmal. Tippe sein Ziel im Kreis an.</span></div></div>`;
+    body = `<div class="task warn"><div class="prompt">${I.target}<span>${esc(it.text ?? `${it.name ?? 'Jäger'} ${nm(g, it.id)} ist tot und schießt noch einmal. Tippe sein Ziel im Kreis an.`)}</span></div></div>`;
     foot = `<button class="btn primary" data-action="interrupt-skip">Er schießt niemanden</button>`;
   } else if (it.type === 'captain') {
     body = `<div class="task warn"><div class="prompt">${I.crown}<span>Hauptmann ${esc(nm(g, it.id))} ist tot und ernennt seinen Nachfolger. Tippe die Person an.</span></div></div>`;

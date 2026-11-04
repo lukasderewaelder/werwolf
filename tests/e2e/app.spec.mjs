@@ -231,6 +231,30 @@ test('Rollen-Werkstatt: Vorlage Schütze, Tagesfähigkeit wird am Tag eingesetzt
   await page.context().close();
 });
 
+test('Rollen-Werkstatt E2: Dorfmatratze mit Auslösern, Stärke und Zielfilter', async () => {
+  const { page, problems } = await app.openApp({ viewport: PHONE });
+  await openWorkshop(page);
+  await page.click('[data-action=re-tpl][data-k=mattress]');
+  await page.click('[data-action=re-tab][data-k=rules]');
+  assert.equal(await page.locator('.rcard').count(), 3);
+  await page.click('[data-action=re-gap][data-ri="2"][data-f=power]');
+  await page.click('[data-action=re-set][data-key=power][data-v="3"]');
+  await page.click('[data-action=re-sheet-close][data-done]');
+  await page.click('[data-action=re-gap][data-ri="0"][data-f=target]');
+  await page.click('[data-action=re-set][data-key=who][data-v=otherCamp]');
+  await page.click('[data-action=re-sheet-close][data-done]');
+  const prev = await page.locator('#re-preview').innerText();
+  assert.ok(prev.includes('Wenn ihr Gastgeber stirbt: wird selbst angegriffen (unaufhaltbar).'), prev);
+  assert.match(prev, /nur aus der anderen Partei/);
+  await page.click('[data-action=re-save]');
+  const cr = await page.evaluate(() => window.__werwolf.S.customRoles[0]);
+  assert.deepEqual(cr.rules.map((b) => [b.k, b.on ?? null]), [['visit', null], ['survive', 'attacked'], ['dieSelf', 'hostDies']]);
+  assert.equal(cr.rules[2].power, 3);
+  assert.equal(await page.locator('.re-page select').count(), 0);
+  assert.deepEqual(problems, []);
+  await page.context().close();
+});
+
 test('Verbitterter Greis: Gruppen lassen sich zuordnen', async () => {
   const { page, problems } = await app.openApp();
   await startGame(page, { names: NAMES.slice(0, 6), counts: { wolf: 1, greis: 1, villager: 4 }, mode: 'cards' });

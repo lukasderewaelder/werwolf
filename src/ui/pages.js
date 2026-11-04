@@ -75,7 +75,9 @@ const GUIDE = [
     ] },
     { dots: [
       'Nachts: töten, schützen, prüfen, Rolle erfahren, stumm schalten, sperren, tauschen, verlieben, verwandeln, wiederbeleben.',
-      'Neu: Leibwächter, Sekte anwerben, Besucher beobachten, wachsam sein.',
+      'Besuche und Orte: besuchen, einladen, Angriffe umlenken, Platz tauschen, Lockvogel, Falle, Fluch.',
+      '<b>Bei einem Ereignis</b> wirkt eine Regel automatisch: wenn die Rolle angegriffen oder besucht wird, ihr Ziel angegriffen wird, ihr Gastgeber stirbt, sie stirbt oder hingerichtet wird.',
+      'Angriffe haben eine Stärke (normal, durchdringend, unaufhaltbar), Schutz ist normal oder stark.',
       'Am Tag: Schuss, Einsperren, Hinrichten. Du findest sie in der Karte <b>Fähigkeiten am Tag</b>.',
     ] },
     { h: 'Sonderkarten', dots: [

@@ -3,8 +3,11 @@
 import { S, ui, views, on, go, toast } from './core.js';
 import { esc, art, I } from './art.js';
 import { topBar } from './home.js';
-import { ROLES, RM, CAMP_LABEL, CUSTOM_WIN, PASSIVES, BLOCKS, BLOCK_WHEN, BLOCK_WHEN_DAY, BLOCK_CHANCE, registerRoles, customBlocks, blankBlock, fillVillagers } from '../engine/roles.js';
-import { CONDS, COND_GROUPS, MAX_DEPTH, THENS, EFFECT_GROUPS, EFFECT_HINT, PHRASE, CUSTOM_TEMPLATES, describeRule, condText, condCount, targetText, whenText, sanitizeCond } from '../engine/rules.js';
+import { ROLES, RM, CAMP_LABEL, CUSTOM_WIN, PASSIVES, BLOCKS, BLOCK_WHEN, BLOCK_WHEN_DAY, BLOCK_CHANCE, registerRoles, customBlocks, blankBlock, fillVillagers, TRIG_TARGETS, isTrigOnly } from '../engine/roles.js';
+import { CONDS, COND_GROUPS, MAX_DEPTH, THENS, EFFECT_GROUPS, EFFECT_HINT, PHRASE, CUSTOM_TEMPLATES, describeRule, condText, condCount, targetText, whenText, sanitizeCond, TRIGGERS, TGT_TXT, POWER_TXT, PROTECT_TXT, powerText } from '../engine/rules.js';
+
+const WHO = { any: 'Alle', ownCamp: 'Eigene Partei', otherCamp: 'Andere Partei', withAbility: 'Mit Nachtfähigkeit', noAbility: 'Ohne Nachtfähigkeit' };
+const TRAP_WHO = { first: 'Erster Besucher', all: 'Alle Besucher', wolves: 'Nur Werwölfe', nonWolves: 'Alle außer Werwölfen' };
 import { uid, presentPlayers } from '../store.js';
 
 export const CUSTOM_ICONS = ['🔮', '🗡️', '🛡️', '👁️', '🔥', '🌙', '⭐', '🍀', '🕯️', '🗝️', '🎭', '🧪', '📜', '🐺', '🦉', '🐍', '⚖️', '🏹', '🪓', '🎲', '🧿', '🌹', '💀', '🔔'];
@@ -60,7 +63,7 @@ function ruleCard(b, ri, n) {
       <button type="button" class="mini" data-action="re-move" data-ri="${ri}" data-d="1" aria-label="Nach unten" ${ri === n - 1 ? 'disabled' : ''}>${I.down}</button>
       <button type="button" class="mini" data-action="re-dup" data-ri="${ri}" aria-label="Verdoppeln" ${n >= 8 ? 'disabled' : ''}>${I.plus}</button>
       <button type="button" class="mini bad" data-action="re-del" data-ri="${ri}" aria-label="Entfernen">${I.close}</button></div>
-    <p class="rc-sent">${gap(ri, 'timing', whenText(b))} ${gap(ri, 'effect', verb, 'eff')}${tt ? ` ${gap(ri, 'target', tt)}` : b.k === 'note' ? ` ${gap(ri, 'target', 'ohne Ziel')}` : ''}${tail ? ` ${esc(tail)}` : ''}${b.k === 'convert' ? ` in ${gap(ri, 'role', RM[b.role]?.name ?? '?')}` : ''}${b.k === 'note' ? ` ${gap(ri, 'text', b.text ? `„${b.text}“` : 'Text eingeben', b.text ? '' : 'empty')}` : ''}</p>
+    <p class="rc-sent">${gap(ri, 'timing', whenText(b))} ${gap(ri, 'effect', verb, 'eff')}${tt ? ` ${gap(ri, 'target', tt)}` : b.k === 'note' || b.k === 'strike' ? ` ${gap(ri, 'target', b.k === 'strike' ? 'niemanden' : 'ohne Ziel', 'empty')}` : ''}${b.power != null ? ` ${gap(ri, 'power', powerText(b))}` : ''}${b.k === 'trap' ? ` ${gap(ri, 'trap', `${TRAP_WHO[b.trapWho]} · ${b.trapArm === 'now' ? 'sofort' : 'ab nächster Nacht'}`)}` : ''}${!b.on && b.who && b.who !== 'any' ? ` ${gap(ri, 'target', WHO[b.who])}` : ''}${tail ? ` ${esc(tail)}` : ''}${b.k === 'convert' ? ` in ${gap(ri, 'role', RM[b.role]?.name ?? '?')}` : ''}${b.k === 'note' ? ` ${gap(ri, 'text', b.text ? `„${b.text}“` : 'Text eingeben', b.text ? '' : 'empty')}` : ''}</p>
     <p class="rc-sent"><span class="lbl">wenn</span> ${gap(ri, 'cond', cond, condCount(b.if) ? '' : 'empty')}</p>
     <p class="rc-sent"><span class="lbl">Häufigkeit</span> ${gap(ri, 'freq', freq)}</p>
     <p class="rc-sent"><span class="lbl">danach</span> ${gap(ri, 'then', then, (b.then ?? []).length ? '' : 'empty')}</p></div>`;
@@ -129,18 +132,39 @@ function sheetHtml(re) {
       body = EFFECT_GROUPS.map(([t, ks]) => `<div class="eyebrow">${t}</div><div class="re-tiles">${ks.map((k) => `<button type="button" class="re-tile ${b?.k === k ? 'on' : ''}" data-action="re-effect" data-k="${k}"><b>${esc(BLOCKS[k].short)}${BLOCKS[k].day ? ' <span class="pill">Tag</span>' : ''}</b><span>${esc(EFFECT_HINT[k])}</span></button>`).join('')}</div>`).join('');
       break;
     case 'timing': {
-      const W = BLOCKS[b.k].day ? BLOCK_WHEN_DAY : BLOCK_WHEN;
+      const B = BLOCKS[b.k], W = B.day ? BLOCK_WHEN_DAY : BLOCK_WHEN, trigOnly = isTrigOnly(b.k);
       title = 'Wann?';
-      body = `<div class="re-tiles one">${Object.entries(W).map(([k, t]) => pickRow('re-set', esc(t), '', b.when === k, `data-key="when" data-v="${k}"`)).join('')}</div>`;
+      const mode = B.trig && !trigOnly ? `<div class="seg">${[['', 'Zu einer Zeit'], [B.trig[0], 'Bei einem Ereignis']].map(([v, t]) => `<button type="button" class="${!!b.on === !!v ? 'on' : ''}" data-action="re-set" data-key="on" data-v="${v}">${t}</button>`).join('')}</div>` : '';
+      const list = b.on ? B.trig.map((k) => pickRow('re-set', esc(TRIGGERS[k]), '', b.on === k, `data-key="on" data-v="${k}"`)) : Object.entries(W).map(([k, t]) => pickRow('re-set', esc(t), '', b.when === k, `data-key="when" data-v="${k}"`));
+      body = `${mode}${b.on ? '<p class="muted small">Die Regel wirkt automatisch, ohne Nachtschritt.</p>' : ''}<div class="re-tiles one">${list.join('')}</div>`;
       break;
     }
+    case 'power': {
+      title = b.k === 'protect' ? 'Wie stark ist der Schutz?' : 'Wie stark ist der Angriff?';
+      const opts = b.k === 'protect' ? [[1, 'Normal', 'Hält normale Angriffe ab, auch den der Werwölfe.'], [2, 'Stark', 'Hält auch durchdringende Angriffe ab.']]
+        : [[1, 'Normal', 'Jeder Schutz hält ihn ab.'], [2, 'Durchdringend', 'Nur starker Schutz hält ihn ab.'], [3, 'Unaufhaltbar', 'Nichts hält ihn ab, auch kein Schild.']];
+      body = `<div class="re-tiles one">${opts.map(([v, t, h]) => pickRow('re-set', t, h, b.power === v, `data-key="power" data-v="${v}"`)).join('')}</div>`;
+      break;
+    }
+    case 'trap':
+      title = 'Falle';
+      body = `<div class="re-sec"><span class="eyebrow">Wen trifft sie?</span><div class="re-tiles one">${Object.entries(TRAP_WHO).map(([k, t]) => pickRow('re-set', t, '', b.trapWho === k, `data-key="trapWho" data-v="${k}"`)).join('')}</div></div>
+        <div class="re-sec"><span class="eyebrow">Wann ist sie scharf?</span><div class="seg">${[['now', 'Sofort'], ['next', 'Ab der nächsten Nacht']].map(([k, t]) => `<button type="button" class="${b.trapArm === k ? 'on' : ''}" data-action="re-set" data-key="trapArm" data-v="${k}">${t}</button>`).join('')}</div><p class="muted small">Eine Falle wirkt einmal und ist dann verbraucht.</p></div>`;
+      break;
     case 'target': {
+      if (b.on) {
+        title = 'Wen trifft es?';
+        body = `<div class="re-tiles one">${TRIG_TARGETS[b.on].map((k) => pickRow('re-set', k === 'none' ? 'Niemanden (nur Hinweis)' : esc(TGT_TXT[k][0].toUpperCase() + TGT_TXT[k].slice(1)), k === 'pick' ? 'Die App fragt dich, wen es trifft.' : '', (b.tgt ?? 'none') === k, `data-key="tgt" data-v="${k}"`)).join('')}</div>`;
+        break;
+      }
       const B = BLOCKS[b.k], fixed = !!B.fixed || !!B.selfOnly, min = b.k === 'note' ? 0 : 1;
       title = 'Wen?';
       body = `<div class="re-sec"><span class="eyebrow">Anzahl</span>${fixed ? `<p class="muted">Fest: ${B.selfOnly ? 'nur die eigene Person' : `${B.fixed} Personen`}</p>` : stepper('re-num', b.n, b.n === 0 ? 'kein Ziel' : b.n === 1 ? '1 Person' : `bis zu ${b.n}`, `data-key="n" data-min="${min}" data-max="3"`)}</div>
         ${toggleRow('re-flag', 'Darf sich selbst wählen', B.dead || B.selfOnly ? 'Hier nicht möglich.' : '', !!b.self, 'data-key="self"', !!(B.dead || B.selfOnly))}
         ${toggleRow('re-flag', 'Nie zweimal hintereinander dieselbe Person', '', !!b.rep, 'data-key="rep"', !!B.selfOnly)}
-        ${toggleRow('re-flag', 'Zählt als Besuch', 'Wichtig für Beobachten und Wachsam. Ohne diesen Schalter besuchen nur die Werwölfe.', !!b.visit, 'data-key="visit"', !!B.selfOnly || b.k === 'bind')}`;
+        ${toggleRow('re-flag', 'Jede Person nur einmal im Spiel', '', !!b.once, 'data-key="once"', !!B.selfOnly)}
+        ${toggleRow('re-flag', 'Zählt als Besuch', 'Wichtig für Beobachten, Fallen und Wachsam. Ohne diesen Schalter besuchen nur die Werwölfe.', !!b.visit, 'data-key="visit"', !!B.selfOnly || b.k === 'bind' || b.k === 'visit')}
+        <div class="re-sec"><span class="eyebrow">Wen darf sie wählen?</span><div class="chips wrap">${Object.entries(WHO).map(([k, t]) => chip('re-set', t, (b.who ?? 'any') === k, `data-key="who" data-v="${k}" ${B.selfOnly ? 'disabled' : ''}`)).join('')}</div></div>`;
       break;
     }
     case 'freq':
@@ -150,11 +174,11 @@ function sheetHtml(re) {
       break;
     case 'cond':
       title = 'Wenn …';
-      body = `<p class="muted small">Die Fähigkeit wird nur angeboten, wenn die Bedingungen erfüllt sind.</p>${condGroupHtml(b.if ?? { all: [] }, '')}`;
+      body = `<p class="muted small">${b.on ? 'Die Regel wirkt nur, wenn die Bedingungen in diesem Moment erfüllt sind.' : 'Die Fähigkeit wird nur angeboten, wenn die Bedingungen erfüllt sind.'}</p>${condGroupHtml(b.if ?? { all: [] }, '')}`;
       break;
     case 'condPick':
       title = 'Bedingung wählen';
-      body = COND_GROUPS.map(([t, ks]) => `<div class="eyebrow">${t}</div><div class="re-tiles">${ks.map((k) => `<button type="button" class="re-tile" data-action="re-cadd" data-k="${k}"><b>${esc(CONDS[k].name)}</b></button>`).join('')}</div>`).join('');
+      body = COND_GROUPS.filter(([, ks]) => b.on || !CONDS[ks[0]].ctx).map(([t, ks]) => `<div class="eyebrow">${t}</div><div class="re-tiles">${ks.map((k) => `<button type="button" class="re-tile" data-action="re-cadd" data-k="${k}"><b>${esc(CONDS[k].name)}</b></button>`).join('')}</div>`).join('');
       break;
     case 'condRole': title = 'Welche Rolle?'; body = rolePicker('re-crole-set', condAt(b.if, sh.path).role); break;
     case 'role': title = 'In welche Rolle?'; body = rolePicker('re-role', b.role); break;
@@ -218,7 +242,7 @@ on('re-effect', (el) => {
   d.rules[sh.ri] = fix({ ...d.rules[sh.ri], k });
   ui.re.sheet = null;
 });
-on('re-set', (el) => { const b = R(); if (!b) return false; const k = el.dataset.key, v = el.dataset.v; b[k] = k === 'when' ? v : +v; D().rules[ui.re.sheet.ri] = fix(b); });
+on('re-set', (el) => { const b = R(); if (!b) return false; const k = el.dataset.key, v = el.dataset.v; b[k] = ['limit', 'chance', 'power', 'n'].includes(k) ? +v : v; D().rules[ui.re.sheet.ri] = fix(b); });
 on('re-num', (el) => { const b = R(); if (!b) return false; b.n = Math.max(+el.dataset.min, Math.min(+el.dataset.max, b.n + +el.dataset.d)); D().rules[ui.re.sheet.ri] = fix(b); });
 on('re-flag', (el) => { const b = R(); if (!b) return false; b[el.dataset.key] = !b[el.dataset.key]; D().rules[ui.re.sheet.ri] = fix(b); });
 on('re-role', (el) => { const b = R(); if (b) b.role = el.dataset.v; ui.re.sheet = null; });

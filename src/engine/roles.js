@@ -366,8 +366,21 @@ export const BLOCKS = {
   shoot: { name: 'Am Tag: Person erschießen (Schütze)', short: 'Schuss', verb: 'erschießt', day: true },
   jail: { name: 'Am Tag: Person einsperren (in der Nacht geschützt, aber gesperrt)', short: 'Einsperren', verb: 'sperrt ein', day: true },
   jailkill: { name: 'Am Tag: Person einsperren und in der Nacht hinrichten (Kerkermeister)', short: 'Hinrichten', verb: 'richtet in der Nacht hin', day: true },
-  note: { name: 'Spielleiter-Hinweis (die App erinnert nur)', short: 'Hinweis', verb: 'wählt' },
+  note: { name: 'Spielleiter-Hinweis (die App erinnert nur)', short: 'Hinweis', verb: 'wählt', trig: ['attacked', 'targetAttacked', 'hostDies', 'visited', 'death', 'voted'] },
+  visit: { name: 'Person besuchen und bei ihr übernachten', short: 'Besuchen', verb: 'besucht' },
+  invite: { name: 'Person zu sich einladen', short: 'Einladen', verb: 'lädt ein' },
+  redirect: { name: 'Angriffe auf die erste Person treffen die zweite', short: 'Umlenken', verb: 'lenkt um', fixed: 2 },
+  swapPlace: { name: 'Zwei Personen tauschen für eine Nacht ihren Platz', short: 'Platz tauschen', verb: 'vertauscht', fixed: 2 },
+  decoy: { name: 'Angriffe auf die Person treffen stattdessen dich', short: 'Lockvogel', verb: 'lockt' },
+  delayed: { name: 'Person verfluchen: Angriff erst in der nächsten Nacht', short: 'Fluch', verb: 'verflucht', power: true },
+  trap: { name: 'Falle bei einer Person stellen', short: 'Falle', verb: 'stellt eine Falle', power: true },
+  survive: { name: 'Übersteht den Angriff', short: 'Überlebt', verb: 'überlebt', trig: ['attacked', 'voted'], noTarget: true },
+  strike: { name: 'Greift jemanden an', short: 'Greift an', verb: 'greift an', trig: ['attacked', 'targetAttacked', 'visited', 'death', 'voted'], power: true },
+  dieSelf: { name: 'Wird selbst angegriffen', short: 'Mitsterben', verb: 'wird angegriffen', trig: ['hostDies', 'targetAttacked'], noTarget: true, power: true },
+  shield: { name: 'Bekommt einen Schild für den nächsten Angriff', short: 'Schild', verb: 'bekommt einen Schild', trig: ['targetAttacked', 'visited', 'attacked'], noTarget: true },
 };
+/** Nur über Auslöser nutzbar (kein Nachtschritt). */
+export const isTrigOnly = (k) => ['survive', 'strike', 'dieSelf', 'shield'].includes(k);
 export const BLOCK_WHEN = { every: 'Jede Nacht', first: 'Nur in der ersten Nacht', later: 'Ab der zweiten Nacht', even: 'Jede zweite Nacht' };
 export const BLOCK_WHEN_DAY = { every: 'Jeden Tag', first: 'Nur am ersten Tag', later: 'Ab dem zweiten Tag', even: 'Jeden zweiten Tag' };
 export const BLOCK_CHANCE = [100, 75, 50, 25];
@@ -396,7 +409,7 @@ export const SOLO_WINS = ['solo', 'executed', 'dies', 'killed', 'cult'];
 /** Alte Aktionen (vor den Bausteinen); nur noch zum Umrechnen gespeicherter Rollen. */
 export const CUSTOM_ACTS = { none: 'Keine Aktion', mark: 'Person markieren', kill: 'Person töten', protect: 'Person vor den Wölfen schützen', peek: 'Erfahren, ob die Person ein Werwolf ist' };
 
-export const blankBlock = (k = 'kill') => ({ k, n: 1, when: 'every', limit: 0, self: false, rep: false, role: 'villager', chance: 100 });
+export const blankBlock = (k = 'kill') => ({ k, n: 1, when: 'every', limit: 0, self: false, rep: false, role: 'villager', chance: 100, on: isTrigOnly(k) ? BLOCKS[k].trig[0] : undefined });
 
 /** Zielliste eines Eintrags im Entwurf (früher eine einzelne Kennung). */
 export const targetsOf = (v) => (Array.isArray(v) ? v : v ? [v] : []);
@@ -416,12 +429,30 @@ export function customBlocks(c) {
       k: b.k, n: B.fixed ?? (b.k === 'note' ? Math.max(0, Math.min(3, Math.round(+b.n) || 0)) : Math.max(1, Math.min(3, Math.round(+b.n) || 1))), when: BLOCK_WHEN[b.when] ? b.when : 'every',
       limit: B.limit1 ? 1 : Math.max(0, Math.min(9, Math.round(+b.limit) || 0)), self: B.selfOnly ? true : !!b.self, rep: !!b.rep, role: b.role || 'villager',
       chance: B.limit1 ? 100 : BLOCK_CHANCE.includes(+b.chance) ? +b.chance : 100,
-      if: sanitizeCond(b.if), then: sanitizeThen(b.then), visit: !!b.visit, ...(b.k === 'note' ? { text: String(b.text ?? '').slice(0, 200) } : {}),
+      if: sanitizeCond(b.if), then: sanitizeThen(b.then), visit: !!b.visit || b.k === 'visit', ...(b.k === 'note' ? { text: String(b.text ?? '').slice(0, 200) } : {}),
+      ...ruleExtras(b, B),
     };
   });
   if ((c.win === 'bound' || c.win === 'hunt') && !out.some((b) => b.k === 'bind')) out.unshift({ ...blankBlock('bind'), when: 'first', limit: 1 });
   return out;
 }
+
+/** Auslöser, Stärke, Zielwahl und Fallen-Einstellungen einer Regel bereinigen. */
+function ruleExtras(b, B) {
+  const out = {};
+  const on = B.trig && (isTrigOnly(b.k) || B.trig.includes(b.on)) ? (B.trig.includes(b.on) ? b.on : B.trig[0]) : null;
+  if (on) out.on = on;
+  if (B.power || b.k === 'kill' || b.k === 'protect') out.power = Math.max(1, Math.min(b.k === 'protect' ? 2 : 3, Math.round(+b.power) || 1));
+  if (on && (b.k === 'strike' || b.k === 'note')) out.tgt = TRIG_TARGETS[on].includes(b.tgt) ? b.tgt : TRIG_TARGETS[on][0];
+  if (!on) { out.who = ['any', 'ownCamp', 'otherCamp', 'withAbility', 'noAbility'].includes(b.who) ? b.who : 'any'; out.once = !!b.once; }
+  if (b.k === 'trap') { out.trapWho = ['first', 'all', 'wolves', 'nonWolves'].includes(b.trapWho) ? b.trapWho : 'first'; out.trapArm = b.trapArm === 'now' ? 'now' : 'next'; }
+  return out;
+}
+/** Mögliche Ziele einer ausgelösten Wirkung je Auslöser (erste = Vorgabe). */
+export const TRIG_TARGETS = {
+  attacked: ['attacker', 'pick', 'none'], targetAttacked: ['attacker', 'none'], hostDies: ['none'], visited: ['visitors', 'none'],
+  death: ['pick', 'bound', 'host', 'attacker', 'none'], voted: ['pick', 'none'],
+};
 
 /** Eigene Rollen (Name, Lager village|wolf, Bausteine, Passive, Sieg) in die Rollentabelle eintragen. Ersetzt frühere Einträge gleicher Kennung. */
 export function registerRoles(list = []) {
