@@ -303,7 +303,7 @@ views.roleeditor = () => {
   if (!re) return views.home();
   return `<div class="view re">${topBar(isParty() ? (re.id ? 'Partei bearbeiten' : 'Neue Partei') : isItem() ? (re.id ? 'Gegenstand bearbeiten' : 'Neuer Gegenstand') : re.id ? 'Rolle bearbeiten' : 'Neue Rolle', 'Rollen-Werkstatt', { back: 're-back', right: '<button class="btn primary sm" data-action="re-save">Speichern</button>' })}
     <div class="page re-page"><div id="re-preview">${previewHtml(re.draft)}</div>
-      <div class="seg re-tabs" role="tablist">${(isParty() ? [['basis', 'Partei']] : isItem() ? ITEM_TABS : TABS).map(([k, t]) => `<button type="button" role="tab" class="${re.tab === k ? 'on' : ''}" data-action="re-tab" data-k="${k}" aria-selected="${re.tab === k}">${t}${k === 'rules' && re.draft.rules.length ? ` <em>${re.draft.rules.length}</em>` : ''}</button>`).join('')}</div>
+      ${isParty() ? '' : `<div class="seg re-tabs" role="tablist">${(isParty() ? [['basis', 'Partei']] : isItem() ? ITEM_TABS : TABS).map(([k, t]) => `<button type="button" role="tab" class="${re.tab === k ? 'on' : ''}" data-action="re-tab" data-k="${k}" aria-selected="${re.tab === k}">${t}${k === 'rules' && re.draft.rules.length ? ` <em>${re.draft.rules.length}</em>` : ''}</button>`).join('')}</div>`}
       <div class="re-scroll scroll" data-keep="re-${re.tab}">${tabHtml(re)}</div></div>${re.sheet ? sheetHtml(re) : ''}</div>`;
 };
 

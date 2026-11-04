@@ -396,8 +396,8 @@ function dayAbilityCard(g) {
   const rows = list.map((e) => {
     const B = BLOCKS[e.b.k], on = d.dayArm === e.key, noT = !!B.noTarget;
     const meta = [e.b.limit ? `noch ${e.left}× im Spiel` : '', e.b.chance < 100 ? `gelingt zu ${e.b.chance} %` : ''].filter(Boolean).join(' · ');
-    const status = noT ? B.name.replace(/^Am Tag: /, '') : on ? (d.dayPick ? nm(g, d.dayPick) : 'Person im Kreis antippen') : 'antippen zum Wählen';
-    const body = on || noT ? `<div class="rbody">${meta ? `<span class="muted small">${esc(meta)}</span>` : ''}<button class="btn sm ${noT || d.dayPick ? 'on' : ''}" data-action="day-cust" data-key="${esc(e.key)}" ${noT || d.dayPick ? '' : 'disabled'}>${I.right}<span>Einsetzen</span></button></div>` : '';
+    const status = noT ? 'ohne Ziel' : on ? (d.dayPick ? nm(g, d.dayPick) : 'Person im Kreis antippen') : 'antippen zum Wählen';
+    const body = on || noT ? `<div class="rbody">${noT ? `<span class="small">${esc(B.name.replace(/^Am Tag: /, ''))}</span>` : ''}${meta ? `<span class="muted small">${esc(meta)}</span>` : ''}<button class="btn sm ${noT || d.dayPick ? 'on' : ''}" data-action="day-cust" data-key="${esc(e.key)}" ${noT || d.dayPick ? '' : 'disabled'}>${I.right}<span>Einsetzen</span></button></div>` : '';
     return `<div class="rrow ${on ? 'on' : ''}"><button class="rhead" data-action="day-arm" data-key="${esc(e.key)}" aria-pressed="${on}" ${noT ? 'disabled' : ''}><span class="rdot"></span><b>${esc(e.r.name)} ${esc(e.holder.name)}: ${esc(B.short)}</b><span class="rst">${esc(status)}</span></button>${body}</div>`;
   }).join('');
   return `<div class="card col"><div class="eyebrow">Fähigkeiten am Tag</div><div class="rrows">${rows}</div></div>`;
